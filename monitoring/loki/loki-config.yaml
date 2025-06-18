@@ -3,7 +3,8 @@ kind: ConfigMap
 metadata:
   name: loki-config
   namespace: monitoring
-data:  loki.yaml: |
+data:
+  loki.yaml: |
     auth_enabled: false
     
     server:
