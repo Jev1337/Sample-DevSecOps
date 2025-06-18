@@ -3,15 +3,16 @@ kind: ConfigMap
 metadata:
   name: loki-config
   namespace: monitoring
-data:
-  loki.yaml: |
+data:  loki.yaml: |
     auth_enabled: false
     
     server:
       http_listen_port: 3100
       grpc_listen_port: 9096
+      log_level: info
     
     common:
+      compactor_address: http://localhost:3100
       path_prefix: /loki
       storage:
         filesystem:
@@ -23,24 +24,23 @@ data:
         kvstore:
           store: inmemory
     
-    query_scheduler:
-      max_outstanding_requests_per_tenant: 32768
+    memberlist:
+      join_members: []
     
     schema_config:
       configs:
-        - from: 2020-10-24
-          store: boltdb-shipper
+        - from: 2024-04-01
+          store: tsdb
           object_store: filesystem
-          schema: v11
+          schema: v13
           index:
-            prefix: index_
+            prefix: loki_index_
             period: 24h
     
     storage_config:
-      boltdb_shipper:
-        active_index_directory: /loki/boltdb-shipper-active
-        cache_location: /loki/boltdb-shipper-cache
-        cache_ttl: 24h
+      tsdb_shipper:
+        active_index_directory: /loki/tsdb-index
+        cache_location: /loki/tsdb-cache
         shared_store: filesystem
       filesystem:
         directory: /loki/chunks
@@ -48,20 +48,19 @@ data:
     limits_config:
       reject_old_samples: true
       reject_old_samples_max_age: 168h
-      allow_structured_metadata: false
+      allow_structured_metadata: true
       volume_enabled: true
-    
-    table_manager:
-      retention_deletes_enabled: true
-      retention_period: 720h
+      retention_period: 744h
+      ingestion_rate_mb: 10
+      ingestion_burst_size_mb: 20
     
     compactor:
-      working_directory: /loki/boltdb-shipper-compactor
-      shared_store: filesystem
+      working_directory: /loki/compactor
       compaction_interval: 10m
       retention_enabled: true
       retention_delete_delay: 2h
       retention_delete_worker_count: 150
+      delete_request_store: filesystem
     
     ruler:
       storage:
@@ -69,7 +68,6 @@ data:
         local:
           directory: /loki/rules
       rule_path: /loki/rules
-      alertmanager_url: http://localhost:9093
       ring:
         kvstore:
           store: inmemory
@@ -77,6 +75,13 @@ data:
     
     analytics:
       reporting_enabled: false
+    
+    query_range:
+      results_cache:
+        cache:
+          embedded_cache:
+            enabled: true
+            max_size_mb: 100
 
 ---
 apiVersion: apps/v1
@@ -95,8 +100,7 @@ spec:
     metadata:
       labels:
         app: loki
-    spec:
-      containers:
+    spec:      containers:
       - name: loki
         image: grafana/loki:3.0.0
         ports:
@@ -111,6 +115,26 @@ spec:
           mountPath: /loki
         args:
         - -config.file=/etc/loki/loki.yaml
+        - -target=all
+        env:
+        - name: JAEGER_AGENT_HOST
+          value: ""
+        livenessProbe:
+          httpGet:
+            path: /ready
+            port: 3100
+          initialDelaySeconds: 45
+          periodSeconds: 10
+          timeoutSeconds: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3100
+          initialDelaySeconds: 45
+          periodSeconds: 10
+          timeoutSeconds: 1
+          failureThreshold: 3
         resources:
           requests:
             memory: "512Mi"
@@ -118,6 +142,14 @@ spec:
           limits:
             memory: "1Gi"
             cpu: "500m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10001
       volumes:
       - name: config
         configMap:
