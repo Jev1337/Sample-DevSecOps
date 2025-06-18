@@ -43,11 +43,13 @@ jobs:
     needs: test
     permissions:
       security-events: write # Needed to upload SARIF results
+      pull-requests: write # Needed to comment on PRs
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Run Trivy vulnerability scanner
+    - name: Run Trivy vulnerability scanner in SARIF format
       uses: aquasecurity/trivy-action@master
       with:
         scan-type: 'fs'
@@ -56,24 +58,175 @@ jobs:
         output: 'trivy-results.sarif'
         severity: 'CRITICAL,HIGH,MEDIUM'
         
-    - name: Upload Trivy scan results
+    - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
         sarif_file: 'trivy-results.sarif'
+
+    - name: Run Trivy for table report
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'table'
+        output: 'trivy-results.txt'
         
-    - name: Generate security report
+    - name: Run Trivy for JSON report
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'json'
+        output: 'trivy-results.json'
+        severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+        
+    - name: Generate HTML report
       run: |
         mkdir -p security/reports
-        echo "# Security Scan Report" > security/reports/security-report.md
-        echo "## Trivy Scan Results" >> security/reports/security-report.md
-        echo "Scan completed at: $(date)" >> security/reports/security-report.md
+        python3 -c "
+        import json
+        import datetime
+        
+        # Read Trivy results
+        with open('trivy-results.json', 'r') as f:
+            data = json.load(f)
+        
+        # Generate HTML report
+        html = '''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Security Scan Report</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .header { background: #f0f0f0; padding: 20px; border-radius: 5px; }
+                .critical { color: #d32f2f; font-weight: bold; }
+                .high { color: #ff5722; font-weight: bold; }
+                .medium { color: #ff9800; font-weight: bold; }
+                .low { color: #4caf50; }
+                .summary { background: #e3f2fd; padding: 15px; margin: 20px 0; border-radius: 5px; }
+                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+                th { background-color: #f2f2f2; }
+                .no-vulnerabilities { background: #e8f5e8; color: #4caf50; padding: 20px; text-align: center; border-radius: 5px; }
+            </style>
+        </head>
+        <body>
+            <div class=\\"header\\">
+                <h1>🔒 Security Scan Report</h1>
+                <p><strong>Scan Date:</strong> ''' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + '''</p>
+                <p><strong>Scanner:</strong> Trivy (Latest)</p>
+            </div>
+        '''
+        
+        # Process results
+        total_vulns = 0
+        critical_count = 0
+        high_count = 0
+        medium_count = 0
+        low_count = 0
+        
+        if data and 'Results' in data:
+            for result in data['Results']:
+                if 'Vulnerabilities' in result:
+                    for vuln in result['Vulnerabilities']:
+                        total_vulns += 1
+                        severity = vuln.get('Severity', '').upper()
+                        if severity == 'CRITICAL':
+                            critical_count += 1
+                        elif severity == 'HIGH':
+                            high_count += 1
+                        elif severity == 'MEDIUM':
+                            medium_count += 1
+                        elif severity == 'LOW':
+                            low_count += 1
+        
+        # Add summary
+        html += f'''
+            <div class=\\"summary\\">
+                <h2>📊 Vulnerability Summary</h2>
+                <p><strong>Total Vulnerabilities:</strong> {total_vulns}</p>
+                <p><span class=\\"critical\\">Critical:</span> {critical_count}</p>
+                <p><span class=\\"high\\">High:</span> {high_count}</p>
+                <p><span class=\\"medium\\">Medium:</span> {medium_count}</p>
+                <p><span class=\\"low\\">Low:</span> {low_count}</p>
+            </div>
+        '''
+        
+        if total_vulns == 0:
+            html += '<div class=\\"no-vulnerabilities\\"><h2>✅ No vulnerabilities found!</h2></div>'
+        else:
+            html += '<h2>📋 Detailed Results</h2>'
+            html += '<table><tr><th>Package</th><th>Vulnerability</th><th>Severity</th><th>Description</th></tr>'
+            
+            if data and 'Results' in data:
+                for result in data['Results']:
+                    if 'Vulnerabilities' in result:
+                        for vuln in result['Vulnerabilities']:
+                            pkg = vuln.get('PkgName', 'Unknown')
+                            vuln_id = vuln.get('VulnerabilityID', 'Unknown')
+                            severity = vuln.get('Severity', 'Unknown')
+                            desc = vuln.get('Description', 'No description available')[:100] + '...'
+                            severity_class = severity.lower()
+                            html += f'<tr><td>{pkg}</td><td>{vuln_id}</td><td class=\\"{severity_class}\\">{severity}</td><td>{desc}</td></tr>'
+            
+            html += '</table>'
+        
+        html += '''
+            <div class=\\"footer\\" style=\\"margin-top: 40px; padding: 20px; background: #f5f5f5; border-radius: 5px;\\">
+                <p><strong>Recommendations:</strong></p>
+                <ul>
+                    <li>Update vulnerable packages to latest versions</li>
+                    <li>Review security advisories for affected components</li>
+                    <li>Implement additional security controls if needed</li>
+                    <li>Schedule regular security scans</li>
+                </ul>
+            </div>
+        </body>
+        </html>
+        '''
+        
+        with open('security/reports/security-dashboard.html', 'w') as f:
+            f.write(html)
+        print('Security report generated successfully!')
+        "
         
     - name: Upload security reports
       uses: actions/upload-artifact@v4
       with:
-        name: security-reports
-        path: security/reports/
+        name: security-scan-results
+        path: |
+          security/reports/
+          trivy-results.json
+          trivy-results.txt
+          trivy-results.sarif
+          
+    - name: Comment PR with security results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const path = 'trivy-results.txt';
+          
+          if (fs.existsSync(path)) {
+            const results = fs.readFileSync(path, 'utf8');
+            const comment = `## 🔒 Security Scan Results
+            
+            \`\`\`
+            ${results.substring(0, 2000)}
+            \`\`\`
+            
+            Full report available in build artifacts.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          }
 
   sonarqube-scan:
     runs-on: ubuntu-latest
@@ -87,7 +240,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: coverage-xml
-          path: app
+          path: app/coverage.xml
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
         env:
