@@ -6,14 +6,13 @@ metadata:
 data:
   loki.yaml: |
     auth_enabled: false
-    
-    server:
+      server:
       http_listen_port: 3100
       grpc_listen_port: 9096
       log_level: info
     
     common:
-      compactor_address: http://localhost:3100
+      compactor_address: "http://localhost:3100"
       path_prefix: /loki
       storage:
         filesystem:
