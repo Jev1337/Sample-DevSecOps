@@ -38,6 +38,12 @@ jobs:
         name: coverage-reports
         path: app/htmlcov/
 
+    - name: Upload coverage xml for SonarQube
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-xml
+        path: app/coverage.xml
+
   security-scan:
     runs-on: ubuntu-latest
     needs: test
@@ -74,9 +80,30 @@ jobs:
         name: security-reports
         path: security/reports/
 
+  sonarqube-scan:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # SonarQube needs a full clone for analysis
+      - name: Download coverage report
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-xml
+          path: app
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          projectBaseDir: ./app
+
   build:
     runs-on: ubuntu-latest
-    needs: [test, security-scan]
+    needs: [test, security-scan, sonarqube-scan]
     
     steps:
     - name: Checkout code
