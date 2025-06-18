@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: loki-config
   namespace: monitoring
-data:
+data:  
   loki.yaml: |
     auth_enabled: false
     
@@ -11,7 +11,8 @@ data:
       http_listen_port: 3100
       grpc_listen_port: 9096
       log_level: info
-      common:
+    
+    common:
       path_prefix: /loki
       storage:
         filesystem:
@@ -35,7 +36,8 @@ data:
           index:
             prefix: loki_index_
             period: 24h
-      storage_config:
+    
+    storage_config:
       tsdb_shipper:
         active_index_directory: /loki/tsdb-index
         cache_location: /loki/tsdb-cache
@@ -50,7 +52,8 @@ data:
       retention_period: 744h
       ingestion_rate_mb: 10
       ingestion_burst_size_mb: 20
-      compactor:
+    
+    compactor:
       working_directory: /loki/compactor
       compaction_interval: 10m
       retention_enabled: true
