@@ -311,6 +311,7 @@ jobs:
           type=raw,value=latest,enable={{is_default_branch}}
           
     - name: Build and push Docker image
+      id: build_and_push
       uses: docker/build-push-action@v5
       with:
         context: ./app
@@ -324,7 +325,7 @@ jobs:
     - name: Scan Docker image with Trivy
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: ${{ steps.meta.outputs.tags }}
+        image-ref: '${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}@${{ steps.build_and_push.outputs.digest }}'
         format: 'sarif'
         output: 'trivy-image-results.sarif'
         
