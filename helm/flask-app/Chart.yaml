@@ -1,0 +1,17 @@
+apiVersion: v2
+name: flask-app
+description: A Helm chart for Flask application with DevSecOps
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - flask
+  - python
+  - kubernetes
+  - devsecops
+home: https://github.com/example/flask-k8s-devsecops
+sources:
+  - https://github.com/example/flask-k8s-devsecops
+maintainers:
+  - name: DevSecOps Team
+    email: devsecops@example.com

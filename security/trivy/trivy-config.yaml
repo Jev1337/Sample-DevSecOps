@@ -1,0 +1,34 @@
+format: sarif
+exit-code: 1
+severity: MEDIUM,HIGH,CRITICAL
+vuln-type: os,library
+security-checks: vuln,secret,config
+db:
+  skip-update: false
+  java-db-repository: ghcr.io/aquasecurity/trivy-java-db
+  light: false
+cache:
+  backend: fs
+  ttl: 72h
+server:
+  addr: ""
+  token: ""
+  custom-headers: []
+  insecure: false
+timeout: 5m0s
+skip-dirs:
+  - node_modules/
+  - .git/
+  - __pycache__/
+  - .pytest_cache/
+  - venv/
+  - .venv/
+skip-files:
+  - "*.pyc"
+  - "*.pyo"
+secret:
+  config: ""
+rego:
+  trace: false
+  config-policy: []
+  policy-namespaces: []
