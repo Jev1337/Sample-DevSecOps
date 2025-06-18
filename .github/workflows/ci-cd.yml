@@ -38,7 +38,7 @@ jobs:
     - name: Run tests
       run: |
         cd app
-        python -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html
+        python -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --junitxml=test-results.xml
         
     - name: Upload coverage reports
       uses: actions/upload-artifact@v4
@@ -51,6 +51,12 @@ jobs:
       with:
         name: coverage-xml
         path: app/coverage.xml
+
+    - name: Upload test results for SonarQube
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-xml
+        path: app/test-results.xml
 
   security-scan:
     runs-on: ubuntu-latest
@@ -251,7 +257,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: coverage-xml
-          path: app/coverage.xml
+          path: app/
+      - name: Download test results
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results-xml
+          path: app/
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
         env:
@@ -262,6 +273,13 @@ jobs:
           args: >
             -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+            -Dsonar.projectVersion=1.0.0
+            -Dsonar.sources=.
+            -Dsonar.tests=tests
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+            -Dsonar.python.xunit.reportPath=test-results.xml
+            -Dsonar.exclusions=**/*_test.py,**/test_*.py,**/__pycache__/**,**/venv/**
+            -Dsonar.coverage.exclusions=**/test_*.py,**/*_test.py
 
   build:
     runs-on: ubuntu-latest
