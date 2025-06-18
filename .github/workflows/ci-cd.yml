@@ -13,7 +13,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-      steps:
+    steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
@@ -27,7 +27,7 @@ jobs:
         cd app
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-          - name: Run tests
+    - name: Run tests
       run: |
         cd app
         python -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html
@@ -52,7 +52,8 @@ jobs:
         scan-type: 'fs'
         scan-ref: './app'
         format: 'sarif'
-        output: 'trivy-results.sarif'        severity: 'CRITICAL,HIGH,MEDIUM'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH,MEDIUM'
         
     - name: Upload Trivy scan results
       uses: github/codeql-action/upload-sarif@v3
@@ -64,7 +65,8 @@ jobs:
       run: |
         mkdir -p security/reports
         echo "# Security Scan Report" > security/reports/security-report.md
-        echo "## Trivy Scan Results" >> security/reports/security-report.md        echo "Scan completed at: $(date)" >> security/reports/security-report.md
+        echo "## Trivy Scan Results" >> security/reports/security-report.md
+        echo "Scan completed at: $(date)" >> security/reports/security-report.md
         
     - name: Upload security reports
       uses: actions/upload-artifact@v4
@@ -116,7 +118,8 @@ jobs:
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: ${{ steps.meta.outputs.tags }}
-        format: 'sarif'        output: 'trivy-image-results.sarif'
+        format: 'sarif'
+        output: 'trivy-image-results.sarif'
         
     - name: Upload image scan results
       uses: github/codeql-action/upload-sarif@v3
@@ -153,7 +156,8 @@ jobs:
         echo "# Deployment Report" > reports/deployment-report.md
         echo "## Deployment Details" >> reports/deployment-report.md
         echo "- Image: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}:latest" >> reports/deployment-report.md
-        echo "- Deployed at: $(date)" >> reports/deployment-report.md        echo "- Commit: ${{ github.sha }}" >> reports/deployment-report.md
+        echo "- Deployed at: $(date)" >> reports/deployment-report.md
+        echo "- Commit: ${{ github.sha }}" >> reports/deployment-report.md
         
     - name: Upload deployment report
       uses: actions/upload-artifact@v4
