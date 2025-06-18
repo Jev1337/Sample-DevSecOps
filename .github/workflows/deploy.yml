@@ -108,9 +108,8 @@ jobs:
         echo "\`\`\`bash" >> reports/deployment-report.md
         kubectl describe service flask-app-service -n flask-app >> reports/deployment-report.md
         echo "\`\`\`" >> reports/deployment-report.md
-        
-    - name: Upload deployment report
-      uses: actions/upload-artifact@v3
+          - name: Upload deployment report
+      uses: actions/upload-artifact@v4
       with:
         name: deployment-report-${{ github.event.inputs.environment }}
         path: reports/

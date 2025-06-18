@@ -143,9 +143,8 @@ jobs:
         
         print('Security report generated successfully!')
         "
-        
-    - name: Upload security reports
-      uses: actions/upload-artifact@v3
+          - name: Upload security reports
+      uses: actions/upload-artifact@v4
       with:
         name: security-scan-results
         path: |
@@ -187,9 +186,8 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        
-    - name: Set up Python
-      uses: actions/setup-python@v4
+          - name: Set up Python
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         
@@ -218,9 +216,8 @@ jobs:
         echo "# SonarQube Analysis Report" > security/reports/sonarqube-report.md
         echo "Analysis completed at: $(date)" >> security/reports/sonarqube-report.md
         echo "Project: flask-k8s-devsecops" >> security/reports/sonarqube-report.md
-        
-    - name: Upload SonarQube reports
-      uses: actions/upload-artifact@v3
+          - name: Upload SonarQube reports
+      uses: actions/upload-artifact@v4
       with:
         name: sonarqube-results
         path: security/reports/
