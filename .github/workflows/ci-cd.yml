@@ -98,11 +98,11 @@ jobs:
         python3 -c "
         import json
         import datetime
-        
+
         # Read Trivy results
         with open('trivy-results.json', 'r') as f:
             data = json.load(f)
-        
+
         # Generate HTML report
         html = '''
         <!DOCTYPE html>
@@ -124,20 +124,20 @@ jobs:
             </style>
         </head>
         <body>
-            <div class=\\"header\\">
+            <div class=\"header\">
                 <h1>🔒 Security Scan Report</h1>
                 <p><strong>Scan Date:</strong> ''' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + '''</p>
                 <p><strong>Scanner:</strong> Trivy (Latest)</p>
             </div>
         '''
-        
+
         # Process results
         total_vulns = 0
         critical_count = 0
         high_count = 0
         medium_count = 0
         low_count = 0
-        
+
         if data and 'Results' in data:
             for result in data['Results']:
                 if 'Vulnerabilities' in result:
@@ -152,25 +152,25 @@ jobs:
                             medium_count += 1
                         elif severity == 'LOW':
                             low_count += 1
-        
+
         # Add summary
         html += f'''
-            <div class=\\"summary\\">
+            <div class=\"summary\">
                 <h2>📊 Vulnerability Summary</h2>
                 <p><strong>Total Vulnerabilities:</strong> {total_vulns}</p>
-                <p><span class=\\"critical\\">Critical:</span> {critical_count}</p>
-                <p><span class=\\"high\\">High:</span> {high_count}</p>
-                <p><span class=\\"medium\\">Medium:</span> {medium_count}</p>
-                <p><span class=\\"low\\">Low:</span> {low_count}</p>
+                <p><span class=\"critical\">Critical:</span> {critical_count}</p>
+                <p><span class=\"high\">High:</span> {high_count}</p>
+                <p><span class=\"medium\">Medium:</span> {medium_count}</p>
+                <p><span class=\"low\">Low:</span> {low_count}</p>
             </div>
         '''
-        
+
         if total_vulns == 0:
-            html += '<div class=\\"no-vulnerabilities\\"><h2>✅ No vulnerabilities found!</h2></div>'
+            html += '<div class=\"no-vulnerabilities\"><h2>✅ No vulnerabilities found!</h2></div>'
         else:
             html += '<h2>📋 Detailed Results</h2>'
             html += '<table><tr><th>Package</th><th>Vulnerability</th><th>Severity</th><th>Description</th></tr>'
-            
+
             if data and 'Results' in data:
                 for result in data['Results']:
                     if 'Vulnerabilities' in result:
@@ -180,12 +180,12 @@ jobs:
                             severity = vuln.get('Severity', 'Unknown')
                             desc = vuln.get('Description', 'No description available')[:100] + '...'
                             severity_class = severity.lower()
-                            html += f'<tr><td>{pkg}</td><td>{vuln_id}</td><td class=\\"{severity_class}\\">{severity}</td><td>{desc}</td></tr>'
-            
+                            html += f'<tr><td>{pkg}</td><td>{vuln_id}</td><td class=\"{severity_class}\">{severity}</td><td>{desc}</td></tr>'
+
             html += '</table>'
-        
+
         html += '''
-            <div class=\\"footer\\" style=\\"margin-top: 40px; padding: 20px; background: #f5f5f5; border-radius: 5px;\\">
+            <div class=\"footer\" style=\"margin-top: 40px; padding: 20px; background: #f5f5f5; border-radius: 5px;\">
                 <p><strong>Recommendations:</strong></p>
                 <ul>
                     <li>Update vulnerable packages to latest versions</li>
@@ -197,7 +197,7 @@ jobs:
         </body>
         </html>
         '''
-        
+
         with open('security/reports/security-dashboard.html', 'w') as f:
             f.write(html)
         print('Security report generated successfully!')
