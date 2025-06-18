@@ -6,7 +6,8 @@ metadata:
 data:
   loki.yaml: |
     auth_enabled: false
-      server:
+    
+    server:
       http_listen_port: 3100
       grpc_listen_port: 9096
       log_level: info
@@ -20,7 +21,7 @@ data:
           rules_directory: /loki/rules
       replication_factor: 1
       ring:
-        instance_addr: 127.0.0.1
+        instance_addr: "127.0.0.1"
         kvstore:
           store: inmemory
     
@@ -100,7 +101,8 @@ spec:
     metadata:
       labels:
         app: loki
-    spec:      containers:
+    spec:
+      containers:
       - name: loki
         image: grafana/loki:3.0.0
         ports:
