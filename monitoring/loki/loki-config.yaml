@@ -59,8 +59,8 @@ data:
       retention_enabled: true
       retention_delete_delay: 2h
       retention_delete_worker_count: 150
-      delete_request_store: filesystem
-      delete_request_store_directory: /loki/compactor/delete-requests
+      delete_requests_store: filesystem
+      delete_requests_store_directory: /loki/compactor/delete-requests
     
     ruler:
       storage:
