@@ -108,18 +108,17 @@ Ce projet vise à mettre en place une solution complète de déploiement sécuri
 
 **Migration Promtail → Alloy** : Grafana Labs recommande de migrer vers Alloy pour bénéficier d'un collecteur unifié et des dernières fonctionnalités.
 
-### 6. Recommandations par contexte
+### 6. Recommandations
 
-#### Pour un environnement de développement/apprentissage
 
 | Composant | Recommandation | Justification |
 |-----------|----------------|---------------|
-| **Kubernetes** | Minikube | Simplicité et documentation |
-| **Package Manager** | Helm | Standard industriel |
-| **Scanner vulnérabilités** | Trivy | Facilité d'intégration |
-| **Analyse code** | SonarQube Community | Fonctionnalités complètes |
-| **CI/CD** | GitHub Actions | Gratuit et simple |
-| **Logs** | Loki + Alloy | Architecture moderne |
+| **Kubernetes** | Minikube | **Simplicité et accessibilité :** Idéal pour le développement local, Minikube permet une prise en main rapide de Kubernetes sans les coûts et la complexité d'un cluster cloud. Sa documentation complète en fait un excellent outil d'apprentissage. |
+| **Package Manager** | Helm | **Standard de l'industrie et puissance :** Helm est le gestionnaire de paquets de facto pour Kubernetes. Il simplifie la gestion des déploiements complexes grâce à son système de templating et à un vaste écosystème de charts réutilisables. |
+| **Scanner vulnérabilités** | Trivy | **Rapidité et intégration facile :** Trivy est reconnu pour sa vitesse d'analyse et sa simplicité d'intégration dans les pipelines CI/CD. Il offre une détection de vulnérabilités complète pour les images de conteneurs, ce qui est essentiel pour une approche DevSecOps. |
+| **Analyse code** | SonarQube Community | **Analyse approfondie et suivi qualité :** SonarQube offre une analyse statique complète du code, détectant les bugs, les vulnérabilités et les "code smells". Son interface web permet de suivre l'évolution de la qualité du code de manière centralisée. |
+| **CI/CD** | GitHub Actions | **Intégration native et simplicité :** En tant que solution intégrée à GitHub, Actions permet de créer des workflows CI/CD de manière fluide et intuitive. La vaste marketplace d'actions et le généreux plan gratuit en font un choix pragmatique pour ce projet. |
+| **Logs** | Loki + Alloy | **Architecture moderne et efficacité :** Cette stack est conçue pour être économique en ressources et nativement intégrée à Kubernetes. Loki indexe uniquement les métadonnées, réduisant les coûts de stockage, tandis que Grafana Alloy est le collecteur de télémétrie unifié de nouvelle génération, assurant une solution d'avenir. |
 
 
 ## Architecture générale
