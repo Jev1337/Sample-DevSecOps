@@ -140,7 +140,7 @@ jobs:
         
         with open('security/reports/security-dashboard.html', 'w') as f:
             f.write(html)
-          print('Security report generated successfully!')
+        print('Security report generated successfully!')
         "
         
     - name: Upload security reports
