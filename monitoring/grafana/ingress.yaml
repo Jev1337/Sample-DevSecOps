@@ -1,23 +1,21 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: flask-app-ingress
-  namespace: flask-app
-  labels:
-    app: flask-app
+  name: grafana-ingress
+  namespace: monitoring
   annotations:
     kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/rewrite-target: /
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   rules:
-  - host: flask-app.local
+  - host: grafana.local
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: flask-app-service
+            name: grafana
             port:
-              number: 80
+              number: 3000
