@@ -12,6 +12,7 @@ permissions:
   packages: write
   security-events: write
   pull-requests: write
+  actions: read
 
 env:
   REGISTRY: ghcr.io
@@ -44,6 +45,12 @@ jobs:
       with:
         name: coverage-reports
         path: app/htmlcov/
+
+    - name: Upload coverage xml for SonarQube
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-xml
+        path: app/coverage.xml
 
   security-scan:
     runs-on: ubuntu-latest
