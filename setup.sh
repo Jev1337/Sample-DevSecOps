@@ -43,7 +43,7 @@ microk8s enable helm3
 microk8s enable ingress
 microk8s enable metrics-server
 microk8s enable storage
-microk8s enable registry:size=10Gi
+microk8s enable registry --size 20Gi
 echo "✅ Addons enabled."
 echo ""
 
