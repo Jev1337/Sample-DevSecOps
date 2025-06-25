@@ -295,20 +295,12 @@ echo "127.0.0.1 grafana.local"
 echo "127.0.0.1 flask-app.local"
 echo ""
 
-# Get Jenkins initial admin password with error handling
-echo "Retrieving Jenkins initial admin password..."
-JENKINS_PASS=""
-if microk8s kubectl get pod jenkins-0 -n jenkins &> /dev/null; then
-    JENKINS_PASS=$(microk8s kubectl exec -n jenkins jenkins-0 -c jenkins -- cat /var/jenkins_home/secrets/initialAdminPassword 2>/dev/null || echo "Unable to retrieve - check Jenkins pod logs")
+# Attempt to get Jenkins initial admin password from pod or Kubernetes secret
+if JENKINS_PASS=$(microk8s kubectl exec -n jenkins jenkins-0 -c jenkins -- cat /var/jenkins_home/secrets/initialAdminPassword 2>/dev/null); then
+    echo "Retrieved Jenkins initial admin password from pod."
 else
-    echo "Jenkins pod not found with name jenkins-0, checking for other Jenkins pods..."
-    JENKINS_POD=$(microk8s kubectl get pods -n jenkins -l app.kubernetes.io/component=jenkins-controller -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-    if [[ -n "$JENKINS_POD" ]]; then
-        echo "Found Jenkins pod: $JENKINS_POD"
-        JENKINS_PASS=$(microk8s kubectl exec -n jenkins "$JENKINS_POD" -- cat /var/jenkins_home/secrets/initialAdminPassword 2>/dev/null || echo "Unable to retrieve - check Jenkins pod logs")
-    else
-        JENKINS_PASS="Unable to retrieve - check Jenkins service status"
-    fi
+    echo "Unable to read initial password from pod, retrieving from Kubernetes secret..."
+    JENKINS_PASS=$(microk8s kubectl get secret jenkins -n jenkins -o jsonpath="{.data.jenkins-admin-password}" | base64 --decode)
 fi
 
 echo "✅ Setup completed successfully!"
@@ -316,12 +308,7 @@ echo ""
 echo "🔗 Access URLs:"
 echo "   - Flask App: http://flask-app.local"
 echo "   - Jenkins:   http://jenkins.local"
-if [[ "$JENKINS_PASS" != *"Unable"* ]]; then
-    echo "     (Initial admin password: ${JENKINS_PASS})"
-else
-    echo "     (${JENKINS_PASS})"
-    echo "     To get password manually: microk8s kubectl exec -n jenkins \$(microk8s kubectl get pods -n jenkins -l app.kubernetes.io/component=jenkins-controller -o jsonpath='{.items[0].metadata.name}') -- cat /var/jenkins_home/secrets/initialAdminPassword"
-fi
+echo "     (Initial admin password: ${JENKINS_PASS})"
 echo "   - SonarQube: http://sonarqube.local (admin/admin)"
 echo "   - Grafana:   http://grafana.local (admin/admin123)"
 echo ""
@@ -329,10 +316,4 @@ echo "🛠️ To start a CI/CD pipeline:"
 echo "   1. Configure a new 'Pipeline' job in Jenkins."
 echo "   2. Point it to your Git repository."
 echo "   3. Set the 'Script Path' to 'jenkins/Jenkinsfile'."
-echo ""
-echo "📊 Useful commands:"
-echo "   - Check all pods: microk8s kubectl get pods --all-namespaces"
-echo "   - Check services: microk8s kubectl get svc --all-namespaces"
-echo "   - Check ingress: microk8s kubectl get ingress --all-namespaces"
-echo "   - View logs: microk8s kubectl logs -f deployment/flask-app -n flask-app"
 echo ""
