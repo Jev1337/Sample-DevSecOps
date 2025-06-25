@@ -118,6 +118,7 @@ echo ""
 
 # --- 4. Deploy Monitoring Stack ---
 echo "📊 Step 4: Deploying Monitoring Stack (Loki, Grafana, Alloy)..."
+microk8s kubectl get ns monitoring >/dev/null 2>&1 || microk8s kubectl create ns monitoring
 microk8s kubectl apply -f monitoring/loki/loki-config.yaml
 microk8s kubectl apply -f monitoring/grafana/grafana-config.yaml
 microk8s kubectl apply -f monitoring/grafana/dashboards-configmap.yaml
