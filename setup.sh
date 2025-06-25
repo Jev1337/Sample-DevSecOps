@@ -94,6 +94,7 @@ ingress:
 persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"
+monitoringPasscode: "admin"
 EOF
     microk8s helm3 install sonarqube sonarqube/sonarqube -n sonarqube -f security/sonarqube/sonarqube-values.yaml
 else
