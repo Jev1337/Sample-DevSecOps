@@ -269,13 +269,12 @@ echo ""
 # --- 5. Build and Deploy Application ---
 echo "🐳 Step 5: Building and Deploying the Flask Application..."
 echo "Building local Docker image..."
-# Point shell to MicroK8s's Docker environment
-eval $(microk8s docker-env)
-# Build and push to the local registry
-docker build -t localhost:32000/flask-k8s-app:latest ./app
+# Build the image with regular Docker
+docker build -t flask-k8s-app:latest ./app
+# Tag for the local registry
+docker tag flask-k8s-app:latest localhost:32000/flask-k8s-app:latest
+# Push to the MicroK8s local registry
 docker push localhost:32000/flask-k8s-app:latest
-# Unset Docker env
-eval $(microk8s docker-env --unset)
 
 echo "Deploying Flask application manifests..."
 # We need to update the deployment to use the local registry image
