@@ -105,7 +105,7 @@ else
 fi
 
 echo "⏳ Waiting for Jenkins and SonarQube to be ready..."
-microk8s kubectl rollout status deployment/jenkins -n jenkins --timeout=5m
+microk8s kubectl rollout status statefulset/jenkins -n jenkins --timeout=5m
 microk8s kubectl rollout status statefulset/sonarqube-sonarqube -n sonarqube --timeout=5m
 echo "✅ Jenkins and SonarQube are ready."
 echo ""
@@ -154,7 +154,7 @@ echo "127.0.0.1 grafana.local"
 echo "127.0.0.1 flask-app.local"
 echo ""
 
-JENKINS_PASS=$(microk8s kubectl exec -n jenkins -it svc/jenkins -c jenkins -- /bin/cat /var/jenkins_home/secrets/initialAdminPassword)
+JENKINS_PASS=$(microk8s kubectl exec -n jenkins jenkins-0 -c jenkins -- cat /var/jenkins_home/secrets/initialAdminPassword)
 
 echo "✅ Setup completed successfully!"
 echo ""
