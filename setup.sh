@@ -73,6 +73,9 @@ controller:
   podSecurityContext:
     fsGroup: 1000
     runAsUser: 1000
+  sidecars:
+    configAutoReload:
+      enabled: false
 persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"
