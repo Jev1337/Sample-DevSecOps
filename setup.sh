@@ -47,19 +47,14 @@ microk8s enable registry --size 20Gi
 echo "✅ Addons enabled."
 echo ""
 
-# Alias for kubectl
-echo "💡 Tip: Add 'alias kubectl='microk8s kubectl'' to your ~/.bashrc or ~/.zshrc for easier access."
-alias kubectl='microk8s kubectl'
-echo ""
-
 # --- 3. Deploy Core Services (Jenkins & SonarQube) ---
 echo "🚀 Step 3: Deploying Jenkins and SonarQube..."
 
 # Create Namespaces
 echo "Creating namespaces..."
-kubectl apply -f k8s/namespace.yaml
-kubectl get ns jenkins >/dev/null 2>&1 || kubectl create ns jenkins
-kubectl get ns sonarqube >/dev/null 2>&1 || kubectl create ns sonarqube
+microk8s kubectl apply -f k8s/namespace.yaml
+microk8s kubectl get ns jenkins >/dev/null 2>&1 || microk8s kubectl create ns jenkins
+microk8s kubectl get ns sonarqube >/dev/null 2>&1 || microk8s kubectl create ns sonarqube
 
 # Deploy Jenkins
 if ! helm status jenkins -n jenkins &> /dev/null; then
@@ -106,22 +101,22 @@ else
 fi
 
 echo "⏳ Waiting for Jenkins and SonarQube to be ready..."
-kubectl rollout status deployment/jenkins -n jenkins --timeout=5m
-kubectl rollout status statefulset/sonarqube-sonarqube -n sonarqube --timeout=5m
+microk8s kubectl rollout status deployment/jenkins -n jenkins --timeout=5m
+microk8s kubectl rollout status statefulset/sonarqube-sonarqube -n sonarqube --timeout=5m
 echo "✅ Jenkins and SonarQube are ready."
 echo ""
 
 # --- 4. Deploy Monitoring Stack ---
 echo "📊 Step 4: Deploying Monitoring Stack (Loki, Grafana, Alloy)..."
-kubectl apply -f monitoring/loki/loki-config.yaml
-kubectl apply -f monitoring/grafana/grafana-config.yaml
-kubectl apply -f monitoring/grafana/dashboards-configmap.yaml
-kubectl apply -f monitoring/alloy/alloy-config.yaml
+microk8s kubectl apply -f monitoring/loki/loki-config.yaml
+microk8s kubectl apply -f monitoring/grafana/grafana-config.yaml
+microk8s kubectl apply -f monitoring/grafana/dashboards-configmap.yaml
+microk8s kubectl apply -f monitoring/alloy/alloy-config.yaml
 
 echo "⏳ Waiting for monitoring components..."
-kubectl rollout status deployment/loki -n monitoring --timeout=2m
-kubectl rollout status deployment/grafana -n monitoring --timeout=2m
-kubectl rollout status daemonset/alloy -n monitoring --timeout=2m
+microk8s kubectl rollout status deployment/loki -n monitoring --timeout=2m
+microk8s kubectl rollout status deployment/grafana -n monitoring --timeout=2m
+microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=2m
 echo "✅ Monitoring stack deployed."
 echo ""
 
@@ -139,10 +134,10 @@ eval $(microk8s docker-env --unset)
 echo "Deploying Flask application manifests..."
 # We need to update the deployment to use the local registry image
 sed -i 's|image: flask-k8s-app:latest|image: localhost:32000/flask-k8s-app:latest|g' k8s/deployment.yaml
-kubectl apply -f k8s/
+microk8s kubectl apply -f k8s/
 
 echo "⏳ Waiting for application deployment..."
-kubectl rollout status deployment/flask-app -n flask-app --timeout=2m
+microk8s kubectl rollout status deployment/flask-app -n flask-app --timeout=2m
 echo "✅ Flask application deployed."
 echo ""
 
@@ -155,7 +150,7 @@ echo "127.0.0.1 grafana.local"
 echo "127.0.0.1 flask-app.local"
 echo ""
 
-JENKINS_PASS=$(kubectl exec -n jenkins -it svc/jenkins -c jenkins -- /bin/cat /var/jenkins_home/secrets/initialAdminPassword)
+JENKINS_PASS=$(microk8s kubectl exec -n jenkins -it svc/jenkins -c jenkins -- /bin/cat /var/jenkins_home/secrets/initialAdminPassword)
 
 echo "✅ Setup completed successfully!"
 echo ""
