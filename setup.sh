@@ -133,12 +133,37 @@ fi
 if ! microk8s helm3 status loki -n monitoring &> /dev/null; then
     echo "Deploying Loki via Helm..."
     cat <<EOF > monitoring/loki-values.yaml
+deploymentMode: SingleBinary
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: 'filesystem'
+    filesystem:
+      chunks_directory: /var/loki/chunks
+      rules_directory: /var/loki/rules
+  schemaConfig:
+    configs:
+    - from: "2024-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: loki_index_
+        period: 24h
 singleBinary:
-  enabled: true
-persistence:
-  enabled: true
-  storageClassName: "microk8s-hostpath"
-  size: "10Gi"
+  replicas: 1
+  persistence:
+    enabled: true
+    storageClass: "microk8s-hostpath"
+    size: "10Gi"
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
 EOF
     microk8s helm3 install loki grafana/loki -n monitoring -f monitoring/loki-values.yaml
 else
@@ -165,7 +190,7 @@ datasources:
     datasources:
     - name: Loki
       type: loki
-      url: http://loki-read.monitoring.svc.cluster.local:3100
+      url: http://loki.monitoring.svc.cluster.local:3100
       access: proxy
       isDefault: true
 EOF
@@ -183,20 +208,52 @@ alloy:
     create: true
     content: |
       discovery.kubernetes "pods" {
-        forward_to = [loki.source.kubernetes_pods.receiver]
+        role = "pod"
       }
 
-      loki.source.kubernetes_pods "logs" {
+      discovery.relabel "kubernetes_pods" {
+        targets = discovery.kubernetes.pods.targets
+        rule {
+          source_labels = ["__meta_kubernetes_pod_phase"]
+          regex = "Pending|Succeeded|Failed|Completed"
+          action = "drop"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+          regex = "false"
+          action = "drop"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          regex = ""
+          action = "drop"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label = "container"
+        }
+      }
+
+      loki.source.kubernetes "pods" {
+        targets    = discovery.relabel.kubernetes_pods.output
         forward_to = [loki.write.default.receiver]
       }
 
       loki.write "default" {
         endpoint {
-          url = "http://loki-write.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+          url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
         }
       }
 EOF
-    microk8s helm3 install alloy grafana/alloy -n monitoring -f monitoring/alloy-values.yaml --set-string 'alloy.nodeSelector.kubernetes\.io/os=linux'
+    microk8s helm3 install alloy grafana/alloy -n monitoring -f monitoring/alloy-values.yaml
 else
     echo "✅ Alloy is already deployed."
 fi
