@@ -133,24 +133,8 @@ fi
 if ! microk8s helm3 status loki -n monitoring &> /dev/null; then
     echo "Deploying Loki via Helm..."
     cat <<EOF > monitoring/loki-values.yaml
-loki:
-  config:
-    schema_config:
-      configs:
-        - from: "2022-01-01"
-          store: boltdb-shipper
-          objectStore: filesystem
-          schema: v11
-          index:
-            prefix: index_
-            period: 24h
-    storage_config:
-      boltdb_shipper:
-        active_index_directory: /data/loki/index
-        cache_location: /data/loki/cache
-        shared_store: filesystem
-      filesystem:
-        directory: /data/loki/chunks
+singleBinary:
+  enabled: true
 persistence:
   enabled: true
   storageClassName: "microk8s-hostpath"
