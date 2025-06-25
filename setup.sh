@@ -2,129 +2,172 @@
 
 set -e
 
-echo "🚀 Flask K8s DevSecOps Setup Script"
-echo "===================================="
+echo "🚀 DevSecOps Environment Setup Script for MicroK8s on Linux"
+echo "============================================================"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-
+# Function to check if a command exists
 check_command() {
     if ! command -v $1 &> /dev/null; then
-        echo "❌ $1 is not installed. Please install it first."
+        echo "❌ Error: $1 is not installed. Please install it and re-run the script."
         exit 1
-    else
-        echo "✅ $1 is available"
     fi
 }
 
-echo "📝 Checking prerequisites..."
+# --- 1. Prerequisites Check ---
+echo "📝 Step 1: Checking prerequisites..."
+check_command snap
+check_command git
 check_command docker
-check_command kubectl
-check_command helm
-check_command minikube
-
+echo "✅ Prerequisites are met."
 echo ""
-echo "🔧 Setting up minikube..."
-if minikube status &> /dev/null; then
-    echo "✅ minikube is already running"
+
+# --- 2. Install and Configure MicroK8s ---
+echo "🔧 Step 2: Setting up MicroK8s..."
+if ! command -v microk8s &> /dev/null; then
+    echo "Installing MicroK8s..."
+    sudo snap install microk8s --classic --channel=1.30/stable
+    sudo usermod -a -G microk8s $USER
+    sudo chown -f -R $USER ~/.kube
+    echo "✅ MicroK8s installed. IMPORTANT: Please run 'newgrp microk8s' or log out and log back in for group changes to take effect, then re-run this script."
+    exit 0
 else
-    echo "🚀 Starting minikube..."
-    minikube start --memory=6144 --cpus=4 --disk-size=20g --driver=docker
+    echo "✅ MicroK8s is already installed."
 fi
 
-echo ""
-echo "🔌 Enabling minikube addons..."
-minikube addons enable ingress
-minikube addons enable metrics-server
-minikube addons enable dashboard
+echo "Waiting for MicroK8s to be ready..."
+microk8s status --wait-ready
 
+echo "🔌 Enabling MicroK8s addons..."
+microk8s enable dns
+microk8s enable helm3
+microk8s enable ingress
+microk8s enable metrics-server
+microk8s enable storage
+microk8s enable registry:size=10Gi
+echo "✅ Addons enabled."
 echo ""
-echo "🐳 Building Docker image..."
-eval $(minikube docker-env)
-docker build -t flask-k8s-app:latest ./app
 
+# Alias for kubectl
+echo "💡 Tip: Add 'alias kubectl='microk8s kubectl'' to your ~/.bashrc or ~/.zshrc for easier access."
+alias kubectl='microk8s kubectl'
 echo ""
-echo "📦 Creating Kubernetes namespaces..."
+
+# --- 3. Deploy Core Services (Jenkins & SonarQube) ---
+echo "🚀 Step 3: Deploying Jenkins and SonarQube..."
+
+# Create Namespaces
+echo "Creating namespaces..."
 kubectl apply -f k8s/namespace.yaml
-kubectl apply -f monitoring/alloy/alloy-config.yaml | grep "namespace/monitoring"
+kubectl get ns jenkins >/dev/null 2>&1 || kubectl create ns jenkins
+kubectl get ns sonarqube >/dev/null 2>&1 || kubectl create ns sonarqube
 
+# Deploy Jenkins
+if ! helm status jenkins -n jenkins &> /dev/null; then
+    echo "Deploying Jenkins via Helm..."
+    helm repo add jenkins https://charts.jenkins.io
+    helm repo update
+    # Using a simple values file for ingress and persistence
+    cat <<EOF > jenkins/jenkins-values.yaml
+controller:
+  ingress:
+    enabled: true
+    hostName: jenkins.local
+    ingressClassName: public
+  servicePort: 8080
+  jenkinsUrl: http://jenkins.local/
+persistence:
+  storageClass: "microk8s-hostpath"
+  size: "8Gi"
+EOF
+    helm install jenkins jenkins/jenkins -n jenkins -f jenkins/jenkins-values.yaml
+else
+    echo "✅ Jenkins is already deployed."
+fi
+
+# Deploy SonarQube
+if ! helm status sonarqube -n sonarqube &> /dev/null; then
+    echo "Deploying SonarQube via Helm..."
+    helm repo add sonarqube https://SonarSource.github.io/helm-chart-sonarqube
+    helm repo update
+    # Using a simple values file for ingress and persistence
+    cat <<EOF > security/sonarqube/sonarqube-values.yaml
+ingress:
+  enabled: true
+  hosts:
+    - name: sonarqube.local
+  ingressClassName: public
+persistence:
+  storageClass: "microk8s-hostpath"
+  size: "8Gi"
+EOF
+    helm install sonarqube sonarqube/sonarqube -n sonarqube -f security/sonarqube/sonarqube-values.yaml
+else
+    echo "✅ SonarQube is already deployed."
+fi
+
+echo "⏳ Waiting for Jenkins and SonarQube to be ready..."
+kubectl rollout status deployment/jenkins -n jenkins --timeout=5m
+kubectl rollout status statefulset/sonarqube-sonarqube -n sonarqube --timeout=5m
+echo "✅ Jenkins and SonarQube are ready."
 echo ""
-echo "🚀 Deploying Flask application..."
-kubectl apply -f k8s/
 
-echo "⏳ Waiting for application deployment..."
-kubectl rollout status deployment/flask-app -n flask-app --timeout=300s
-
-echo ""
-echo "📊 Deploying monitoring stack..."
-echo "Deploying Loki..."
+# --- 4. Deploy Monitoring Stack ---
+echo "📊 Step 4: Deploying Monitoring Stack (Loki, Grafana, Alloy)..."
 kubectl apply -f monitoring/loki/loki-config.yaml
-
-echo "Deploying Grafana..."
 kubectl apply -f monitoring/grafana/grafana-config.yaml
 kubectl apply -f monitoring/grafana/dashboards-configmap.yaml
-
-echo "Deploying Alloy..."
 kubectl apply -f monitoring/alloy/alloy-config.yaml
 
 echo "⏳ Waiting for monitoring components..."
-kubectl rollout status deployment/loki -n monitoring --timeout=300s
-kubectl rollout status deployment/grafana -n monitoring --timeout=300s
-
+kubectl rollout status deployment/loki -n monitoring --timeout=2m
+kubectl rollout status deployment/grafana -n monitoring --timeout=2m
+kubectl rollout status daemonset/alloy -n monitoring --timeout=2m
+echo "✅ Monitoring stack deployed."
 echo ""
-echo "🌐 Setting up ingress..."
-kubectl get ingress -n flask-app
 
+# --- 5. Build and Deploy Application ---
+echo "🐳 Step 5: Building and Deploying the Flask Application..."
+echo "Building local Docker image..."
+# Point shell to MicroK8s's Docker environment
+eval $(microk8s docker-env)
+# Build and push to the local registry
+docker build -t localhost:32000/flask-k8s-app:latest ./app
+docker push localhost:32000/flask-k8s-app:latest
+# Unset Docker env
+eval $(microk8s docker-env --unset)
+
+echo "Deploying Flask application manifests..."
+# We need to update the deployment to use the local registry image
+sed -i 's|image: flask-k8s-app:latest|image: localhost:32000/flask-k8s-app:latest|g' k8s/deployment.yaml
+kubectl apply -f k8s/
+
+echo "⏳ Waiting for application deployment..."
+kubectl rollout status deployment/flask-app -n flask-app --timeout=2m
+echo "✅ Flask application deployed."
 echo ""
-echo "🔍 Adding hosts entries..."
-MINIKUBE_IP=$(minikube ip)
-echo "Add these entries to your /etc/hosts file:"
-echo "$MINIKUBE_IP flask-app.local"
-echo "$MINIKUBE_IP grafana.local"
 
+# --- 6. Final Configuration and Access Info ---
+echo "🌐 Step 6: Final Configuration and Access Information"
+echo "❗ IMPORTANT: Add the following lines to your /etc/hosts file to access the services:"
+echo "127.0.0.1 jenkins.local"
+echo "127.0.0.1 sonarqube.local"
+echo "127.0.0.1 grafana.local"
+echo "127.0.0.1 flask-app.local"
 echo ""
-echo "🧪 Running smoke tests..."
-kubectl port-forward service/flask-app-service 8080:80 -n flask-app &
-PF_PID=$!
-sleep 10
 
-if curl -f http://localhost:8080/health > /dev/null 2>&1; then
-    echo "✅ Health check passed"
-else
-    echo "❌ Health check failed"
-fi
+JENKINS_PASS=$(kubectl exec -n jenkins -it svc/jenkins -c jenkins -- /bin/cat /var/jenkins_home/secrets/initialAdminPassword)
 
-if curl -f http://localhost:8080/api/users > /dev/null 2>&1; then
-    echo "✅ API test passed"
-else
-    echo "❌ API test failed"
-fi
-
-kill $PF_PID 2>/dev/null || true
-
-echo ""
-echo "📈 Getting service URLs..."
-GRAFANA_PORT=$(kubectl get service grafana -n monitoring -o jsonpath='{.spec.ports[0].nodePort}')
-FLASK_APP_URL="http://flask-app.local"
-GRAFANA_URL="http://$MINIKUBE_IP:$GRAFANA_PORT"
-
-echo ""
 echo "✅ Setup completed successfully!"
 echo ""
-echo "🌐 Access URLs:"
-echo "   Flask App: $FLASK_APP_URL"
-echo "   Grafana:   $GRAFANA_URL (admin/admin123)"
+echo "🔗 Access URLs:"
+echo "   - Flask App: http://flask-app.local"
+echo "   - Jenkins:   http://jenkins.local"
+echo "     (Initial admin password: ${JENKINS_PASS})"
+echo "   - SonarQube: http://sonarqube.local (admin/admin)"
+echo "   - Grafana:   http://grafana.local (admin/admin123)"
 echo ""
-echo "📊 Useful commands:"
-echo "   View pods:           kubectl get pods -A"
-echo "   View services:       kubectl get services -A"
-echo "   View logs:           kubectl logs -f deployment/flask-app -n flask-app"
-echo "   Grafana port-forward: kubectl port-forward service/grafana 3000:3000 -n monitoring"
-echo "   Minikube dashboard:   minikube dashboard"
+echo "🛠️ To start a CI/CD pipeline:"
+echo "   1. Configure a new 'Pipeline' job in Jenkins."
+echo "   2. Point it to your Git repository."
+echo "   3. Set the 'Script Path' to 'jenkins/Jenkinsfile'."
 echo ""
-echo "🔧 Troubleshooting:"
-echo "   Check pod status:    kubectl describe pod <pod-name> -n <namespace>"
-echo "   Check events:        kubectl get events -n <namespace> --sort-by='.lastTimestamp'"
-echo "   Restart minikube:    minikube delete && minikube start"
-echo ""
-echo "🎉 Your Flask K8s DevSecOps environment is ready!"

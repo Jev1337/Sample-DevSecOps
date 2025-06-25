@@ -32,24 +32,24 @@ Ce projet implémente une solution complète de déploiement sécurisé d'une ap
 |-----------|-------------|---------|
 | **Application** | Python Flask | 2.3.3 |
 | **Containerisation** | Docker | 20.10+ |
-| **Orchestration** | Kubernetes | 1.24+ |
+| **Orchestration** | MicroK8s | 1.30+ |
 | **Package Manager** | Helm | 3.8+ |
 | **Logs** | Loki + Grafana + Alloy | 3.0+ |
 | **Sécurité** | Trivy + SonarQube | Latest |
-| **CI/CD** | GitHub Actions | - |
+| **CI/CD** | Jenkins | 2.452.2+ |
 
 ## 🏗️ Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Flask App     │───▶│   Kubernetes    │───▶│   Monitoring    │
-│   (Python)      │    │   (minikube)    │    │   (Grafana)     │
+│   (Python)      │    │   (MicroK8s)    │    │   (Grafana)     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          ▼                       ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   CI/CD         │    │   Security      │    │   Logs          │
-│   (GitHub)      │    │   (Trivy/Sonar) │    │   (Loki)        │
+│   (Jenkins)     │    │   (Trivy/Sonar) │    │   (Loki)        │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
@@ -59,10 +59,9 @@ Ce projet implémente une solution complète de déploiement sécurisé d'une ap
 
 ```bash
 # Vérifier les versions
-docker --version        # 20.10+
-kubectl version --client # 1.24+
-helm version            # 3.8+
-minikube version        # 1.25+
+docker --version         # 24.0+
+microk8s version       # 1.30+
+helm version             # 3.8+
 ```
 
 ### Ressources système
@@ -95,7 +94,7 @@ chmod +x setup.sh
 kubectl get pods -A
 
 # Tester l'application
-curl http://flask-app.local/health
+curl http://localhost/health
 ```
 
 ## 🎮 Utilisation
@@ -105,23 +104,24 @@ curl http://flask-app.local/health
 | Service | URL | Identifiants |
 |---------|-----|--------------|
 | **Flask App** | http://flask-app.local | - |
-| **Grafana** | http://localhost:3000 | admin/admin123 |
-| **SonarQube** | http://localhost:9000 | admin/admin |
+| **Grafana** | http://grafana.local | admin/admin123 |
+| **SonarQube** | http://sonarqube.local | admin/admin |
+| **Jenkins** | http://jenkins.local | (mot de passe initial dans la console) |
 
 ### Commandes utiles
 
 ```bash
 # Logs en temps réel
-kubectl logs -f deployment/flask-app -n flask-app
+microk8s kubectl logs -f deployment/flask-app -n flask-app
 
 # Port forwarding Grafana
-kubectl port-forward service/grafana 3000:3000 -n monitoring
+microk8s kubectl port-forward service/grafana 3000:3000 -n monitoring
 
 # Redémarrer un déploiement
-kubectl rollout restart deployment/flask-app -n flask-app
+microk8s kubectl rollout restart deployment/flask-app -n flask-app
 
 # Scaler l'application
-kubectl scale deployment/flask-app --replicas=5 -n flask-app
+microk8s kubectl scale deployment/flask-app --replicas=5 -n flask-app
 ```
 
 ## 🧩 Composants

@@ -13,13 +13,13 @@ Ce projet implémente une solution complète de déploiement sécurisé d'une ap
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Flask App     │───▶│   Kubernetes    │───▶│   Monitoring    │
-│   (Python)      │    │   (minikube)    │    │   (Grafana)     │
+│   (Python)      │    │   (MicroK8s)    │    │   (Grafana)     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          ▼                       ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   CI/CD         │    │   Security      │    │   Logs          │
-│   (GitHub)      │    │   (Trivy/Sonar) │    │   (Loki)        │
+│   (Jenkins)     │    │   (Trivy/Sonar) │    │   (Loki)        │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
@@ -42,7 +42,7 @@ flask-k8s-devsecops/
 │   ├── ingress.yaml             # Ingress pour l'accès externe
 │   └── hpa.yaml                 # Horizontal Pod Autoscaler
 ├── helm/
-│   └── flask-app/               # Chart Helm (bonus)
+│   └── flask-app/               # Chart Helm
 │       ├── Chart.yaml
 │       ├── values.yaml
 │       └── templates/
@@ -63,11 +63,9 @@ flask-k8s-devsecops/
 │   │   └── trivy-config.yaml
 │   └── reports/
 │       └── security-dashboard.html
-├── .github/
-│   └── workflows/
-│       ├── ci-cd.yml            # Pipeline principal
-│       ├── security-scan.yml    # Pipeline sécurité
-│       └── deploy.yml           # Pipeline déploiement
+├── jenkins/
+│   └── Jenkinsfile              # Pipeline CI/CD Jenkins
+Pipeline déploiement
 ├── docker-compose.yml           # Stack de développement local
 ├── README.md                    # Documentation utilisateur
 └── setup.sh                    # Script d'installation automatique
@@ -153,23 +151,19 @@ Chart Helm pour simplifier le déploiement :
 
 ## Phase 3 : Pipeline DevSecOps
 
-### 3.1 Configuration GitHub Actions
+### 3.1 Configuration Jenkins
 
-**Pipeline principal** (`ci-cd.yml`) :
-1. Checkout du code
-2. Configuration Python
-3. Installation des dépendances
-4. Exécution des tests
-5. Build de l'image Docker
-6. Push vers le registry
-7. Déploiement sur Kubernetes
+Le pipeline CI/CD est défini dans le `Jenkinsfile` et orchestré par Jenkins. Il automatise l'ensemble du processus, du build à la production.
 
-**Pipeline sécurité** (`security-scan.yml`) :
-1. Scan de vulnérabilités avec Trivy
-2. Analyse de code avec SonarQube
-3. Tests de sécurité OWASP ZAP
-4. Génération de rapports HTML
-5. Publication des résultats
+**Étapes du pipeline (`Jenkinsfile`) :**
+1.  **Checkout SCM**: Récupère le code source depuis le dépôt Git.
+2.  **Install Dependencies**: Installe les dépendances Python nécessaires pour les tests.
+3.  **Run Tests**: Exécute les tests unitaires et de couverture de code.
+4.  **SonarQube Analysis**: Lance une analyse statique du code avec SonarQube pour la qualité et la sécurité.
+5.  **Trivy FS Scan**: Scanne le système de fichiers du projet à la recherche de vulnérabilités.
+6.  **Build & Push Docker Image**: Construit l'image Docker de l'application et la pousse vers un registre (ex: Docker Hub ou un registre interne).
+7.  **Trivy Image Scan**: Scanne l'image Docker fraîchement construite pour détecter les vulnérabilités au niveau du système d'exploitation et des dépendances.
+8.  **Deploy to Kubernetes**: Déploie l'application sur le cluster MicroK8s en utilisant les manifestes Kubernetes ou le chart Helm.
 
 ### 3.2 Intégration Trivy
 
@@ -267,7 +261,7 @@ Dashboard HTML interactif présentant :
 - Docker 20.10+
 - kubectl 1.24+
 - Helm 3.8+
-- minikube 1.25+
+- MicroK8s 1.25+
 - Git 2.30+
 
 **Ressources système** :
@@ -280,7 +274,7 @@ Dashboard HTML interactif présentant :
 
 Script `setup.sh` pour l'installation complète :
 1. Vérification des prérequis
-2. Démarrage de minikube
+2. Démarrage de MicroK8s
 3. Installation des opérateurs
 4. Déploiement de l'application
 5. Configuration du monitoring
@@ -290,12 +284,12 @@ Script `setup.sh` pour l'installation complète :
 
 **Étape 1 : Préparation de l'environnement**
 ```bash
-# Démarrage de minikube avec les ressources nécessaires
-minikube start --memory=6144 --cpus=4 --disk-size=20g
+# Démarrage de MicroK8s avec les ressources nécessaires
+microk8s start --memory=6144 --cpus=4 --disk-size=20g
 
 # Activation des addons requis
-minikube addons enable ingress
-minikube addons enable metrics-server
+microk8s enable ingress
+microk8s enable metrics-server
 ```
 
 **Étape 2 : Déploiement de l'application**
