@@ -133,6 +133,9 @@ fi
 if ! microk8s helm3 status loki -n monitoring &> /dev/null; then
     echo "Deploying Loki via Helm..."
     cat <<EOF > monitoring/loki-values.yaml
+loki:
+  storage:
+    type: filesystem
 persistence:
   storageClassName: "microk8s-hostpath"
   size: "10Gi"
