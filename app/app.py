@@ -125,6 +125,11 @@ def home():
                     <span class="method">GET</span> <code>/metrics</code>
                     <p>Prometheus metrics endpoint</p>
                 </div>
+                                  
+                <div class="endpoint">
+                    <span class="method">GET</span> <code>/api/unauthorized</code>
+                    <p>Simulate unauthorized access</p>
+                </div>
             </div>
             
             <div class="api-section">
@@ -200,6 +205,11 @@ def simulate_slow():
     time.sleep(2)
     log_structured("INFO", "Slow endpoint accessed", duration=2)
     return jsonify({"message": "This endpoint simulates slow response"})
+
+@app.route('/api/unauthorized')
+def unauthorized_access():
+    log_structured("WARNING", "Unauthorized access attempt")
+    return jsonify({"error": "Unauthorized access"}), 401
 
 if __name__ == '__main__':
     log_structured("INFO", "Flask application starting", 
