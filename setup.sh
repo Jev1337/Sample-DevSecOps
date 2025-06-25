@@ -70,8 +70,9 @@ controller:
     ingressClassName: public
   servicePort: 8080
   jenkinsUrl: http://jenkins.local/
-  securityContext:
+  podSecurityContext:
     fsGroup: 1000
+    runAsUser: 1000
 persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"
