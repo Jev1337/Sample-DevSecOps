@@ -133,11 +133,15 @@ fi
 if ! microk8s helm3 status loki -n monitoring &> /dev/null; then
     echo "Deploying Loki via Helm..."
     cat <<EOF > monitoring/loki-values.yaml
-loki:
+singleBinary:
+  enabled: true
   persistence:
     enabled: true
     storageClassName: "microk8s-hostpath"
     size: "10Gi"
+loki:
+  storage:
+    type: filesystem
 EOF
     microk8s helm3 install loki grafana/loki -n monitoring -f monitoring/loki-values.yaml
 else
