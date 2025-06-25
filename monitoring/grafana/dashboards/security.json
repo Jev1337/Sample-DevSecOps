@@ -65,7 +65,7 @@
         "reduceOptions": {
           "values": false,
           "calcs": [
-            "lastNotNull"
+            "sum"
           ],
           "fields": ""
         },
@@ -133,7 +133,7 @@
         "reduceOptions": {
           "values": false,
           "calcs": [
-            "lastNotNull"
+            "sum"
           ],
           "fields": ""
         },
@@ -197,7 +197,7 @@
         "reduceOptions": {
           "values": false,
           "calcs": [
-            "lastNotNull"
+            "sum"
           ],
           "fields": ""
         },
@@ -272,7 +272,7 @@
         "reduceOptions": {
           "values": false,
           "calcs": [
-            "lastNotNull"
+            "sum"
           ],
           "fields": ""
         },
