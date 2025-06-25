@@ -77,8 +77,8 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({namespace=\"flask-app\"} |= \"\" [$__interval])) by (level)",
-          "legendFormat": "{{level}}",
+          "expr": "sum(count_over_time({namespace=\"flask-app\"} [$__interval])) by (container)",
+          "legendFormat": "{{container}}",
           "queryType": "",
           "refId": "A"
         }
@@ -170,7 +170,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(rate({namespace=\"flask-app\"} |= \"\" [$__rate_interval])) by (pod)",
+          "expr": "sum(rate({namespace=\"flask-app\"} [$__rate_interval])) by (pod)",
           "legendFormat": "{{pod}}",
           "queryType": "",
           "refId": "A"
@@ -263,7 +263,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({namespace=\"flask-app\", status_code=~\"[45]..\"}[$__interval])) by (status_code)",
+          "expr": "sum(count_over_time({namespace=\"flask-app\"} |~ \"[45][0-9][0-9]\" [$__interval])) by (status_code)",
           "legendFormat": "{{status_code}}",
           "queryType": "",
           "refId": "A"
@@ -301,7 +301,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{namespace=\"flask-app\"} |= \"\"",
+          "expr": "{namespace=\"flask-app\"}",
           "queryType": "",
           "refId": "A"
         }

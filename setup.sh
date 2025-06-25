@@ -190,7 +190,8 @@ datasources:
     datasources:
     - name: Loki
       type: loki
-      url: http://loki.monitoring.svc.cluster.local:3100
+      uid: loki
+      url: http://loki-gateway.monitoring.svc.cluster.local
       access: proxy
       isDefault: true
 EOF
