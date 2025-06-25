@@ -57,10 +57,10 @@ microk8s kubectl get ns jenkins >/dev/null 2>&1 || microk8s kubectl create ns je
 microk8s kubectl get ns sonarqube >/dev/null 2>&1 || microk8s kubectl create ns sonarqube
 
 # Deploy Jenkins
-if ! helm status jenkins -n jenkins &> /dev/null; then
+if ! microk8s helm3 status jenkins -n jenkins &> /dev/null; then
     echo "Deploying Jenkins via Helm..."
-    helm repo add jenkins https://charts.jenkins.io
-    helm repo update
+    microk8s helm3 repo add jenkins https://charts.jenkins.io
+    microk8s helm3 repo update
     # Using a simple values file for ingress and persistence
     cat <<EOF > jenkins/jenkins-values.yaml
 controller:
@@ -74,16 +74,16 @@ persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"
 EOF
-    helm install jenkins jenkins/jenkins -n jenkins -f jenkins/jenkins-values.yaml
+    microk8s helm3 install jenkins jenkins/jenkins -n jenkins -f jenkins/jenkins-values.yaml
 else
     echo "✅ Jenkins is already deployed."
 fi
 
 # Deploy SonarQube
-if ! helm status sonarqube -n sonarqube &> /dev/null; then
+if ! microk8s helm3 status sonarqube -n sonarqube &> /dev/null; then
     echo "Deploying SonarQube via Helm..."
-    helm repo add sonarqube https://SonarSource.github.io/helm-chart-sonarqube
-    helm repo update
+    microk8s helm3 repo add sonarqube https://SonarSource.github.io/helm-chart-sonarqube
+    microk8s helm3 repo update
     # Using a simple values file for ingress and persistence
     cat <<EOF > security/sonarqube/sonarqube-values.yaml
 ingress:
@@ -95,7 +95,7 @@ persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"
 EOF
-    helm install sonarqube sonarqube/sonarqube -n sonarqube -f security/sonarqube/sonarqube-values.yaml
+    microk8s helm3 install sonarqube sonarqube/sonarqube -n sonarqube -f security/sonarqube/sonarqube-values.yaml
 else
     echo "✅ SonarQube is already deployed."
 fi
