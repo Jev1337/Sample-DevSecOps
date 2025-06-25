@@ -190,10 +190,13 @@ datasources:
     datasources:
     - name: Loki
       type: loki
-      uid: loki
-      url: http://loki-gateway.monitoring.svc.cluster.local
       access: proxy
+      url: http://loki-gateway.monitoring.svc.cluster.local
+      uid: loki
       isDefault: true
+      version: 1
+      editable: false
+      orgId: 1
 EOF
     microk8s helm3 install grafana grafana/grafana -n monitoring -f monitoring/grafana-values.yaml
 else
@@ -276,6 +279,9 @@ docker build -t flask-k8s-app:latest ./app
 docker tag flask-k8s-app:latest localhost:32000/flask-k8s-app:latest
 # Push to the MicroK8s local registry
 docker push localhost:32000/flask-k8s-app:latest
+
+# Create flask-app namespace if missing
+microk8s kubectl get ns flask-app >/dev/null 2>&1 || microk8s kubectl create ns flask-app
 
 echo "Deploying Flask application manifests..."
 # We need to update the deployment to use the local registry image
