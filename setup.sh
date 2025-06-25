@@ -117,17 +117,92 @@ echo "✅ Jenkins and SonarQube are ready."
 echo ""
 
 # --- 4. Deploy Monitoring Stack ---
-echo "📊 Step 4: Deploying Monitoring Stack (Loki, Grafana, Alloy)..."
+echo "📊 Step 4: Deploying Monitoring Stack via Helm..."
 microk8s kubectl get ns monitoring >/dev/null 2>&1 || microk8s kubectl create ns monitoring
-microk8s kubectl apply -f monitoring/loki/loki-config.yaml
-microk8s kubectl apply -f monitoring/grafana/grafana-config.yaml
-microk8s kubectl apply -f monitoring/grafana/dashboards-configmap.yaml
-microk8s kubectl apply -f monitoring/alloy/alloy-config.yaml
+
+# Add Grafana Helm Repo if not already added
+if ! microk8s helm3 repo list | grep -q "grafana"; then
+    echo "Adding Grafana Helm repository..."
+    microk8s helm3 repo add grafana https://grafana.github.io/helm-charts
+    microk8s helm3 repo update
+else
+    echo "✅ Grafana Helm repository already exists."
+fi
+
+# Deploy Loki
+if ! microk8s helm3 status loki -n monitoring &> /dev/null; then
+    echo "Deploying Loki via Helm..."
+    cat <<EOF > monitoring/loki-values.yaml
+persistence:
+  storageClassName: "microk8s-hostpath"
+  size: "10Gi"
+EOF
+    microk8s helm3 install loki grafana/loki -n monitoring -f monitoring/loki-values.yaml
+else
+    echo "✅ Loki is already deployed."
+fi
+
+# Deploy Grafana
+if ! microk8s helm3 status grafana -n monitoring &> /dev/null; then
+    echo "Deploying Grafana via Helm..."
+    cat <<EOF > monitoring/grafana-values.yaml
+persistence:
+  enabled: true
+  storageClassName: "microk8s-hostpath"
+  size: "2Gi"
+adminPassword: "admin123"
+ingress:
+  enabled: true
+  ingressClassName: public
+  hosts:
+    - grafana.local
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Loki
+      type: loki
+      url: http://loki-read.monitoring.svc.cluster.local:3100
+      access: proxy
+      isDefault: true
+EOF
+    microk8s helm3 install grafana grafana/grafana -n monitoring -f monitoring/grafana-values.yaml
+else
+    echo "✅ Grafana is already deployed."
+fi
+
+# Deploy Alloy
+if ! microk8s helm3 status alloy -n monitoring &> /dev/null; then
+    echo "Deploying Alloy for log collection..."
+    cat <<EOF > monitoring/alloy-values.yaml
+alloy:
+  configMap:
+    create: true
+    content: |
+      discovery.kubernetes "pods" {
+        forward_to = [loki.source.kubernetes_pods.receiver]
+      }
+
+      loki.source.kubernetes_pods "logs" {
+        forward_to = [loki.write.default.receiver]
+      }
+
+      loki.write "default" {
+        endpoint {
+          url = "http://loki-write.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+        }
+      }
+EOF
+    microk8s helm3 install alloy grafana/alloy -n monitoring -f monitoring/alloy-values.yaml --set-string 'alloy.nodeSelector.kubernetes\.io/os=linux'
+else
+    echo "✅ Alloy is already deployed."
+fi
+
 
 echo "⏳ Waiting for monitoring components..."
-microk8s kubectl rollout status deployment/loki -n monitoring --timeout=2m
-microk8s kubectl rollout status deployment/grafana -n monitoring --timeout=2m
-microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=2m
+microk8s kubectl rollout status statefulset/loki -n monitoring --timeout=5m
+microk8s kubectl rollout status deployment/grafana -n monitoring --timeout=5m
+microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=5m
 echo "✅ Monitoring stack deployed."
 echo ""
 
