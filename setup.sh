@@ -136,9 +136,18 @@ if ! microk8s helm3 status loki -n monitoring &> /dev/null; then
 loki:
   storage:
     type: filesystem
-persistence:
-  storageClassName: "microk8s-hostpath"
-  size: "10Gi"
+write:
+  enabled: false
+read:
+  enabled: false
+backend:
+  enabled: false
+singleBinary:
+  enabled: true
+  persistence:
+    enabled: true
+    storageClassName: "microk8s-hostpath"
+    size: "10Gi"
 EOF
     microk8s helm3 install loki grafana/loki -n monitoring -f monitoring/loki-values.yaml
 else
