@@ -89,7 +89,7 @@ fi
 echo "⏳ Waiting for Jenkins and SonarQube to be ready..."
 microk8s kubectl rollout status statefulset/jenkins -n jenkins --timeout=5m
 microk8s kubectl rollout status statefulset/postgresql -n sonarqube --timeout=5m
-microk8s kubectl rollout status deployment/sonarqube-sonarqube -n sonarqube --timeout=5m
+microk8s kubectl rollout status statefulset/sonarqube -n sonarqube --timeout=5m
 echo "✅ Jenkins and SonarQube are ready."
 echo ""
 
