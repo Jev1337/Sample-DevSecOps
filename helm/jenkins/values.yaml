@@ -37,6 +37,15 @@ controller:
     configAutoReload:
       enabled: false
 
+# Configure Jenkins agent to enable Kubernetes cloud
+agent:
+  enabled: true
+  defaultsProviderTemplate: ""
+  # This enables the Kubernetes cloud configuration
+  kubernetesConnectTimeout: 5
+  kubernetesReadTimeout: 15
+  maxRequestsPerHostStr: "32"
+
 persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"
