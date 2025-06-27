@@ -4,6 +4,8 @@ controller:
     repository: "jenkins-devsecops"
     tag: "latest"
     pullPolicy: "Always"
+  # Disable plugin installation since our custom image already contains plugins
+  installPlugins: false
   ingress:
     enabled: true
     hostName: jenkins.local
