@@ -7,3 +7,10 @@ primary:
     enabled: true
     storageClass: "microk8s-hostpath"
     size: "8Gi"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
