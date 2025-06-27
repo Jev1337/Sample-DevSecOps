@@ -78,14 +78,12 @@ pipeline {
             steps {
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
-                    // Enable MicroK8s registry if not already enabled
-                    sh "microk8s enable registry || true"
                     
-                    // Build image using MicroK8s docker
-                    sh "microk8s.docker build -t ${fullImageName} ./app"
+                    // Build image using Docker
+                    sh "docker build -t ${fullImageName} ./app"
                     
-                    // Push to MicroK8s registry
-                    sh "microk8s.docker push ${fullImageName}"
+                    // Push to registry (assuming registry is accessible)
+                    sh "docker push ${fullImageName}"
                 }
             }
         }
@@ -104,9 +102,9 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // Assuming kubeconfig is set up on the Jenkins agent
-                    sh 'microk8s kubectl apply -f k8s/'
-                    sh 'microk8s kubectl rollout status deployment/flask-app -n flask-app --timeout=300s'
+                    // Deploy using kubectl (assuming kubeconfig is configured)
+                    sh 'kubectl apply -f k8s/'
+                    sh 'kubectl rollout status deployment/flask-app -n flask-app --timeout=300s'
                 }
             }
         }
