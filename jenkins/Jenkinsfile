@@ -97,7 +97,7 @@ spec:
         image: gcr.io/kaniko-project/executor:latest
         args:
         - "--context=/workspace/app"
-        - "--dockerfile=Dockerfile"
+        - "--dockerfile=/workspace/app/Dockerfile"
         - "--destination=${fullImageName}"
         - "--insecure"
         - "--skip-tls-verify"
