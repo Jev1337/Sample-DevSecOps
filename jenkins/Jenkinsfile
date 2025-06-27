@@ -20,8 +20,9 @@ pipeline {
             steps {
                 script {
                     dir('app') {
-                        sh 'python -m pip install --upgrade pip'
-                        sh 'python -m pip install -r requirements.txt'
+                        sh 'python3 -m venv venv'
+                        sh '. venv/bin/activate && python -m pip install --upgrade pip'
+                        sh '. venv/bin/activate && python -m pip install -r requirements.txt'
                     }
                 }
             }
@@ -31,7 +32,7 @@ pipeline {
             steps {
                 script {
                     dir('app') {
-                        sh 'python -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --junitxml=test-results.xml'
+                        sh '. venv/bin/activate && python -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --junitxml=test-results.xml'
                     }
                 }
             }
