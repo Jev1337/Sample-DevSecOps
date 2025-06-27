@@ -9,6 +9,26 @@ echo "======================================="
 DOCKER_GID=$(getent group docker | cut -d: -f3 || echo 999)
 echo "Host Docker group ID: ${DOCKER_GID}"
 
+# First, let's try a quick restart approach
+echo "Attempting quick restart of Jenkins pod..."
+microk8s kubectl delete pod -l app.kubernetes.io/component=jenkins-controller -n jenkins || true
+
+# Wait for pod to restart
+echo "Waiting for Jenkins to restart..."
+sleep 30
+microk8s kubectl rollout status statefulset/jenkins -n jenkins --timeout=5m
+
+# Test Docker access
+JENKINS_POD=$(microk8s kubectl get pods -n jenkins -l app.kubernetes.io/component=jenkins-controller -o jsonpath='{.items[0].metadata.name}')
+echo "Testing Docker access in pod: $JENKINS_POD"
+
+if microk8s kubectl exec -n jenkins $JENKINS_POD -- docker version > /dev/null 2>&1; then
+    echo "✅ Docker access is working! Quick fix successful."
+    exit 0
+fi
+
+echo "Quick fix didn't work. Performing full rebuild..."
+
 # Stop existing Jenkins
 echo "Stopping existing Jenkins deployment..."
 microk8s helm3 uninstall jenkins -n jenkins || true

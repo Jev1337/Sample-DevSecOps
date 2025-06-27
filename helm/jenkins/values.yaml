@@ -21,11 +21,11 @@ controller:
   podSecurityContext:
     fsGroup: 1000
     runAsUser: 1000
-    runAsGroup: 999  # docker group
+    runAsNonRoot: false
   securityContext:
     runAsUser: 1000
-    runAsGroup: 999
-    fsGroup: 1000
+    runAsNonRoot: false
+    allowPrivilegeEscalation: true
   dnsConfig:
     nameservers:
       - "8.8.8.8"
@@ -46,12 +46,13 @@ controller:
   initContainers:
     - name: docker-socket-permission-fix
       image: busybox:1.35
-      command: ['sh', '-c', 'chmod 666 /var/run/docker.sock']
+      command: ['sh', '-c', 'chmod 666 /var/run/docker.sock || true']
       volumeMounts:
         - name: docker-sock
           mountPath: /var/run/docker.sock
       securityContext:
         runAsUser: 0
+        privileged: true
 persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"

@@ -65,8 +65,9 @@ ARG DOCKER_GID=999
 RUN groupadd -g ${DOCKER_GID} docker || groupmod -g ${DOCKER_GID} docker
 RUN usermod -aG docker jenkins
 
-# Ensure jenkins user can access docker socket
-RUN chmod g+rw /var/run/docker.sock || true
+# Create a script to ensure docker socket permissions at runtime
+RUN echo '#!/bin/bash\nchmod 666 /var/run/docker.sock 2>/dev/null || true\nexec "$@"' > /usr/local/bin/docker-entrypoint.sh \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Switch back to jenkins user
 USER jenkins
