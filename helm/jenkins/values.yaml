@@ -6,6 +6,15 @@ controller:
     pullPolicy: "Always"
   # Disable plugin installation since our custom image already contains plugins
   installPlugins: false
+  # Enable authentication and create admin user
+  admin:
+    existingSecret: ""
+    userKey: jenkins-admin-user
+    passwordKey: jenkins-admin-password
+  # Jenkins URL and security configuration
+  jenkinsUrlProtocol: "http"
+  # Disable setup wizard since we're configuring everything
+  jenkinsUriPrefix: "/"
   ingress:
     enabled: true
     hostName: jenkins.local
@@ -18,13 +27,12 @@ controller:
   # External access service configuration
   serviceType: ClusterIP
   nodePort: 30080
+  # Run as root to allow k8s API access
   podSecurityContext:
-    fsGroup: 999  # docker group
-    runAsUser: 1000
+    runAsUser: 0
     runAsNonRoot: false
   securityContext:
-    runAsUser: 1000
-    runAsGroup: 999  # docker group
+    runAsUser: 0
     runAsNonRoot: false
     allowPrivilegeEscalation: true
   dnsConfig:
@@ -33,27 +41,26 @@ controller:
   sidecars:
     configAutoReload:
       enabled: false
-  # Mount Docker socket for Docker builds
-  extraVolumes:
-    - name: docker-sock
-      hostPath:
-        path: /var/run/docker.sock
-        type: Socket
-  extraVolumeMounts:
-    - name: docker-sock
-      mountPath: /var/run/docker.sock
-      readOnly: false
-  # Initialize container to fix Docker socket permissions
-  initContainers:
-    - name: docker-socket-permission-fix
-      image: busybox:1.35
-      command: ['sh', '-c', 'chown root:999 /var/run/docker.sock && chmod 660 /var/run/docker.sock']
-      volumeMounts:
-        - name: docker-sock
-          mountPath: /var/run/docker.sock
-      securityContext:
-        runAsUser: 0
-        privileged: true
+  # Remove Docker-related volumes and mounts
 persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"
+
+# Authentication and security configuration
+serviceAccount:
+  create: true
+  annotations: {}
+
+# Enable RBAC with cluster-admin permissions
+rbac:
+  create: true
+  readSecrets: true
+
+# Create ClusterRoleBinding for jenkins service account
+clusterRoleBinding:
+  create: true
+
+# Agent configuration
+agent:
+  enabled: true
+  defaultsProviderTemplate: ""

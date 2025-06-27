@@ -17,15 +17,48 @@ loki:
       index:
         prefix: loki_index_
         period: 24h
+
+# SingleBinary configuration with resource limits
 singleBinary:
   replicas: 1
   persistence:
     enabled: true
     storageClass: "microk8s-hostpath"
-    size: "10Gi"
+    size: "5Gi"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Disable all other components to ensure only SingleBinary runs
 read:
   replicas: 0
 write:
   replicas: 0
 backend:
   replicas: 0
+
+# Disable cache components that consume too much memory
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+# Disable memcached components
+memcached:
+  enabled: false
+memcachedChunks:
+  enabled: false
+memcachedFrontend:
+  enabled: false
+memcachedIndexQueries:
+  enabled: false
+memcachedIndexWrites:
+  enabled: false
+
+# Disable gateway and other optional components
+gateway:
+  enabled: false

@@ -2,12 +2,12 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY = 'localhost:32000' // MicroK8s built-in registry
+        REGISTRY = 'localhost:32000'
         IMAGE_NAME = 'flask-k8s-app'
         TAG = "build-${env.BUILD_NUMBER}"
-        SONAR_HOST_URL = "http://10.152.183.26:9000" // SonarQube ClusterIP service in MicroK8s
+        SONAR_HOST_URL = "http://10.152.183.26:9000"
         SONAR_PROJECT_KEY = "flask-k8s-devsecops"
-        SONAR_TOKEN = credentials('SONAR_TOKEN') // Add SonarQube token from Jenkins credentials
+        SONAR_TOKEN = credentials('SONAR_TOKEN')
     }
 
     stages {
@@ -74,24 +74,98 @@ pipeline {
             }
         }
 
-        stage('Build & Push Docker Image') {
+        stage('Build & Deploy via Kubernetes') {
             steps {
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
                     
-                    // Check Docker daemon connection first
-                    sh 'docker version'
-                    sh 'docker info'
-                    
-                    // Build image using Docker with explicit context
+                    // Create BuildKit job to build and push image
                     sh """
-                        cd app
-                        docker build -t ${fullImageName} .
-                        docker images | grep ${env.IMAGE_NAME}
+                        python3 << 'EOF'
+import os
+from kubernetes import client, config
+
+# Load in-cluster config
+config.load_incluster_config()
+
+# Create Kubernetes API client
+v1 = client.CoreV1Api()
+batch_v1 = client.BatchV1Api()
+
+# Define BuildKit job
+job_manifest = {
+    "apiVersion": "batch/v1",
+    "kind": "Job",
+    "metadata": {
+        "name": "build-${env.BUILD_NUMBER}",
+        "namespace": "jenkins"
+    },
+    "spec": {
+        "template": {
+            "spec": {
+                "restartPolicy": "Never",
+                "containers": [{
+                    "name": "buildkit",
+                    "image": "moby/buildkit:latest",
+                    "command": ["buildctl-daemonless.sh"],
+                    "args": [
+                        "build",
+                        "--frontend", "dockerfile.v0",
+                        "--local", "context=/workspace",
+                        "--local", "dockerfile=/workspace",
+                        "--output", "type=image,name=${fullImageName},push=true"
+                    ],
+                    "volumeMounts": [{
+                        "name": "workspace",
+                        "mountPath": "/workspace"
+                    }],
+                    "securityContext": {
+                        "privileged": True
+                    }
+                }],
+                "volumes": [{
+                    "name": "workspace",
+                    "hostPath": {
+                        "path": "${env.WORKSPACE}/app"
+                    }
+                }]
+            }
+        }
+    }
+}
+
+# Create the job
+batch_v1.create_namespaced_job(namespace="jenkins", body=job_manifest)
+print("Build job created successfully")
+EOF
                     """
                     
-                    // Push to registry (assuming registry is accessible)
-                    sh "docker push ${fullImageName}"
+                    // Wait for build job to complete
+                    sh """
+                        python3 << 'EOF'
+import time
+from kubernetes import client, config
+
+config.load_incluster_config()
+batch_v1 = client.BatchV1Api()
+
+job_name = "build-${env.BUILD_NUMBER}"
+namespace = "jenkins"
+
+# Wait for job completion
+while True:
+    job = batch_v1.read_namespaced_job(name=job_name, namespace=namespace)
+    if job.status.conditions:
+        for condition in job.status.conditions:
+            if condition.type == "Complete" and condition.status == "True":
+                print("Build job completed successfully")
+                exit(0)
+            elif condition.type == "Failed" and condition.status == "True":
+                print("Build job failed")
+                exit(1)
+    time.sleep(10)
+EOF
+                    """
                 }
             }
         }
@@ -100,7 +174,6 @@ pipeline {
             steps {
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
-                    // Scan the image in MicroK8s registry
                     sh "trivy image --format table -o trivy-image-report.txt --severity HIGH,CRITICAL ${fullImageName} || true"
                 }
                 archiveArtifacts artifacts: 'trivy-image-report.txt', allowEmptyArchive: true
@@ -110,9 +183,56 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // Deploy using kubectl (assuming kubeconfig is configured)
-                    sh 'kubectl apply -f k8s/'
-                    sh 'kubectl rollout status deployment/flask-app -n flask-app --timeout=300s'
+                    def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
+                    
+                    // Update deployment with new image using Kubernetes API
+                    sh """
+                        python3 << 'EOF'
+from kubernetes import client, config
+
+config.load_incluster_config()
+apps_v1 = client.AppsV1Api()
+
+# Update deployment image
+deployment = apps_v1.read_namespaced_deployment(name="flask-app", namespace="flask-app")
+deployment.spec.template.spec.containers[0].image = "${fullImageName}"
+
+# Apply the update
+apps_v1.patch_namespaced_deployment(
+    name="flask-app", 
+    namespace="flask-app", 
+    body=deployment
+)
+
+print("Deployment updated with new image: ${fullImageName}")
+EOF
+                    """
+                    
+                    // Wait for rollout to complete
+                    sh """
+                        python3 << 'EOF'
+import time
+from kubernetes import client, config
+
+config.load_incluster_config()
+apps_v1 = client.AppsV1Api()
+
+deployment_name = "flask-app"
+namespace = "flask-app"
+
+# Wait for rollout to complete
+for i in range(30):  # 5 minute timeout
+    deployment = apps_v1.read_namespaced_deployment(name=deployment_name, namespace=namespace)
+    if (deployment.status.ready_replicas == deployment.spec.replicas and 
+        deployment.status.updated_replicas == deployment.spec.replicas):
+        print("Deployment rollout completed successfully")
+        break
+    time.sleep(10)
+else:
+    print("Deployment rollout timed out")
+    exit(1)
+EOF
+                    """
                 }
             }
         }
