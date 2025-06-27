@@ -16,15 +16,21 @@ pipeline {
             }
         }
 
-        stage('Build and Test') {
-            agent {
-                docker { image 'python:3.9-slim' }
-            }
+        stage('Install Dependencies') {
             steps {
                 script {
                     dir('app') {
                         sh 'python -m pip install --upgrade pip'
                         sh 'python -m pip install -r requirements.txt'
+                    }
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                script {
+                    dir('app') {
                         sh 'python -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --junitxml=test-results.xml'
                     }
                 }
