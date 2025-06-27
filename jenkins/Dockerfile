@@ -61,8 +61,12 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     coverage
 
 # Add jenkins user to docker group (for Docker socket mounting)
-ARG DOCKER_GID
-RUN groupadd -g ${DOCKER_GID:-999} docker && usermod -aG docker jenkins
+ARG DOCKER_GID=999
+RUN groupadd -g ${DOCKER_GID} docker || groupmod -g ${DOCKER_GID} docker
+RUN usermod -aG docker jenkins
+
+# Ensure jenkins user can access docker socket
+RUN chmod g+rw /var/run/docker.sock || true
 
 # Switch back to jenkins user
 USER jenkins

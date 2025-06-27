@@ -79,8 +79,16 @@ pipeline {
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
                     
-                    // Build image using Docker
-                    sh "docker build -t ${fullImageName} ./app"
+                    // Check Docker daemon connection first
+                    sh 'docker version'
+                    sh 'docker info'
+                    
+                    // Build image using Docker with explicit context
+                    sh """
+                        cd app
+                        docker build -t ${fullImageName} .
+                        docker images | grep ${env.IMAGE_NAME}
+                    """
                     
                     // Push to registry (assuming registry is accessible)
                     sh "docker push ${fullImageName}"
