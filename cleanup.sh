@@ -34,14 +34,6 @@ cleanup_monitoring() {
     microk8s kubectl delete ns monitoring --ignore-not-found
 }
 
-# --- Function to remove Security Tools ---
-cleanup_security() {
-    echo "❌ Uninstalling Trivy Operator..."
-    microk8s helm3 uninstall trivy-operator -n trivy-system || true
-    echo "Deleting Trivy namespace..."
-    microk8s kubectl delete ns trivy-system --ignore-not-found
-}
-
 # --- Function to remove Application Deployment ---
 cleanup_application() {
     echo "❌ Deleting Flask application resources..."
@@ -71,7 +63,6 @@ cleanup_repos() {
 cleanup_all() {
     cleanup_core_services
     cleanup_monitoring
-    cleanup_security
     cleanup_application
     cleanup_repos
 }
@@ -98,18 +89,14 @@ while true; do
             echo "✅ Monitoring stack cleanup complete."
             ;;
         3)
-            cleanup_security
-            echo "✅ Security tools cleanup complete."
-            ;;
-        4)
             cleanup_application
             echo "✅ Application deployment cleanup complete."
             ;;
-        5)
+        4)
             cleanup_all
             echo "✅ Full cleanup completed! MicroK8s remains installed."
             ;;
-        6)
+        5)
             echo "Exiting cleanup script."
             exit 0
             ;;
