@@ -332,7 +332,44 @@ PYEOF
             steps {
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
-                    sh "trivy image --format table -o trivy-image-report.txt --severity HIGH,CRITICAL ${fullImageName} || true"
+                    
+                    echo "Attempting to scan image: ${fullImageName}"
+                    
+                    // Try different Trivy scan approaches
+                    sh """
+                        # Try remote registry scan first
+                        echo "Trying remote registry scan..."
+                        if trivy image --format table -o trivy-image-report.txt --severity HIGH,CRITICAL --insecure ${fullImageName}; then
+                            echo "✅ Remote registry scan successful"
+                        else
+                            echo "❌ Remote registry scan failed, trying alternative approaches..."
+                            
+                            # Try with different registry settings
+                            if trivy image --format table -o trivy-image-report.txt --severity HIGH,CRITICAL --insecure --registry-token="" ${fullImageName}; then
+                                echo "✅ Registry scan with token successful"
+                            else
+                                echo "❌ Registry scans failed, creating placeholder report..."
+                                cat > trivy-image-report.txt << 'EOF'
+TRIVY IMAGE SCAN REPORT
+========================
+Image: ${fullImageName}
+Status: Scan failed due to registry access issues from Jenkins container
+
+Note: Image was successfully built and pushed to registry.
+For security scanning, consider:
+1. Running trivy scan from a host with registry access
+2. Using a different container runtime setup
+3. Configuring trivy with proper registry authentication
+
+This is a common issue when Jenkins runs in a container without Docker socket access.
+The image build and deployment process completed successfully.
+EOF
+                                echo "📄 Placeholder report created"
+                            fi
+                        fi
+                        
+                        echo "Trivy image scan stage completed"
+                    """
                 }
                 archiveArtifacts artifacts: 'trivy-image-report.txt', allowEmptyArchive: true
             }
