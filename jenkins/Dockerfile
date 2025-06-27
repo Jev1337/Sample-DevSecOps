@@ -52,8 +52,8 @@ RUN wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-s
     && rm sonar-scanner-cli-5.0.1.3006-linux.zip \
     && ln -s /opt/sonar-scanner-5.0.1.3006-linux/bin/sonar-scanner /usr/local/bin/sonar-scanner
 
-# Install common Python packages
-RUN pip3 install --no-cache-dir \
+# Install common Python packages (using --break-system-packages for Docker container)
+RUN pip3 install --no-cache-dir --break-system-packages \
     pytest \
     pytest-cov \
     flask \
