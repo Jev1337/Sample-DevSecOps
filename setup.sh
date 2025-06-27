@@ -66,6 +66,16 @@ else
     echo "✅ Jenkins is already deployed."
 fi
 
+# Deploy PostgreSQL for SonarQube
+if ! microk8s helm3 status postgresql -n sonarqube &> /dev/null; then
+    echo "Deploying PostgreSQL via Helm..."
+    microk8s helm3 repo add bitnami https://charts.bitnami.com/bitnami
+    microk8s helm3 repo update
+    microk8s helm3 install postgresql bitnami/postgresql -n sonarqube -f helm/postgresql/values.yaml
+else
+    echo "✅ PostgreSQL is already deployed."
+fi
+
 # Deploy SonarQube
 if ! microk8s helm3 status sonarqube -n sonarqube &> /dev/null; then
     echo "Deploying SonarQube via Helm..."
@@ -78,7 +88,8 @@ fi
 
 echo "⏳ Waiting for Jenkins and SonarQube to be ready..."
 microk8s kubectl rollout status statefulset/jenkins -n jenkins --timeout=5m
-microk8s kubectl rollout status statefulset/sonarqube-sonarqube -n sonarqube --timeout=5m
+microk8s kubectl rollout status statefulset/postgresql -n sonarqube --timeout=5m
+microk8s kubectl rollout status deployment/sonarqube-sonarqube -n sonarqube --timeout=5m
 echo "✅ Jenkins and SonarQube are ready."
 echo ""
 

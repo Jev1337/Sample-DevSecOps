@@ -4,9 +4,22 @@ ingress:
     - name: sonarqube.local
   ingressClassName: public
 persistence:
-  storageClass: "microk8s-hostpath"
-  size: "8Gi"
-monitoringPasscode: "admin"
-edition: ""
-community:
+  enabled: false
+
+# Use external PostgreSQL
+postgresql:
+  enabled: false
+
+jdbcOverwrite:
   enabled: true
+  jdbcUrl: "jdbc:postgresql://postgresql.sonarqube.svc.cluster.local:5432/sonarqube"
+  jdbcUsername: "sonarqube"
+  jdbcPassword: "sonarpassword"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+
+deployment:
+  strategy:
+    type: "Recreate"

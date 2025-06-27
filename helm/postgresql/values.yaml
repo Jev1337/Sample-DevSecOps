@@ -1,0 +1,9 @@
+auth:
+  username: "sonarqube"
+  password: "sonarpassword"
+  database: "sonarqube"
+primary:
+  persistence:
+    enabled: true
+    storageClass: "microk8s-hostpath"
+    size: "8Gi"
