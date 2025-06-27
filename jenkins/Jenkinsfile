@@ -95,16 +95,25 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      initContainers:
+      - name: git-clone
+        image: alpine/git
+        command: ["git", "clone", "--branch", "${BRANCH_NAME}", "${SCM_URL}", "/workspace"]
       containers:
       - name: kaniko
         image: gcr.io/kaniko-project/executor:latest
         args:
-        - "--context=${SCM_URL}#${BRANCH_NAME}"
-        - "--dockerfile=Dockerfile"
+        - "--context=/workspace/app"
+        - "--dockerfile=/workspace/app/Dockerfile"
         - "--destination=${fullImageName}"
         - "--insecure"
         - "--skip-tls-verify"
-      restartPolicy: Never
+        volumeMounts:
+        - name: workspace
+          mountPath: /workspace
+      volumes:
+      - name: workspace
+        emptyDir: {}
 """
                     
                     sh '''
