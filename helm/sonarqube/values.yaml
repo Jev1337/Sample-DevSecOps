@@ -21,9 +21,18 @@ podSecurityContext:
   fsGroup: 1000
   runAsUser: 1000
 
+# Remove deprecated deployment strategy settings to suppress deprecation warnings
 deployment:
-  strategy:
-    type: "Recreate"
+  strategy: {}
+
+# Set resource requests and limits to avoid resources warning
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1024Mi"
+  limits:
+    cpu: "1000m"
+    memory: "2048Mi"
 
 # Unset edition and enable community edition
 community:
