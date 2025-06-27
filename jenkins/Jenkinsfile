@@ -141,9 +141,35 @@ try:
     
     # Wait for job completion
     print("Waiting for build job to complete...")
-    for i in range(60):  # 10 minute timeout
+    for i in range(24):  # 4 minute timeout (reduced from 10 minutes)
         try:
             job_status = batch_v1.read_namespaced_job(name='kaniko-build-${buildNumber}', namespace='jenkins')
+            
+            # Show job progress
+            active_jobs = job_status.status.active or 0
+            failed_jobs = job_status.status.failed or 0
+            succeeded_jobs = job_status.status.succeeded or 0
+            
+            print(f"Job status - Active: {active_jobs}, Failed: {failed_jobs}, Succeeded: {succeeded_jobs}")
+            
+            # Show pod status too
+            pods = v1.list_namespaced_pod(namespace='jenkins', label_selector='job-name=kaniko-build-${buildNumber}')
+            if pods.items:
+                for pod in pods.items:
+                    pod_name = pod.metadata.name
+                    pod_phase = pod.status.phase
+                    print(f"Pod {pod_name}: {pod_phase}")
+                    
+                    # If pod is running, show recent logs
+                    if pod_phase == 'Running' and i > 1:  # Check logs earlier
+                        try:
+                            logs = v1.read_namespaced_pod_log(name=pod_name, namespace='jenkins', tail_lines=3)
+                            print(f"Recent logs from {pod_name}:")
+                            for line in logs.split('\n')[-2:]:
+                                if line.strip():
+                                    print(f"  {line}")
+                        except Exception as log_error:
+                            print(f"Could not get logs: {log_error}")
             
             if job_status.status.conditions:
                 for condition in job_status.status.conditions:
@@ -193,14 +219,14 @@ try:
                         
                         exit(1)
             
-            print(f"Waiting for job completion... (attempt {i+1}/60)")
+            print(f"Waiting for job completion... (attempt {i+1}/24)")
             time.sleep(10)
             
         except Exception as e:
             print(f"Error checking job status: {e}")
-            time.sleep(10)
+            time.sleep(5)  # Shorter sleep on error
     
-    print("Job timed out after 10 minutes")
+    print("Job timed out after 4 minutes")
     # Cleanup on timeout
     try:
         batch_v1.delete_namespaced_job(name='kaniko-build-${buildNumber}', namespace='jenkins')
@@ -265,7 +291,7 @@ try:
     print("Deployment updated, waiting for rollout to complete...")
     
     # Wait for rollout to complete
-    for i in range(30):  # 5 minute timeout
+    for i in range(18):  # 3 minute timeout (reduced from 5 minutes)
         try:
             deployment = apps_v1.read_namespaced_deployment(name="flask-app", namespace="flask-app")
             
@@ -291,7 +317,7 @@ try:
             
         except Exception as e:
             print(f"Error checking deployment status: {e}")
-            time.sleep(10)
+            time.sleep(5)  # Shorter sleep on error
     
     print("❌ Deployment rollout timed out")
     exit(1)
