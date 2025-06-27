@@ -73,10 +73,9 @@ while true; do
     echo "Select the cleanup action:"
     echo "  1) Cleanup Core Services (Jenkins, SonarQube)"
     echo "  2) Cleanup Monitoring Stack (Loki, Grafana, Alloy)"
-    echo "  3) Cleanup Security Tools (Trivy)"
-    echo "  4) Cleanup Application Deployment"
-    echo "  5) Cleanup ALL"
-    echo "  6) Exit"
+    echo "  3) Cleanup Application Deployment"
+    echo "  4) Cleanup ALL"
+    echo "  5) Exit"
     read -p "Enter your choice [1-6]: " choice
 
     case $choice in
