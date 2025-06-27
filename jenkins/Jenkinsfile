@@ -100,6 +100,7 @@ spec:
         - "--destination=${fullImageName}"
         - "--insecure"
         - "--skip-tls-verify"
+        - "--verbosity=debug"
         volumeMounts:
         - name: workspace
           mountPath: /workspace
@@ -124,7 +125,7 @@ print('Kaniko build job created')
 "
                     """
                     
-                    // Wait for job completion
+                    // Check job and pod status with detailed logging
                     sh """
 python3 -c "
 import time
@@ -132,16 +133,29 @@ from kubernetes import client, config
 
 config.load_incluster_config()
 batch_v1 = client.BatchV1Api()
+v1 = client.CoreV1Api()
 
 job_name = 'build-${env.BUILD_NUMBER}'
 namespace = 'jenkins'
 
 print('Waiting for build job to complete...')
-for i in range(60):  # 10 minute timeout
+for i in range(20):  # 200 seconds timeout
     try:
+        # Check job status
         job = batch_v1.read_namespaced_job(name=job_name, namespace=namespace)
+        print(f'Iteration {i+1}: Job status - Active: {job.status.active}, Succeeded: {job.status.succeeded}, Failed: {job.status.failed}')
+        
+        # Check pod status
+        pods = v1.list_namespaced_pod(namespace=namespace, label_selector=f'job-name={job_name}')
+        for pod in pods.items:
+            print(f'Pod {pod.metadata.name} status: {pod.status.phase}')
+            if pod.status.container_statuses:
+                for container in pod.status.container_statuses:
+                    print(f'Container {container.name}: ready={container.ready}, state={container.state}')
+        
         if job.status.conditions:
             for condition in job.status.conditions:
+                print(f'Job condition: {condition.type} = {condition.status}')
                 if condition.type == 'Complete' and condition.status == 'True':
                     print('Build job completed successfully')
                     exit(0)
