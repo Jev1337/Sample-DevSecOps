@@ -77,11 +77,14 @@ pipeline {
         stage('Build & Push Image') {
             steps {
                 script {
+                    // Checkout SCM and set Git context for Kaniko
+                    def scmVars = checkout scm
+                    env.SCM_URL = scmVars.GIT_URL
+                    env.BRANCH_NAME = scmVars.GIT_BRANCH
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
                     def buildNumber = env.BUILD_NUMBER
-                    def workspace = env.WORKSPACE
                     
-                    // Create Kaniko build job
+                    // Create Kaniko build job using Git context
                     writeFile file: 'kaniko-job.yaml', text: """
 apiVersion: batch/v1
 kind: Job
@@ -96,18 +99,12 @@ spec:
       - name: kaniko
         image: gcr.io/kaniko-project/executor:latest
         args:
-        - "--context=/workspace/app"
-        - "--dockerfile=/workspace/app/Dockerfile"
+        - "--context=${SCM_URL}#${BRANCH_NAME}"
+        - "--dockerfile=Dockerfile"
         - "--destination=${fullImageName}"
         - "--insecure"
         - "--skip-tls-verify"
-        volumeMounts:
-        - name: workspace
-          mountPath: /workspace
-      volumes:
-      - name: workspace
-        hostPath:
-          path: ${workspace}
+      restartPolicy: Never
 """
                     
                     sh '''
