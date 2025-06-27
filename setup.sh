@@ -171,7 +171,7 @@ echo "127.0.0.1 flask-app.local"
 echo ""
 
 # Attempt to get Jenkins initial admin password from pod or Kubernetes secret
-if JENKINS_PASS=$(microk8s kubectl exec -n jenkins jenkins-0 -c jenkins -- cat /var/jenkins_home/secrets/initialAdminPassword 2>/dev/null); then
+if JENKINS_PASS=$(microk8s kubectl exec --namespace jenkins -it svc/jenkins -c jenkins -- /bin/cat /run/secrets/additional/chart-admin-password 2>/dev/null); then
     echo "Retrieved Jenkins initial admin password from pod."
 else
     echo "Unable to read initial password from pod, retrieving from Kubernetes secret..."

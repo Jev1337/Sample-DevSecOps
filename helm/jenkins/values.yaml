@@ -1,19 +1,108 @@
 controller:
+  # Configure executors on master node
+  numExecutors: 2
+  # Use custom Jenkins image with pre-installed tools
+  image:
+    repository: "your-registry/custom-jenkins"  # Replace with your image
+    tag: "latest"
+    pullPolicy: "Always"
   ingress:
     enabled: true
     hostName: jenkins.local
     ingressClassName: public
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
   servicePort: 8080
   jenkinsUrl: http://jenkins.local/
+  # External access service configuration
+  serviceType: ClusterIP
+  nodePort: 30080
   podSecurityContext:
     fsGroup: 1000
     runAsUser: 1000
+  # Install required plugins
+  installPlugins:
+    - build-timeout:1.33
+    - credentials-binding:681.vf91669a_32e45
+    - timestamper:1.27
+    - ws-cleanup:0.46
+    - workflow-aggregator:600.vb_57cdd26fdd7
+    - github-branch-source:1795.v0e1c73b_4fd1f
+    - pipeline-stage-view:2.34
+    - git:5.2.2
+    - matrix-auth:3.2.2
+    - sonar:2.17.2
+    - kubernetes:4246.v5a_12b_1fe120e
+    - docker-workflow:580.vc0c340686b_54
   dnsConfig:
     nameservers:
       - "8.8.8.8"
   sidecars:
     configAutoReload:
       enabled: false
+
+# Configure Jenkins agents with required tools
+agent:
+  enabled: true
+  image:
+    repository: "jenkins/inbound-agent"
+    tag: "3206.vb_15dcf73f6a_9-2"
+  workingDir: "/home/jenkins/agent"
+  nodeUsageMode: "NORMAL"
+  componentName: "jenkins-agent"
+  websocket: false
+  privileged: false
+  resources:
+    requests:
+      cpu: "512m"
+      memory: "512Mi"
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+  # Use custom pod template for agents with required tools
+  podTemplates:
+    python-agent: |
+      <org.csanchez.jenkins.plugins.kubernetes.PodTemplate>
+        <inheritFrom></inheritFrom>
+        <name>python-agent</name>
+        <instanceCap>2147483647</instanceCap>
+        <idleMinutes>0</idleMinutes>
+        <label>python-agent</label>
+        <serviceAccount>default</serviceAccount>
+        <nodeUsageMode>NORMAL</nodeUsageMode>
+        <containers>
+          <org.csanchez.jenkins.plugins.kubernetes.ContainerTemplate>
+            <name>python</name>
+            <image>python:3.11-slim</image>
+            <privileged>false</privileged>
+            <alwaysPullImage>false</alwaysPullImage>
+            <workingDir>/home/jenkins/agent</workingDir>
+            <command>sleep</command>
+            <args>99d</args>
+            <ttyEnabled>false</ttyEnabled>
+            <resourceRequestCpu>100m</resourceRequestCpu>
+            <resourceRequestMemory>128Mi</resourceRequestMemory>
+            <resourceLimitCpu>1</resourceLimitCpu>
+            <resourceLimitMemory>1Gi</resourceLimitMemory>
+          </org.csanchez.jenkins.plugins.kubernetes.ContainerTemplate>
+          <org.csanchez.jenkins.plugins.kubernetes.ContainerTemplate>
+            <name>docker</name>
+            <image>docker:dind</image>
+            <privileged>true</privileged>
+            <alwaysPullImage>false</alwaysPullImage>
+            <workingDir>/home/jenkins/agent</workingDir>
+            <command></command>
+            <args></args>
+            <ttyEnabled>false</ttyEnabled>
+            <resourceRequestCpu>100m</resourceRequestCpu>
+            <resourceRequestMemory>128Mi</resourceRequestMemory>
+            <resourceLimitCpu>1</resourceLimitCpu>
+            <resourceLimitMemory>1Gi</resourceLimitMemory>
+          </org.csanchez.jenkins.plugins.kubernetes.ContainerTemplate>
+        </containers>
+      </org.csanchez.jenkins.plugins.kubernetes.PodTemplate>
+
 persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"
