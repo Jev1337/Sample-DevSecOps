@@ -1,6 +1,4 @@
 controller:
-  # Configure executors on master node
-  numExecutors: 2
   ingress:
     enabled: true
     hostName: jenkins.local
@@ -16,98 +14,12 @@ controller:
   podSecurityContext:
     fsGroup: 1000
     runAsUser: 1000
-  # Install required plugins (using latest versions)
-  installPlugins:
-    - build-timeout
-    - credentials-binding
-    - timestamper
-    - ws-cleanup
-    - workflow-aggregator
-    - github-branch-source
-    - pipeline-stage-view
-    - git
-    - matrix-auth
-    - sonar
-    - kubernetes
-    - docker-workflow
   dnsConfig:
     nameservers:
       - "8.8.8.8"
   sidecars:
     configAutoReload:
       enabled: false
-
-# Configure Jenkins agent to enable Kubernetes cloud
-agent:
-  enabled: true
-  defaultsProviderTemplate: ""
-  # This enables the Kubernetes cloud configuration
-  kubernetesConnectTimeout: 5
-  kubernetesReadTimeout: 15
-  maxRequestsPerHostStr: "32"
-
-persistence:
-  storageClass: "microk8s-hostpath"
-  size: "8Gi"
-  enabled: true
-  image:
-    repository: "jenkins/inbound-agent"
-    tag: "3206.vb_15dcf73f6a_9-2"
-  workingDir: "/home/jenkins/agent"
-  nodeUsageMode: "NORMAL"
-  componentName: "jenkins-agent"
-  websocket: false
-  privileged: false
-  resources:
-    requests:
-      cpu: "512m"
-      memory: "512Mi"
-    limits:
-      cpu: "1"
-      memory: "1Gi"
-  # Use custom pod template for agents with required tools
-  podTemplates:
-    python-agent: |
-      <org.csanchez.jenkins.plugins.kubernetes.PodTemplate>
-        <inheritFrom></inheritFrom>
-        <name>python-agent</name>
-        <instanceCap>2147483647</instanceCap>
-        <idleMinutes>0</idleMinutes>
-        <label>python-agent</label>
-        <serviceAccount>default</serviceAccount>
-        <nodeUsageMode>NORMAL</nodeUsageMode>
-        <containers>
-          <org.csanchez.jenkins.plugins.kubernetes.ContainerTemplate>
-            <name>python</name>
-            <image>python:3.11-slim</image>
-            <privileged>false</privileged>
-            <alwaysPullImage>false</alwaysPullImage>
-            <workingDir>/home/jenkins/agent</workingDir>
-            <command>sleep</command>
-            <args>99d</args>
-            <ttyEnabled>false</ttyEnabled>
-            <resourceRequestCpu>100m</resourceRequestCpu>
-            <resourceRequestMemory>128Mi</resourceRequestMemory>
-            <resourceLimitCpu>1</resourceLimitCpu>
-            <resourceLimitMemory>1Gi</resourceLimitMemory>
-          </org.csanchez.jenkins.plugins.kubernetes.ContainerTemplate>
-          <org.csanchez.jenkins.plugins.kubernetes.ContainerTemplate>
-            <name>docker</name>
-            <image>docker:dind</image>
-            <privileged>true</privileged>
-            <alwaysPullImage>false</alwaysPullImage>
-            <workingDir>/home/jenkins/agent</workingDir>
-            <command></command>
-            <args></args>
-            <ttyEnabled>false</ttyEnabled>
-            <resourceRequestCpu>100m</resourceRequestCpu>
-            <resourceRequestMemory>128Mi</resourceRequestMemory>
-            <resourceLimitCpu>1</resourceLimitCpu>
-            <resourceLimitMemory>1Gi</resourceLimitMemory>
-          </org.csanchez.jenkins.plugins.kubernetes.ContainerTemplate>
-        </containers>
-      </org.csanchez.jenkins.plugins.kubernetes.PodTemplate>
-
 persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"

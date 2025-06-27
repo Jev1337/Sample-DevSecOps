@@ -1,40 +1,5 @@
 pipeline {
-    agent {
-        kubernetes {
-            yaml '''
-            apiVersion: v1
-            kind: Pod
-            spec:
-              containers:
-              - name: python
-                image: python:3.11-slim
-                command:
-                - sleep
-                args:
-                - 99d
-                volumeMounts:
-                - name: docker-sock
-                  mountPath: /var/run/docker.sock
-              - name: docker
-                image: docker:24.0.5-dind
-                securityContext:
-                  privileged: true
-                volumeMounts:
-                - name: docker-sock
-                  mountPath: /var/run/docker.sock
-              - name: kubectl
-                image: bitnami/kubectl:latest
-                command:
-                - sleep
-                args:
-                - 99d
-              volumes:
-              - name: docker-sock
-                hostPath:
-                  path: /var/run/docker.sock
-            '''
-        }
-    }
+    agent any
 
     environment {
         REGISTRY = 'your-docker-registry' // Replace with your Docker registry
@@ -53,21 +18,10 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                container('python') {
-                    script {
-                        dir('app') {
-                            sh '''
-                            apt-get update && apt-get install -y curl wget
-                            python3 -m pip install --upgrade pip
-                            pip3 install -r requirements.txt
-                            # Install Trivy
-                            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-                            # Install SonarScanner
-                            wget -O /tmp/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.8.0.2856-linux.zip
-                            unzip /tmp/sonar-scanner.zip -d /opt/
-                            ln -sf /opt/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner /usr/local/bin/sonar-scanner
-                            '''
-                        }
+                script {
+                    dir('app') {
+                        sh 'python3 -m pip install --upgrade pip'
+                        sh 'pip3 install -r requirements.txt'
                     }
                 }
             }
@@ -75,11 +29,9 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                container('python') {
-                    script {
-                        dir('app') {
-                            sh 'python3 -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --junitxml=test-results.xml'
-                        }
+                script {
+                    dir('app') {
+                        sh 'python3 -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --junitxml=test-results.xml'
                     }
                 }
             }
@@ -93,63 +45,53 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                container('python') {
-                    withSonarQubeEnv('SonarQube') {
-                        sh '''
-                        sonar-scanner \
-                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                            -Dsonar.sources=./app \
-                            -Dsonar.host.url=${SONAR_HOST_URL} \
-                            -Dsonar.login=${SONAR_TOKEN} \
-                            -Dsonar.python.coverage.reportPaths=app/coverage.xml
-                        '''
-                    }
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                    sonar-scanner \
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                        -Dsonar.sources=./app \
+                        -Dsonar.host.url=${SONAR_HOST_URL} \
+                        -Dsonar.login=${SONAR_TOKEN} \
+                        -Dsonar.python.coverage.reportPaths=app/coverage.xml
+                    '''
                 }
             }
         }
 
         stage('Trivy FS Scan') {
             steps {
-                container('python') {
-                    sh "trivy fs --format table -o trivy-fs-report.txt --severity HIGH,CRITICAL ."
-                    archiveArtifacts artifacts: 'trivy-fs-report.txt', allowEmptyArchive: true
-                }
+                sh "trivy fs --format table -o trivy-fs-report.txt --severity HIGH,CRITICAL ."
+                archiveArtifacts artifacts: 'trivy-fs-report.txt', allowEmptyArchive: true
             }
         }
 
         stage('Build & Push Docker Image') {
             steps {
-                container('docker') {
-                    script {
-                        def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
-                        sh "docker build -t ${fullImageName} ./app"
-                        // Assuming Docker credentials are configured on the Jenkins agent
-                        sh "docker push ${fullImageName}"
-                    }
+                script {
+                    def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
+                    sh "docker build -t ${fullImageName} ./app"
+                    // Assuming Docker credentials are configured on the Jenkins agent
+                    sh "docker push ${fullImageName}"
                 }
             }
         }
 
         stage('Trivy Image Scan') {
             steps {
-                container('python') {
-                    script {
-                        def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
-                        sh "trivy image --format table -o trivy-image-report.txt --severity HIGH,CRITICAL ${fullImageName}"
-                    }
-                    archiveArtifacts artifacts: 'trivy-image-report.txt', allowEmptyArchive: true
+                script {
+                    def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
+                    sh "trivy image --format table -o trivy-image-report.txt --severity HIGH,CRITICAL ${fullImageName}"
                 }
+                archiveArtifacts artifacts: 'trivy-image-report.txt', allowEmptyArchive: true
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                container('kubectl') {
-                    script {
-                        // Assuming kubeconfig is set up on the Jenkins agent
-                        sh 'kubectl apply -f k8s/'
-                        sh 'kubectl rollout status deployment/flask-app -n flask-app --timeout=300s'
-                    }
+                script {
+                    // Assuming kubeconfig is set up on the Jenkins agent
+                    sh 'microk8s kubectl apply -f k8s/'
+                    sh 'microk8s kubectl rollout status deployment/flask-app -n flask-app --timeout=300s'
                 }
             }
         }
