@@ -215,7 +215,7 @@ echo ""
 
 # Check LoadBalancer external IPs
 echo "📋 **LoadBalancer External IPs:**"
-microk8s kubectl get svc -A --field-selector spec.type=LoadBalancer
+microk8s kubectl get svc -A -o wide | grep LoadBalancer
 
 echo ""
 echo "🛡️ **Security Notes:**"
