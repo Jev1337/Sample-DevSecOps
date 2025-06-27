@@ -16,20 +16,20 @@ controller:
   podSecurityContext:
     fsGroup: 1000
     runAsUser: 1000
-  # Install required plugins
+  # Install required plugins (using latest versions)
   installPlugins:
-    - build-timeout:1.33
-    - credentials-binding:681.vf91669a_32e45
-    - timestamper:1.27
-    - ws-cleanup:0.46
-    - workflow-aggregator:600.vb_57cdd26fdd7
-    - github-branch-source:1795.v0e1c73b_4fd1f
-    - pipeline-stage-view:2.34
-    - git:5.2.2
-    - matrix-auth:3.2.2
-    - sonar:2.17.2
-    - kubernetes:4246.v5a_12b_1fe120e
-    - docker-workflow:580.vc0c340686b_54
+    - build-timeout
+    - credentials-binding
+    - timestamper
+    - ws-cleanup
+    - workflow-aggregator
+    - github-branch-source
+    - pipeline-stage-view
+    - git
+    - matrix-auth
+    - sonar
+    - kubernetes
+    - docker-workflow
   dnsConfig:
     nameservers:
       - "8.8.8.8"
