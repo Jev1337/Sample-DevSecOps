@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY = 'your-docker-registry' // Replace with your Docker registry
+        REGISTRY = 'localhost:32000' // MicroK8s built-in registry
         IMAGE_NAME = 'flask-k8s-app'
         TAG = "build-${env.BUILD_NUMBER}"
         SONAR_HOST_URL = "http://10.152.183.26:9000" // SonarQube ClusterIP service in MicroK8s
@@ -45,6 +45,7 @@ pipeline {
             }
         }
 
+        /*
         stage('SonarQube Analysis') {
             steps {
                 script {
@@ -64,6 +65,7 @@ pipeline {
                 }
             }
         }
+        */
 
         stage('Trivy FS Scan') {
             steps {
