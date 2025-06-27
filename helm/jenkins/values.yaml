@@ -1,15 +1,6 @@
 controller:
   image:
-    registry: "localh  # Initialize container to fix Docker socket permissions
-  initContainers:
-    - name: docker-socket-permission-fix
-      image: busybox:1.35
-      command: ['sh', '-c', 'chown root:999 /var/run/docker.sock && chmod 660 /var/run/docker.sock']
-      volumeMounts:
-        - name: docker-sock
-          mountPath: /var/run/docker.sock
-      securityContext:
-        runAsUser: 0
+    registry: "localhost:32000"
     repository: "jenkins-devsecops"
     tag: "latest"
     pullPolicy: "Always"
@@ -28,11 +19,12 @@ controller:
   serviceType: ClusterIP
   nodePort: 30080
   podSecurityContext:
-    fsGroup: 1000
+    fsGroup: 999  # docker group
     runAsUser: 1000
     runAsNonRoot: false
   securityContext:
     runAsUser: 1000
+    runAsGroup: 999  # docker group
     runAsNonRoot: false
     allowPrivilegeEscalation: true
   dnsConfig:
@@ -55,7 +47,7 @@ controller:
   initContainers:
     - name: docker-socket-permission-fix
       image: busybox:1.35
-      command: ['sh', '-c', 'chmod 666 /var/run/docker.sock || true']
+      command: ['sh', '-c', 'chown root:999 /var/run/docker.sock && chmod 660 /var/run/docker.sock']
       volumeMounts:
         - name: docker-sock
           mountPath: /var/run/docker.sock
