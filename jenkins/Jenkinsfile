@@ -90,60 +90,129 @@ pipeline {
                     def gitUrl = sh(script: 'git config --get remote.origin.url', returnStdout: true).trim()
                     
                     sh """
-                        # Create simple Kaniko job with git context
-                        cat > kaniko-job.yaml << 'EOF'
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: kaniko-build-${buildNumber}
-  namespace: jenkins
-spec:
-  template:
-    spec:
-      restartPolicy: Never
-      containers:
-      - name: kaniko
-        image: gcr.io/kaniko-project/executor:latest
-        args:
-        - "--context=git://${gitUrl}#${gitCommit}"
-        - "--context-sub-path=app"
-        - "--dockerfile=app/Dockerfile"
-        - "--destination=${fullImageName}"
-        - "--insecure"
-        - "--skip-tls-verify"
-        - "--verbosity=info"
-        env:
-        - name: GIT_USERNAME
-          value: ""
-        - name: GIT_PASSWORD  
-          value: ""
-EOF
+                        # Create and run Kaniko build job using Python Kubernetes API
+                        python3 << 'PYEOF'
+import time
+import yaml
+from kubernetes import client, config
+
+# Load in-cluster config
+config.load_incluster_config()
+
+# Create API clients
+batch_v1 = client.BatchV1Api()
+v1 = client.CoreV1Api()
+
+# Job manifest
+job_manifest = {
+    'apiVersion': 'batch/v1',
+    'kind': 'Job',
+    'metadata': {
+        'name': 'kaniko-build-${buildNumber}',
+        'namespace': 'jenkins'
+    },
+    'spec': {
+        'template': {
+            'spec': {
+                'restartPolicy': 'Never',
+                'containers': [{
+                    'name': 'kaniko',
+                    'image': 'gcr.io/kaniko-project/executor:latest',
+                    'args': [
+                        '--context=git://${gitUrl}#${gitCommit}',
+                        '--context-sub-path=app',
+                        '--dockerfile=app/Dockerfile',
+                        '--destination=${fullImageName}',
+                        '--insecure',
+                        '--skip-tls-verify',
+                        '--verbosity=info'
+                    ]
+                }]
+            }
+        }
+    }
+}
+
+print("Creating Kaniko build job...")
+try:
+    # Create the job
+    job = batch_v1.create_namespaced_job(namespace='jenkins', body=job_manifest)
+    print(f"Job created: {job.metadata.name}")
+    
+    # Wait for job completion
+    print("Waiting for build job to complete...")
+    for i in range(60):  # 10 minute timeout
+        try:
+            job_status = batch_v1.read_namespaced_job(name='kaniko-build-${buildNumber}', namespace='jenkins')
+            
+            if job_status.status.conditions:
+                for condition in job_status.status.conditions:
+                    if condition.type == 'Complete' and condition.status == 'True':
+                        print("✅ Build completed successfully")
                         
-                        # Apply and wait for job
-                        kubectl apply -f kaniko-job.yaml
+                        # Get and show logs
+                        pods = v1.list_namespaced_pod(namespace='jenkins', label_selector='job-name=kaniko-build-${buildNumber}')
+                        if pods.items:
+                            pod_name = pods.items[0].metadata.name
+                            print("Build logs:")
+                            try:
+                                logs = v1.read_namespaced_pod_log(name=pod_name, namespace='jenkins', tail_lines=10)
+                                print(logs)
+                            except Exception as log_error:
+                                print(f"Could not get logs: {log_error}")
                         
-                        echo "Waiting for Kaniko build job to complete..."
-                        kubectl wait --for=condition=complete job/kaniko-build-${buildNumber} -n jenkins --timeout=600s
+                        # Cleanup job
+                        try:
+                            batch_v1.delete_namespaced_job(name='kaniko-build-${buildNumber}', namespace='jenkins')
+                            print("Job cleaned up")
+                        except:
+                            pass
                         
-                        # Check if job succeeded
-                        JOB_STATUS=\$(kubectl get job kaniko-build-${buildNumber} -n jenkins -o jsonpath='{.status.conditions[0].type}')
-                        if [ "\$JOB_STATUS" = "Complete" ]; then
-                            echo "✅ Build completed successfully"
-                        else
-                            echo "❌ Build failed - getting logs"
-                            kubectl logs -n jenkins -l job-name=kaniko-build-${buildNumber} --tail=50
-                            exit 1
-                        fi
+                        print("Successfully built and pushed ${fullImageName}")
+                        exit(0)
                         
-                        # Show final logs
-                        echo "Build logs:"
-                        kubectl logs -n jenkins -l job-name=kaniko-build-${buildNumber} --tail=10
+                    elif condition.type == 'Failed' and condition.status == 'True':
+                        print("❌ Build failed")
                         
-                        # Cleanup
-                        kubectl delete job kaniko-build-${buildNumber} -n jenkins
-                        rm -f kaniko-job.yaml
+                        # Get and show error logs
+                        pods = v1.list_namespaced_pod(namespace='jenkins', label_selector='job-name=kaniko-build-${buildNumber}')
+                        if pods.items:
+                            pod_name = pods.items[0].metadata.name
+                            print("Error logs:")
+                            try:
+                                logs = v1.read_namespaced_pod_log(name=pod_name, namespace='jenkins')
+                                print(logs)
+                            except Exception as log_error:
+                                print(f"Could not get logs: {log_error}")
                         
-                        echo "Successfully built and pushed ${fullImageName}"
+                        # Cleanup job
+                        try:
+                            batch_v1.delete_namespaced_job(name='kaniko-build-${buildNumber}', namespace='jenkins')
+                        except:
+                            pass
+                        
+                        exit(1)
+            
+            print(f"Waiting for job completion... (attempt {i+1}/60)")
+            time.sleep(10)
+            
+        except Exception as e:
+            print(f"Error checking job status: {e}")
+            time.sleep(10)
+    
+    print("Job timed out after 10 minutes")
+    # Cleanup on timeout
+    try:
+        batch_v1.delete_namespaced_job(name='kaniko-build-${buildNumber}', namespace='jenkins')
+    except:
+        pass
+    exit(1)
+    
+except Exception as e:
+    print(f"Failed to create build job: {e}")
+    exit(1)
+
+PYEOF
                     """
                 }
             }
@@ -164,18 +233,74 @@ EOF
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
                     
-                    // Update deployment using kubectl (Jenkins has cluster-admin access)
+                    // Update deployment using Python Kubernetes API
                     sh """
-                        # Update the deployment with new image
-                        kubectl set image deployment/flask-app flask-app=${fullImageName} -n flask-app
-                        
-                        # Wait for rollout to complete
-                        kubectl rollout status deployment/flask-app -n flask-app --timeout=300s
-                        
-                        # Verify deployment
-                        kubectl get pods -n flask-app -l app=flask-app
-                        
-                        echo "Deployment updated successfully with image: ${fullImageName}"
+                        python3 << 'PYEOF'
+import time
+from kubernetes import client, config
+
+# Load in-cluster config
+config.load_incluster_config()
+
+# Create API client
+apps_v1 = client.AppsV1Api()
+v1 = client.CoreV1Api()
+
+print("Updating deployment with new image: ${fullImageName}")
+
+try:
+    # Read current deployment
+    deployment = apps_v1.read_namespaced_deployment(name="flask-app", namespace="flask-app")
+    
+    # Update the image
+    deployment.spec.template.spec.containers[0].image = "${fullImageName}"
+    
+    # Apply the update
+    apps_v1.patch_namespaced_deployment(
+        name="flask-app", 
+        namespace="flask-app", 
+        body=deployment
+    )
+    
+    print("Deployment updated, waiting for rollout to complete...")
+    
+    # Wait for rollout to complete
+    for i in range(30):  # 5 minute timeout
+        try:
+            deployment = apps_v1.read_namespaced_deployment(name="flask-app", namespace="flask-app")
+            
+            ready_replicas = deployment.status.ready_replicas or 0
+            updated_replicas = deployment.status.updated_replicas or 0
+            desired_replicas = deployment.spec.replicas
+            
+            print(f"Rollout status: {ready_replicas}/{desired_replicas} ready, {updated_replicas} updated")
+            
+            if (ready_replicas == desired_replicas and updated_replicas == desired_replicas):
+                print("✅ Deployment rollout completed successfully")
+                
+                # Show pod status
+                pods = v1.list_namespaced_pod(namespace="flask-app", label_selector="app=flask-app")
+                print("Pod status:")
+                for pod in pods.items:
+                    print(f"  {pod.metadata.name}: {pod.status.phase}")
+                
+                print(f"Deployment updated successfully with image: ${fullImageName}")
+                exit(0)
+                
+            time.sleep(10)
+            
+        except Exception as e:
+            print(f"Error checking deployment status: {e}")
+            time.sleep(10)
+    
+    print("❌ Deployment rollout timed out")
+    exit(1)
+    
+except Exception as e:
+    print(f"Failed to update deployment: {e}")
+    exit(1)
+
+PYEOF
                     """
                 }
             }
