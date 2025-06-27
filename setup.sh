@@ -51,7 +51,8 @@ echo ""
 echo "🔨 Step 3: Building Custom Jenkins Image..."
 echo "Building Jenkins DevSecOps image..."
 cd jenkins
-docker build -t jenkins-devsecops:latest .
+DOCKER_GID=$(getent group docker | cut -d: -f3 || echo 999)
+docker build --build-arg DOCKER_GID=${DOCKER_GID} -t jenkins-devsecops:latest .
 docker tag jenkins-devsecops:latest localhost:32000/jenkins-devsecops:latest
 docker push localhost:32000/jenkins-devsecops:latest
 cd ..
