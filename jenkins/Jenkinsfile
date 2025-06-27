@@ -7,7 +7,7 @@ pipeline {
         TAG = "build-${env.BUILD_NUMBER}"
         SONAR_HOST_URL = "http://10.152.183.26:9000" // SonarQube ClusterIP service in MicroK8s
         SONAR_PROJECT_KEY = "flask-k8s-devsecops"
-        SONAR_TOKEN = credentials('sonar-token') // Add SonarQube token from Jenkins credentials
+        SONAR_TOKEN = credentials('SONAR_TOKEN') // Add SonarQube token from Jenkins credentials
     }
 
     stages {
