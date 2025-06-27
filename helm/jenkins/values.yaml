@@ -1,0 +1,16 @@
+controller:
+  ingress:
+    enabled: true
+    hostName: jenkins.local
+    ingressClassName: public
+  servicePort: 8080
+  jenkinsUrl: http://jenkins.local/
+  podSecurityContext:
+    fsGroup: 1000
+    runAsUser: 1000
+  sidecars:
+    configAutoReload:
+      enabled: false
+persistence:
+  storageClass: "microk8s-hostpath"
+  size: "8Gi"

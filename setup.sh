@@ -61,26 +61,7 @@ if ! microk8s helm3 status jenkins -n jenkins &> /dev/null; then
     echo "Deploying Jenkins via Helm..."
     microk8s helm3 repo add jenkins https://charts.jenkins.io
     microk8s helm3 repo update
-    # Using a simple values file for ingress and persistence
-    cat <<EOF > jenkins/jenkins-values.yaml
-controller:
-  ingress:
-    enabled: true
-    hostName: jenkins.local
-    ingressClassName: public
-  servicePort: 8080
-  jenkinsUrl: http://jenkins.local/
-  podSecurityContext:
-    fsGroup: 1000
-    runAsUser: 1000
-  sidecars:
-    configAutoReload:
-      enabled: false
-persistence:
-  storageClass: "microk8s-hostpath"
-  size: "8Gi"
-EOF
-    microk8s helm3 install jenkins jenkins/jenkins -n jenkins -f jenkins/jenkins-values.yaml
+    microk8s helm3 install jenkins jenkins/jenkins -n jenkins -f helm/jenkins/values.yaml
 else
     echo "✅ Jenkins is already deployed."
 fi
@@ -90,22 +71,7 @@ if ! microk8s helm3 status sonarqube -n sonarqube &> /dev/null; then
     echo "Deploying SonarQube via Helm..."
     microk8s helm3 repo add sonarqube https://SonarSource.github.io/helm-chart-sonarqube
     microk8s helm3 repo update
-    # Using a simple values file for ingress and persistence
-    cat <<EOF > security/sonarqube/sonarqube-values.yaml
-ingress:
-  enabled: true
-  hosts:
-    - name: sonarqube.local
-  ingressClassName: public
-persistence:
-  storageClass: "microk8s-hostpath"
-  size: "8Gi"
-monitoringPasscode: "admin"
-edition: ""
-community:
-  enabled: true
-EOF
-    microk8s helm3 install sonarqube sonarqube/sonarqube -n sonarqube -f security/sonarqube/sonarqube-values.yaml
+    microk8s helm3 install sonarqube sonarqube/sonarqube -n sonarqube -f helm/sonarqube/values.yaml
 else
     echo "✅ SonarQube is already deployed."
 fi
@@ -132,40 +98,7 @@ fi
 # Deploy Loki
 if ! microk8s helm3 status loki -n monitoring &> /dev/null; then
     echo "Deploying Loki via Helm..."
-    cat <<EOF > monitoring/loki-values.yaml
-deploymentMode: SingleBinary
-loki:
-  auth_enabled: false
-  commonConfig:
-    replication_factor: 1
-  storage:
-    type: 'filesystem'
-    filesystem:
-      chunks_directory: /var/loki/chunks
-      rules_directory: /var/loki/rules
-  schemaConfig:
-    configs:
-    - from: "2024-01-01"
-      store: tsdb
-      object_store: filesystem
-      schema: v13
-      index:
-        prefix: loki_index_
-        period: 24h
-singleBinary:
-  replicas: 1
-  persistence:
-    enabled: true
-    storageClass: "microk8s-hostpath"
-    size: "10Gi"
-read:
-  replicas: 0
-write:
-  replicas: 0
-backend:
-  replicas: 0
-EOF
-    microk8s helm3 install loki grafana/loki -n monitoring -f monitoring/loki-values.yaml
+    microk8s helm3 install loki grafana/loki -n monitoring -f helm/loki/values.yaml
 else
     echo "✅ Loki is already deployed."
 fi
@@ -173,32 +106,7 @@ fi
 # Deploy Grafana
 if ! microk8s helm3 status grafana -n monitoring &> /dev/null; then
     echo "Deploying Grafana via Helm..."
-    cat <<EOF > monitoring/grafana-values.yaml
-persistence:
-  enabled: true
-  storageClassName: "microk8s-hostpath"
-  size: "2Gi"
-adminPassword: "admin123"
-ingress:
-  enabled: true
-  ingressClassName: public
-  hosts:
-    - grafana.local
-datasources:
-  datasources.yaml:
-    apiVersion: 1
-    datasources:
-    - name: Loki
-      type: loki
-      access: proxy
-      url: http://loki.monitoring.svc.cluster.local:3100
-      uid: loki
-      isDefault: true
-      version: 1
-      editable: false
-      orgId: 1
-EOF
-    microk8s helm3 install grafana grafana/grafana -n monitoring -f monitoring/grafana-values.yaml
+    microk8s helm3 install grafana grafana/grafana -n monitoring -f helm/grafana/values.yaml
 else
     echo "✅ Grafana is already deployed."
 fi
@@ -206,58 +114,7 @@ fi
 # Deploy Alloy
 if ! microk8s helm3 status alloy -n monitoring &> /dev/null; then
     echo "Deploying Alloy for log collection..."
-    cat <<EOF > monitoring/alloy-values.yaml
-alloy:
-  configMap:
-    create: true
-    content: |
-      discovery.kubernetes "pods" {
-        role = "pod"
-      }
-
-      discovery.relabel "kubernetes_pods" {
-        targets = discovery.kubernetes.pods.targets
-        rule {
-          source_labels = ["__meta_kubernetes_pod_phase"]
-          regex = "Pending|Succeeded|Failed|Completed"
-          action = "drop"
-        }
-        rule {
-          source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
-          regex = "false"
-          action = "drop"
-        }
-        rule {
-          source_labels = ["__meta_kubernetes_pod_container_name"]
-          regex = ""
-          action = "drop"
-        }
-        rule {
-          source_labels = ["__meta_kubernetes_pod_name"]
-          target_label = "pod"
-        }
-        rule {
-          source_labels = ["__meta_kubernetes_namespace"]
-          target_label = "namespace"
-        }
-        rule {
-          source_labels = ["__meta_kubernetes_pod_container_name"]
-          target_label = "container"
-        }
-      }
-
-      loki.source.kubernetes "pods" {
-        targets    = discovery.relabel.kubernetes_pods.output
-        forward_to = [loki.write.default.receiver]
-      }
-
-      loki.write "default" {
-        endpoint {
-          url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
-        }
-      }
-EOF
-    microk8s helm3 install alloy grafana/alloy -n monitoring -f monitoring/alloy-values.yaml
+    microk8s helm3 install alloy grafana/alloy -n monitoring -f helm/alloy/values.yaml
 else
     echo "✅ Alloy is already deployed."
 fi

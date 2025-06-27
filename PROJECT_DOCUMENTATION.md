@@ -36,12 +36,13 @@ This project implements a secure deployment pipeline for a Flask application on 
 - `hpa.yaml`: Horizontal Pod Autoscaler for dynamic scaling based on CPU/memory.
 - `ingress.yaml`: Ingress resource for external access to the Flask app.
 
-### Helm Chart (`helm/flask-app/`)
-**Note:** The Helm chart for the Flask app exists but is not used by the setup script. The setup script deploys the Flask app using direct Kubernetes manifests from the `k8s/` folder instead.
-- `Chart.yaml`: Helm chart metadata.
-- `values.yaml`: Default values for image, resources, probes, secrets, and more.
-- `templates/`: Templated Kubernetes manifests for deployment, service, config, and secrets.
-- `_helpers.tpl`: Helm template helpers for naming and labeling.
+### Helm Configurations (`helm/`)
+- This directory contains the externalized Helm `values.yaml` files for the services deployed by the `setup.sh` script. This approach separates configuration from the setup logic, making the configurations easier to manage and customize.
+- `helm/jenkins/values.yaml`: Custom values for the Jenkins Helm chart.
+- `helm/sonarqube/values.yaml`: Custom values for the SonarQube Helm chart.
+- `helm/loki/values.yaml`: Custom values for the Loki Helm chart.
+- `helm/grafana/values.yaml`: Custom values for the Grafana Helm chart.
+- `helm/alloy/values.yaml`: Custom values for the Alloy Helm chart.
 
 ### Jenkins Pipeline (`jenkins/`)
 - `Jenkinsfile`: Declarative pipeline for SCM checkout, dependency install, testing, SonarQube and Trivy scans, Docker build/push, and Kubernetes deployment.
@@ -106,9 +107,9 @@ This project implements a secure deployment pipeline for a Flask application on 
 
 ### Custom Helm Values Explained
 
-The setup script generates custom values files for each Helm deployment to optimize them for the MicroK8s environment. Here's why each configuration is used:
+The `setup.sh` script uses custom values files located in the `helm/` directory for each Helm deployment to optimize them for the MicroK8s environment. Here's why each configuration is used:
 
-#### Jenkins Custom Values
+#### Jenkins Custom Values (`helm/jenkins/values.yaml`)
 ```yaml
 controller:
   ingress:
@@ -126,7 +127,7 @@ persistence:
 ```
 **Purpose:** Enables web access via local DNS, configures persistent storage for Jenkins data and builds, and ensures security with non-root execution.
 
-#### SonarQube Custom Values
+#### SonarQube Custom Values (`helm/sonarqube/values.yaml`)
 ```yaml
 ingress:
   enabled: true
@@ -143,7 +144,7 @@ community:
 ```
 **Purpose:** Provides web access for code quality reports, persistent storage for analysis history, and uses the free community edition suitable for development/demo environments.
 
-#### Loki Custom Values
+#### Loki Custom Values (`helm/loki/values.yaml`)
 ```yaml
 deploymentMode: SingleBinary        # Simplified deployment for demo
 loki:
@@ -160,7 +161,7 @@ read/write/backend:
 ```
 **Purpose:** Optimized for single-node deployment with filesystem storage, suitable for development and demo environments where simplicity is preferred over high availability.
 
-#### Grafana Custom Values
+#### Grafana Custom Values (`helm/grafana/values.yaml`)
 ```yaml
 persistence:
   storageClassName: "microk8s-hostpath"
@@ -177,7 +178,7 @@ datasources:
 ```
 **Purpose:** Provides immediate dashboard access with pre-configured Loki data source, eliminating manual setup steps for log visualization.
 
-#### Alloy Custom Values
+#### Alloy Custom Values (`helm/alloy/values.yaml`)
 ```yaml
 alloy:
   configMap:

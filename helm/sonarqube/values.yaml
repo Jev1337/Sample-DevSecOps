@@ -1,0 +1,12 @@
+ingress:
+  enabled: true
+  hosts:
+    - name: sonarqube.local
+  ingressClassName: public
+persistence:
+  storageClass: "microk8s-hostpath"
+  size: "8Gi"
+monitoringPasscode: "admin"
+edition: ""
+community:
+  enabled: true

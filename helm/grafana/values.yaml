@@ -1,0 +1,29 @@
+persistence:
+  enabled: true
+  storageClassName: "microk8s-hostpath"
+  size: "2Gi"
+  initChownData:
+    enabled: false
+adminPassword: "admin123"
+ingress:
+  enabled: true
+  ingressClassName: public
+  hosts:
+    - grafana.local
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://loki.monitoring.svc.cluster.local:3100
+      uid: loki
+      isDefault: true
+      version: 1
+      editable: false
+      orgId: 1
+podSecurityContext:
+  fsGroup: 472
+  runAsUser: 472
+  runAsGroup: 472
