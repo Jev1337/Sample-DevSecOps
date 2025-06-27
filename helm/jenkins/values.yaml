@@ -1,7 +1,9 @@
 controller:
-  image: "localhost:32000/jenkins-devsecops"
-  tag: "latest"
-  imagePullPolicy: "Always"
+  image:
+    registry: "localhost:32000"
+    repository: "jenkins-devsecops"
+    tag: "latest"
+    pullPolicy: "Always"
   ingress:
     enabled: true
     hostName: jenkins.local
