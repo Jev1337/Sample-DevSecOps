@@ -89,6 +89,10 @@ pipeline {
                     def gitCommit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
                     def gitUrl = sh(script: 'git config --get remote.origin.url', returnStdout: true).trim()
                     
+                    // Debug: show the git URL
+                    echo "Git URL: ${gitUrl}"
+                    echo "Git Commit: ${gitCommit}"
+                    
                     sh """
                         # Create and run Kaniko build job using Python Kubernetes API
                         python3 << 'PYEOF'
@@ -102,6 +106,15 @@ config.load_incluster_config()
 # Create API clients
 batch_v1 = client.BatchV1Api()
 v1 = client.CoreV1Api()
+
+# Prepare git URL for Kaniko (remove git:// prefix if URL already has protocol)
+git_url = "${gitUrl}"
+if git_url.startswith("https://") or git_url.startswith("http://"):
+    kaniko_context = git_url + "#${gitCommit}"
+else:
+    kaniko_context = "git://" + git_url + "#${gitCommit}"
+
+print(f"Using Kaniko context: {kaniko_context}")
 
 # Job manifest
 job_manifest = {
@@ -119,7 +132,7 @@ job_manifest = {
                     'name': 'kaniko',
                     'image': 'gcr.io/kaniko-project/executor:latest',
                     'args': [
-                        '--context=git://${gitUrl}#${gitCommit}',
+                        f'--context={kaniko_context}',
                         '--context-sub-path=app',
                         '--dockerfile=app/Dockerfile',
                         '--destination=${fullImageName}',
