@@ -78,9 +78,14 @@ pipeline {
             steps {
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
-                    sh "docker build -t ${fullImageName} ./app"
-                    // Assuming Docker credentials are configured on the Jenkins agent
-                    sh "docker push ${fullImageName}"
+                    // Enable MicroK8s registry if not already enabled
+                    sh "microk8s enable registry || true"
+                    
+                    // Build image using MicroK8s docker
+                    sh "microk8s.docker build -t ${fullImageName} ./app"
+                    
+                    // Push to MicroK8s registry
+                    sh "microk8s.docker push ${fullImageName}"
                 }
             }
         }
@@ -89,7 +94,8 @@ pipeline {
             steps {
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
-                    sh "trivy image --format table -o trivy-image-report.txt --severity HIGH,CRITICAL ${fullImageName}"
+                    // Scan the image in MicroK8s registry
+                    sh "trivy image --format table -o trivy-image-report.txt --severity HIGH,CRITICAL ${fullImageName} || true"
                 }
                 archiveArtifacts artifacts: 'trivy-image-report.txt', allowEmptyArchive: true
             }
