@@ -33,31 +33,27 @@ controller:
   sidecars:
     configAutoReload:
       enabled: false
-    dind:
-      image: docker:24.0.5-dind
-      name: docker-dind
-      securityContext:
-        privileged: true
-      env:
-        - name: DOCKER_TLS_CERTDIR
-          value: ""
-      volumeMounts:
-        - name: dind-graph-storage
-          mountPath: /var/lib/docker
-        - name: dind-sock
-          mountPath: /var/run/docker.sock
-  # Replace hostPath socket mount with DinD setup
-  # Remove or ignore existing extraVolumes for socket
+  # Mount Docker socket for Docker builds
   extraVolumes:
-    - name: dind-graph-storage
-      emptyDir: {}
-    - name: dind-sock
-      emptyDir: {}
+    - name: docker-sock
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket
   extraVolumeMounts:
-    - name: dind-sock
+    - name: docker-sock
       mountPath: /var/run/docker.sock
-    - name: dind-graph-storage
-      mountPath: /var/lib/docker
+      readOnly: false
+  # Initialize container to fix Docker socket permissions
+  initContainers:
+    - name: docker-socket-permission-fix
+      image: busybox:1.35
+      command: ['sh', '-c', 'chown root:999 /var/run/docker.sock && chmod 660 /var/run/docker.sock']
+      volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+      securityContext:
+        runAsUser: 0
+        privileged: true
 persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"
