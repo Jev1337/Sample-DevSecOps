@@ -165,10 +165,11 @@ try:
                         try:
                             logs = v1.read_namespaced_pod_log(name=pod_name, namespace='jenkins', tail_lines=3)
                             print(f"Recent logs from {pod_name}:")
-                            log_lines = logs.split('\n')
-                            for line in log_lines[-2:]:
-                                if line.strip():
-                                    print(f"  {line}")
+                            if logs:
+                                log_lines = logs.split("\\n")
+                                for line in log_lines[-2:]:
+                                    if line.strip():
+                                        print(f"  {line}")
                         except Exception as log_error:
                             print(f"Could not get logs: {log_error}")
             
