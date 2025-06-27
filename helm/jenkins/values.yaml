@@ -14,11 +14,6 @@ controller:
   sidecars:
     configAutoReload:
       enabled: false
-  installPlugins:
-    - kubernetes-client-api:6.14.0-255.v44e4b_386fb_a_e
-    - jackson2-api:2.19.0-404.vb_b_0fd2fea_e10
-    - kubernetes-credentials:192.v4d5b_1c429d17
-    - kubernetes:4353.vb_47977da_9417
 persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"
