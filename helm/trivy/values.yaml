@@ -1,0 +1,16 @@
+trivy:
+  # -- Trivy-operator scans for vulnerabilities in your Kubernetes cluster
+  # and reports them as custom resources.
+  # By default, it is enabled.
+  operator:
+    # -- Enable or disable the trivy-operator
+    enabled: true
+    # -- The namespace where trivy-operator is installed
+    namespace: "trivy-system"
+
+  # -- Trivy can be run as a standalone scanner.
+  # You can use this to scan images in your CI/CD pipeline.
+  # By default, it is disabled.
+  standalone:
+    # -- Enable or disable the standalone trivy scanner
+    enabled: false

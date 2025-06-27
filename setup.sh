@@ -138,8 +138,34 @@ microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=5m
 echo "✅ Monitoring stack deployed."
 echo ""
 
-# --- 5. Build and Deploy Application ---
-echo "🐳 Step 5: Building and Deploying the Flask Application..."
+# --- 5. Deploy Security Tools ---
+echo "🔐 Step 5: Deploying Security Tools..."
+microk8s kubectl get ns trivy-system >/dev/null 2>&1 || microk8s kubectl create ns trivy-system
+
+# Add Trivy Helm Repo if not already added
+if ! microk8s helm3 repo list | grep -q "aquasecurity"; then
+    echo "Adding Aqua Security Helm repository..."
+    microk8s helm3 repo add aquasecurity https://aquasecurity.github.io/helm-charts/
+    microk8s helm3 repo update
+else
+    echo "✅ Aqua Security Helm repository already exists."
+fi
+
+# Deploy Trivy Operator
+if ! microk8s helm3 status trivy -n trivy-system &> /dev/null; then
+    echo "Deploying Trivy Operator via Helm..."
+    microk8s helm3 install trivy aquasecurity/trivy -n trivy-system -f helm/trivy/values.yaml
+else
+    echo "✅ Trivy Operator is already deployed."
+fi
+
+echo "⏳ Waiting for Trivy Operator..."
+microk8s kubectl rollout status deployment/trivy-operator -n trivy-system --timeout=5m
+echo "✅ Security tools deployed."
+echo ""
+
+# --- 6. Build and Deploy Application ---
+echo "🐳 Step 6: Building and Deploying the Flask Application..."
 echo "Building local Docker image..."
 # Build the image with regular Docker
 docker build -t flask-k8s-app:latest ./app
@@ -161,8 +187,8 @@ microk8s kubectl rollout status deployment/flask-app -n flask-app --timeout=2m
 echo "✅ Flask application deployed."
 echo ""
 
-# --- 6. Final Configuration and Access Info ---
-echo "🌐 Step 6: Final Configuration and Access Information"
+# --- 7. Final Configuration and Access Info ---
+echo "🌐 Step 7: Final Configuration and Access Information"
 echo "❗ IMPORTANT: Add the following lines to your /etc/hosts file to access the services:"
 echo "127.0.0.1 jenkins.local"
 echo "127.0.0.1 sonarqube.local"
