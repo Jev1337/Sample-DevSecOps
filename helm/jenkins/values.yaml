@@ -20,7 +20,7 @@ controller:
   nodePort: 30080
   podSecurityContext:
     fsGroup: 1000
-    runAsUser: 1000
+    runAsUser: 0
   dnsConfig:
     nameservers:
       - "8.8.8.8"
