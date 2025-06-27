@@ -60,13 +60,19 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     requests \
     coverage
 
-# Add jenkins user to docker group (for Docker socket mounting)
+# Step 1: Create Docker Group (following Docker post-installation steps)
+# https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user
 ARG DOCKER_GID=999
-RUN groupadd -g ${DOCKER_GID} docker || groupmod -g ${DOCKER_GID} docker
+RUN groupadd -g ${DOCKER_GID} docker || true
+
+# Step 2: Add jenkins user to the docker group
 RUN usermod -aG docker jenkins
 
-# Create a script to ensure docker socket permissions at runtime
-RUN echo '#!/bin/bash\nchmod 666 /var/run/docker.sock 2>/dev/null || true\nexec "$@"' > /usr/local/bin/docker-entrypoint.sh \
+# Verify the group membership for debugging
+RUN echo "Jenkins user groups:" && id jenkins
+
+# Create a script to fix docker socket permissions at runtime if needed
+RUN echo '#!/bin/bash\n# Fix docker socket permissions\nif [ -S /var/run/docker.sock ]; then\n  chown root:docker /var/run/docker.sock\n  chmod 660 /var/run/docker.sock\nfi\nexec "$@"' > /usr/local/bin/docker-entrypoint.sh \
     && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Switch back to jenkins user

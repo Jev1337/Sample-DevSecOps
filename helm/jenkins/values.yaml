@@ -1,6 +1,15 @@
 controller:
   image:
-    registry: "localhost:32000"
+    registry: "localh  # Initialize container to fix Docker socket permissions
+  initContainers:
+    - name: docker-socket-permission-fix
+      image: busybox:1.35
+      command: ['sh', '-c', 'chown root:999 /var/run/docker.sock && chmod 660 /var/run/docker.sock']
+      volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+      securityContext:
+        runAsUser: 0
     repository: "jenkins-devsecops"
     tag: "latest"
     pullPolicy: "Always"
