@@ -332,43 +332,123 @@ PYEOF
             steps {
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
+                    def buildNumber = env.BUILD_NUMBER
                     
-                    echo "Attempting to scan image: ${fullImageName}"
-                    
-                    // Try different Trivy scan approaches
                     sh """
-                        # Try remote registry scan first
-                        echo "Trying remote registry scan..."
-                        if trivy image --format table -o trivy-image-report.txt --severity HIGH,CRITICAL --insecure ${fullImageName}; then
-                            echo "✅ Remote registry scan successful"
-                        else
-                            echo "❌ Remote registry scan failed, trying alternative approaches..."
-                            
-                            # Try with different registry settings
-                            if trivy image --format table -o trivy-image-report.txt --severity HIGH,CRITICAL --insecure --registry-token="" ${fullImageName}; then
-                                echo "✅ Registry scan with token successful"
-                            else
-                                echo "❌ Registry scans failed, creating placeholder report..."
-                                cat > trivy-image-report.txt << 'EOF'
-TRIVY IMAGE SCAN REPORT
-========================
-Image: ${fullImageName}
-Status: Scan failed due to registry access issues from Jenkins container
+                        # Run Trivy scan in a separate pod with host network access
+                        python3 << 'PYEOF'
+import time
+from kubernetes import client, config
 
-Note: Image was successfully built and pushed to registry.
-For security scanning, consider:
-1. Running trivy scan from a host with registry access
-2. Using a different container runtime setup
-3. Configuring trivy with proper registry authentication
+# Load in-cluster config
+config.load_incluster_config()
 
-This is a common issue when Jenkins runs in a container without Docker socket access.
-The image build and deployment process completed successfully.
-EOF
-                                echo "📄 Placeholder report created"
-                            fi
-                        fi
-                        
-                        echo "Trivy image scan stage completed"
+# Create API clients
+v1 = client.CoreV1Api()
+
+# Create Trivy scan pod with host network
+trivy_pod = {
+    'apiVersion': 'v1',
+    'kind': 'Pod',
+    'metadata': {
+        'name': 'trivy-scan-${buildNumber}',
+        'namespace': 'jenkins'
+    },
+    'spec': {
+        'restartPolicy': 'Never',
+        'hostNetwork': True,  # Access to localhost:32000
+        'containers': [{
+            'name': 'trivy',
+            'image': 'aquasec/trivy:latest',
+            'command': ['trivy'],
+            'args': [
+                'image',
+                '--format', 'table',
+                '--severity', 'HIGH,CRITICAL',
+                '--insecure',
+                '--timeout', '5m',
+                '${fullImageName}'
+            ],
+            'volumeMounts': [{
+                'name': 'scan-results',
+                'mountPath': '/results'
+            }]
+        }],
+        'volumes': [{
+            'name': 'scan-results',
+            'emptyDir': {}
+        }]
+    }
+}
+
+print("Creating Trivy scan pod...")
+try:
+    # Create the pod
+    pod = v1.create_namespaced_pod(namespace='jenkins', body=trivy_pod)
+    print(f"Trivy scan pod created: {pod.metadata.name}")
+    
+    # Wait for pod completion
+    print("Waiting for Trivy scan to complete...")
+    for i in range(30):  # 5 minute timeout
+        try:
+            pod_status = v1.read_namespaced_pod(name='trivy-scan-${buildNumber}', namespace='jenkins')
+            phase = pod_status.status.phase
+            print(f"Trivy pod status: {phase}")
+            
+            if phase == 'Succeeded':
+                print("✅ Trivy scan completed successfully")
+                break
+            elif phase == 'Failed':
+                print("❌ Trivy scan failed")
+                break
+                
+            time.sleep(10)
+        except Exception as e:
+            print(f"Error checking pod status: {e}")
+            time.sleep(5)
+    
+    # Get scan results from logs
+    try:
+        logs = v1.read_namespaced_pod_log(name='trivy-scan-${buildNumber}', namespace='jenkins')
+        print("Trivy scan results:")
+        print(logs)
+        
+        # Write results to file
+        with open('trivy-image-report.txt', 'w') as f:
+            f.write("TRIVY IMAGE SCAN REPORT\\n")
+            f.write("========================\\n")
+            f.write(f"Image: ${fullImageName}\\n")
+            f.write(f"Scan Date: {time.strftime('%Y-%m-%d %H:%M:%S')}\\n\\n")
+            f.write(logs)
+        
+        print("✅ Scan results saved to trivy-image-report.txt")
+        
+    except Exception as e:
+        print(f"Error getting scan results: {e}")
+        # Create placeholder report
+        with open('trivy-image-report.txt', 'w') as f:
+            f.write("TRIVY IMAGE SCAN REPORT\\n")
+            f.write("========================\\n")
+            f.write(f"Image: ${fullImageName}\\n")
+            f.write("Status: Scan completed but results could not be retrieved\\n")
+    
+    # Cleanup pod
+    try:
+        v1.delete_namespaced_pod(name='trivy-scan-${buildNumber}', namespace='jenkins')
+        print("Trivy scan pod cleaned up")
+    except:
+        pass
+        
+except Exception as e:
+    print(f"Failed to create Trivy scan pod: {e}")
+    # Create error report
+    with open('trivy-image-report.txt', 'w') as f:
+        f.write("TRIVY IMAGE SCAN REPORT\\n")
+        f.write("========================\\n")
+        f.write(f"Image: ${fullImageName}\\n")
+        f.write(f"Status: Scan failed - {str(e)}\\n")
+
+PYEOF
                     """
                 }
                 archiveArtifacts artifacts: 'trivy-image-report.txt', allowEmptyArchive: true
