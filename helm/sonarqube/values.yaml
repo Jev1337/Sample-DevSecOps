@@ -2,7 +2,6 @@ ingress:
   enabled: true
   hosts:
     - name: sonarqube.local
-      path: /
   ingressClassName: public
 monitoringPasscode: "admin"
 persistence:

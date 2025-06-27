@@ -136,7 +136,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: sonarqube
+            name: sonarqube-sonarqube
             port:
               number: 9000
 EOF
@@ -162,7 +162,7 @@ spec:
           service:
             name: grafana
             port:
-              number: 3000
+              number: 80
 EOF
 
 # Update Flask App ingress
@@ -184,9 +184,9 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: flask-app
+            name: flask-app-service
             port:
-              number: 5000
+              number: 80
 EOF
 
 echo "✅ External ingress configurations created"
