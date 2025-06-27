@@ -1,4 +1,4 @@
-FROM jenkins/jenkins:2.462.3-lts
+FROM jenkins/jenkins:2.504.3-lts
 
 # Switch to root to install packages
 USER root
