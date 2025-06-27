@@ -1,11 +1,6 @@
 controller:
   # Configure executors on master node
   numExecutors: 2
-  # Use custom Jenkins image with pre-installed tools
-  image:
-    repository: "your-registry/custom-jenkins"  # Replace with your image
-    tag: "latest"
-    pullPolicy: "Always"
   ingress:
     enabled: true
     hostName: jenkins.local
@@ -42,8 +37,9 @@ controller:
     configAutoReload:
       enabled: false
 
-# Configure Jenkins agents with required tools
-agent:
+persistence:
+  storageClass: "microk8s-hostpath"
+  size: "8Gi"
   enabled: true
   image:
     repository: "jenkins/inbound-agent"
