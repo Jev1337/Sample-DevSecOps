@@ -83,13 +83,66 @@ pipeline {
             steps {
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
+                    def buildNumber = env.BUILD_NUMBER
                     
-                    // Create a temporary Dockerfile with build context
+                    // Get current git info
+                    def gitCommit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                    def gitUrl = sh(script: 'git config --get remote.origin.url', returnStdout: true).trim()
+                    
                     sh """
-                        cd app
-                        # Build image using local Docker (since Jenkins runs as root with Docker access)
-                        docker build -t ${fullImageName} .
-                        docker push ${fullImageName}
+                        # Create simple Kaniko job with git context
+                        cat > kaniko-job.yaml << 'EOF'
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kaniko-build-${buildNumber}
+  namespace: jenkins
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: kaniko
+        image: gcr.io/kaniko-project/executor:latest
+        args:
+        - "--context=git://${gitUrl}#${gitCommit}"
+        - "--context-sub-path=app"
+        - "--dockerfile=app/Dockerfile"
+        - "--destination=${fullImageName}"
+        - "--insecure"
+        - "--skip-tls-verify"
+        - "--verbosity=info"
+        env:
+        - name: GIT_USERNAME
+          value: ""
+        - name: GIT_PASSWORD  
+          value: ""
+EOF
+                        
+                        # Apply and wait for job
+                        kubectl apply -f kaniko-job.yaml
+                        
+                        echo "Waiting for Kaniko build job to complete..."
+                        kubectl wait --for=condition=complete job/kaniko-build-${buildNumber} -n jenkins --timeout=600s
+                        
+                        # Check if job succeeded
+                        JOB_STATUS=\$(kubectl get job kaniko-build-${buildNumber} -n jenkins -o jsonpath='{.status.conditions[0].type}')
+                        if [ "\$JOB_STATUS" = "Complete" ]; then
+                            echo "✅ Build completed successfully"
+                        else
+                            echo "❌ Build failed - getting logs"
+                            kubectl logs -n jenkins -l job-name=kaniko-build-${buildNumber} --tail=50
+                            exit 1
+                        fi
+                        
+                        # Show final logs
+                        echo "Build logs:"
+                        kubectl logs -n jenkins -l job-name=kaniko-build-${buildNumber} --tail=10
+                        
+                        # Cleanup
+                        kubectl delete job kaniko-build-${buildNumber} -n jenkins
+                        rm -f kaniko-job.yaml
+                        
                         echo "Successfully built and pushed ${fullImageName}"
                     """
                 }
