@@ -152,6 +152,30 @@ try:
             
             print(f"Job status - Active: {active_jobs}, Failed: {failed_jobs}, Succeeded: {succeeded_jobs}")
             
+            # If we have multiple failures, fail fast and show logs
+            if failed_jobs >= 2:
+                print(f"❌ Multiple pod failures detected ({failed_jobs} failures)")
+                pods = v1.list_namespaced_pod(namespace='jenkins', label_selector='job-name=kaniko-build-${buildNumber}')
+                if pods.items:
+                    # Show logs from first failed pod
+                    for pod in pods.items:
+                        if pod.status.phase == 'Failed':
+                            pod_name = pod.metadata.name
+                            print(f"FAILURE LOGS from {pod_name}:")
+                            try:
+                                logs = v1.read_namespaced_pod_log(name=pod_name, namespace='jenkins')
+                                print(logs)
+                            except Exception as log_error:
+                                print(f"Could not get logs: {log_error}")
+                            break
+                
+                # Cleanup and exit
+                try:
+                    batch_v1.delete_namespaced_job(name='kaniko-build-${buildNumber}', namespace='jenkins')
+                except:
+                    pass
+                exit(1)
+            
             # Show pod status too
             pods = v1.list_namespaced_pod(namespace='jenkins', label_selector='job-name=kaniko-build-${buildNumber}')
             if pods.items:
@@ -160,8 +184,20 @@ try:
                     pod_phase = pod.status.phase
                     print(f"Pod {pod_name}: {pod_phase}")
                     
+                    # If pod failed, show error logs immediately
+                    if pod_phase == 'Failed':
+                        try:
+                            logs = v1.read_namespaced_pod_log(name=pod_name, namespace='jenkins')
+                            print(f"ERROR LOGS from {pod_name}:")
+                            if logs:
+                                print(logs[-1000:])  # Show last 1000 chars
+                            else:
+                                print("  No logs available")
+                        except Exception as log_error:
+                            print(f"Could not get error logs: {log_error}")
+                    
                     # If pod is running, show recent logs
-                    if pod_phase == 'Running' and i > 1:  # Check logs earlier
+                    elif pod_phase == 'Running' and i > 1:  # Check logs earlier
                         try:
                             logs = v1.read_namespaced_pod_log(name=pod_name, namespace='jenkins', tail_lines=3)
                             print(f"Recent logs from {pod_name}:")
