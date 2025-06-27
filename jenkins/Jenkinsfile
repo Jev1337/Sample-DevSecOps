@@ -5,13 +5,13 @@ pipeline {
         REGISTRY = 'localhost:32000'
         IMAGE_NAME = 'flask-k8s-app'
         TAG = "build-${env.BUILD_NUMBER}"
-        SONAR_HOST_URL = "http://10.152.183.26:9000"
+        SONAR_HOST_URL = "http://sonarqube.local:9000"
         SONAR_PROJECT_KEY = "flask-k8s-devsecops"
         SONAR_TOKEN = credentials('SONAR_TOKEN')
     }
 
     stages {
-        stage('Checkout SCM') {
+        stage('Checkout') {
             steps {
                 checkout scm
             }
@@ -19,22 +19,28 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                script {
-                    dir('app') {
-                        sh 'python3 -m venv venv'
-                        sh '. venv/bin/activate && python -m pip install --upgrade pip'
-                        sh '. venv/bin/activate && python -m pip install -r requirements.txt'
-                    }
+                dir('app') {
+                    sh '''
+                        python3 -m venv venv
+                        . venv/bin/activate
+                        python -m pip install --upgrade pip
+                        python -m pip install -r requirements.txt
+                    '''
                 }
             }
         }
 
         stage('Run Tests') {
             steps {
-                script {
-                    dir('app') {
-                        sh '. venv/bin/activate && python -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --junitxml=test-results.xml'
-                    }
+                dir('app') {
+                    sh '''
+                        . venv/bin/activate
+                        python -m pytest tests/ -v \
+                            --cov=. \
+                            --cov-report=xml \
+                            --cov-report=html \
+                            --junitxml=test-results.xml
+                    '''
                 }
             }
             post {
@@ -45,27 +51,25 @@ pipeline {
             }
         }
 
-        /*
         stage('SonarQube Analysis') {
             steps {
                 script {
                     withSonarQubeEnv('SonarQube') {
                         dir('app') {
                             sh '''
-                            sonar-scanner \
-                                -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                -Dsonar.sources=. \
-                                -Dsonar.host.url=${SONAR_HOST_URL} \
-                                -Dsonar.login=${SONAR_TOKEN} \
-                                -Dsonar.python.coverage.reportPaths=coverage.xml \
-                                -Dsonar.python.xunit.reportPath=test-results.xml
+                                sonar-scanner \
+                                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                    -Dsonar.sources=. \
+                                    -Dsonar.host.url=${SONAR_HOST_URL} \
+                                    -Dsonar.login=${SONAR_TOKEN} \
+                                    -Dsonar.python.coverage.reportPaths=coverage.xml \
+                                    -Dsonar.python.xunit.reportPath=test-results.xml
                             '''
                         }
                     }
                 }
             }
         }
-        */
 
         stage('Trivy FS Scan') {
             steps {
@@ -77,152 +81,15 @@ pipeline {
         stage('Build & Push Image') {
             steps {
                 script {
-                    // Checkout SCM and set Git context for Kaniko
-                    def scmVars = checkout scm
-                    env.SCM_URL = scmVars.GIT_URL
-                    env.BRANCH_NAME = scmVars.GIT_BRANCH
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
-                    def buildNumber = env.BUILD_NUMBER
                     
-                    // Create Kaniko build job using Git context
-                    writeFile file: 'kaniko-job.yaml', text: """
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: build-${buildNumber}
-  namespace: jenkins
-spec:
-  template:
-    spec:
-      restartPolicy: Never
-      initContainers:
-      - name: git-clone
-        image: alpine/git
-        command: ["git", "clone", "--branch", "${BRANCH_NAME}", "${SCM_URL}", "/workspace"]
-      containers:
-      - name: kaniko
-        image: gcr.io/kaniko-project/executor:latest
-        args:
-        - "--context=/workspace/app"
-        - "--dockerfile=/workspace/app/Dockerfile"
-        - "--destination=${fullImageName}"
-        - "--insecure"
-        - "--skip-tls-verify"
-        volumeMounts:
-        - name: workspace
-          mountPath: /workspace
-      volumes:
-      - name: workspace
-        emptyDir: {}
-"""
-                    
-                    sh '''
-python3 -c "
-from kubernetes import client, config, utils
-import yaml
-
-config.load_incluster_config()
-k8s_client = client.ApiClient()
-
-with open('kaniko-job.yaml', 'r') as f:
-    job_manifest = yaml.safe_load(f)
-
-utils.create_from_dict(k8s_client, job_manifest)
-print('Kaniko build job created')
-"
-                    '''
-                    
-                    // Wait for job completion
+                    // Create a temporary Dockerfile with build context
                     sh """
-python3 -c "
-import time
-from kubernetes import client, config
-
-config.load_incluster_config()
-batch_v1 = client.BatchV1Api()
-v1 = client.CoreV1Api()
-
-job_name = 'build-${buildNumber}'
-namespace = 'jenkins'
-
-print('Waiting for build job to complete...')
-for i in range(18):  # 3 minute timeout
-    try:
-        job = batch_v1.read_namespaced_job(name=job_name, namespace=namespace)
-        
-        # Check pod status and logs
-        pods = v1.list_namespaced_pod(namespace=namespace, label_selector=f'job-name={job_name}')
-        if pods.items:
-            pod = pods.items[0]
-            pod_name = pod.metadata.name
-            pod_phase = pod.status.phase
-            print(f'Kaniko pod: {pod_name}, Phase: {pod_phase}')
-            
-            # If pod is running for a while, check logs
-            if i > 2 and pod_phase == 'Running':
-                try:
-                    logs = v1.read_namespaced_pod_log(name=pod_name, namespace=namespace, tail_lines=50)
-                    print(f'Recent logs from pod {pod_name}:')
-                    print(logs)
-                except Exception as log_error:
-                    print(f'Could not get logs: {log_error}')
-            
-            # Check for failed pod
-            if pod_phase == 'Failed':
-                print(f'Pod {pod_name} failed')
-                try:
-                    logs = v1.read_namespaced_pod_log(name=pod_name, namespace=namespace)
-                    print('Pod logs:')
-                    print(logs)
-                except:
-                    pass
-                exit(1)
-                
-        if job.status.conditions:
-            for condition in job.status.conditions:
-                if condition.type == 'Complete' and condition.status == 'True':
-                    print('Build job completed successfully')
-                    exit(0)
-                elif condition.type == 'Failed' and condition.status == 'True':
-                    print('Build job failed')
-                    exit(1)
-        
-        print(f'Waiting... (attempt {i+1}/18)')
-        time.sleep(10)
-    except Exception as e:
-        print(f'Error checking job status: {e}')
-        time.sleep(10)
-
-print('Build job timed out - checking final status')
-# Final check - get logs regardless
-try:
-    pods = v1.list_namespaced_pod(namespace=namespace, label_selector=f'job-name={job_name}')
-    if pods.items:
-        pod_name = pods.items[0].metadata.name
-        logs = v1.read_namespaced_pod_log(name=pod_name, namespace=namespace)
-        print('Final pod logs:')
-        print(logs)
-except Exception as e:
-    print(f'Could not get final logs: {e}')
-exit(1)
-"
-                    """
-                    
-                    // Cleanup job
-                    sh """
-python3 -c "
-from kubernetes import client, config
-
-config.load_incluster_config()
-batch_v1 = client.BatchV1Api()
-
-try:
-    batch_v1.delete_namespaced_job(name='build-${buildNumber}', namespace='jenkins', 
-                                  body=client.V1DeleteOptions(propagation_policy='Foreground'))
-    print('Cleanup: Build job deleted')
-except Exception as e:
-    print(f'Cleanup error: {e}')
-"
+                        cd app
+                        # Build image using local Docker (since Jenkins runs as root with Docker access)
+                        docker build -t ${fullImageName} .
+                        docker push ${fullImageName}
+                        echo "Successfully built and pushed ${fullImageName}"
                     """
                 }
             }
@@ -243,54 +110,91 @@ except Exception as e:
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
                     
-                    // Update deployment with new image using Kubernetes API
+                    // Update deployment using kubectl (Jenkins has cluster-admin access)
                     sh """
-                        python3 << 'EOF'
-from kubernetes import client, config
-
-config.load_incluster_config()
-apps_v1 = client.AppsV1Api()
-
-# Update deployment image
-deployment = apps_v1.read_namespaced_deployment(name="flask-app", namespace="flask-app")
-deployment.spec.template.spec.containers[0].image = "${fullImageName}"
-
-# Apply the update
-apps_v1.patch_namespaced_deployment(
-    name="flask-app", 
-    namespace="flask-app", 
-    body=deployment
-)
-
-print("Deployment updated with new image: ${fullImageName}")
-EOF
+                        # Update the deployment with new image
+                        kubectl set image deployment/flask-app flask-app=${fullImageName} -n flask-app
+                        
+                        # Wait for rollout to complete
+                        kubectl rollout status deployment/flask-app -n flask-app --timeout=300s
+                        
+                        # Verify deployment
+                        kubectl get pods -n flask-app -l app=flask-app
+                        
+                        echo "Deployment updated successfully with image: ${fullImageName}"
                     """
+                }
+            }
+        }
+
+        stage('Generate Security Report') {
+            steps {
+                script {
+                    // Generate a comprehensive security report
+                    sh '''
+                        mkdir -p security/reports
+                        
+                        # Create HTML security dashboard
+                        cat > security/reports/security-dashboard.html << 'EOL'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DevSecOps Security Dashboard - Build ${BUILD_NUMBER}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { background-color: #f4f4f4; padding: 20px; border-radius: 5px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .timestamp { color: #666; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>DevSecOps Security Dashboard</h1>
+        <p>Build #${BUILD_NUMBER} - Generated on $(date)</p>
+        <p>Jenkins Job: ${JOB_NAME}</p>
+        <p>Git Commit: ${GIT_COMMIT}</p>
+    </div>
+    
+    <div class="section success">
+        <h2>✅ Pipeline Status</h2>
+        <p>Build completed successfully with security scans</p>
+        <p>Image: ${REGISTRY}/${IMAGE_NAME}:${TAG}</p>
+    </div>
+    
+    <div class="section">
+        <h2>📊 Security Scan Results</h2>
+        <p>Filesystem and container image scanned for vulnerabilities</p>
+        <ul>
+            <li>Trivy Filesystem Scan: Available in build artifacts</li>
+            <li>Trivy Image Scan: Available in build artifacts</li>
+            <li>SonarQube Analysis: Check SonarQube dashboard</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>🔗 Links</h2>
+        <ul>
+            <li><a href="${BUILD_URL}">Jenkins Build</a></li>
+            <li><a href="${SONAR_HOST_URL}/dashboard?id=${SONAR_PROJECT_KEY}">SonarQube Project</a></li>
+            <li><a href="http://grafana.local">Grafana Dashboard</a></li>
+        </ul>
+    </div>
+    
+    <div class="timestamp">
+        Report generated at $(date)
+    </div>
+</body>
+</html>
+EOL
+                        
+                        echo "Security dashboard generated"
+                    '''
                     
-                    // Wait for rollout to complete
-                    sh """
-                        python3 << 'EOF'
-import time
-from kubernetes import client, config
-
-config.load_incluster_config()
-apps_v1 = client.AppsV1Api()
-
-deployment_name = "flask-app"
-namespace = "flask-app"
-
-# Wait for rollout to complete
-for i in range(30):  # 5 minute timeout
-    deployment = apps_v1.read_namespaced_deployment(name=deployment_name, namespace=namespace)
-    if (deployment.status.ready_replicas == deployment.spec.replicas and 
-        deployment.status.updated_replicas == deployment.spec.replicas):
-        print("Deployment rollout completed successfully")
-        break
-    time.sleep(10)
-else:
-    print("Deployment rollout timed out")
-    exit(1)
-EOF
-                    """
+                    archiveArtifacts artifacts: 'security/reports/security-dashboard.html', allowEmptyArchive: true
                 }
             }
         }
@@ -298,7 +202,22 @@ EOF
 
     post {
         always {
-            echo 'Pipeline finished.'
+            echo 'Pipeline execution completed'
+            
+            // Clean up any temporary files
+            sh 'rm -f kaniko-job.yaml || true'
+        }
+        
+        success {
+            echo '✅ Pipeline completed successfully!'
+        }
+        
+        failure {
+            echo '❌ Pipeline failed. Check the logs for details.'
+        }
+        
+        unstable {
+            echo '⚠️ Pipeline completed with warnings.'
         }
     }
 }
