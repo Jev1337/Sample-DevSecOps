@@ -2,12 +2,11 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY = 'localhost:32000' // MicroK8s registry
+        REGISTRY = 'your-docker-registry' // Replace with your Docker registry
         IMAGE_NAME = 'flask-k8s-app'
         TAG = "build-${env.BUILD_NUMBER}"
         SONAR_HOST_URL = "http://sonarqube.local"
         SONAR_PROJECT_KEY = "flask-k8s-devsecops"
-        DOCKER_BUILDKIT = '1'
     }
 
     stages {
@@ -17,17 +16,23 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies & Run Tests') {
+        stage('Install Dependencies') {
             steps {
                 script {
-                    // Use Docker to run Python commands in a Python container
-                    sh '''
-                        docker run --rm -v "${WORKSPACE}/app:/workspace" -w /workspace python:3.11-alpine sh -c "
-                            pip install --upgrade pip && \
-                            pip install -r requirements.txt && \
-                            python -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --junitxml=test-results.xml
-                        "
-                    '''
+                    dir('app') {
+                        sh 'python -m pip install --upgrade pip'
+                        sh 'python -m pip install -r requirements.txt'
+                    }
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                script {
+                    dir('app') {
+                        sh 'python -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --junitxml=test-results.xml'
+                    }
                 }
             }
             post {
@@ -40,15 +45,14 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                script {
-                    // Run SonarQube analysis using Docker
+                withSonarQubeEnv('SonarQube') {
                     sh '''
-                        docker run --rm -v "${WORKSPACE}:/usr/src" sonarsource/sonar-scanner-cli:latest \
-                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                            -Dsonar.sources=./app \
-                            -Dsonar.host.url=${SONAR_HOST_URL} \
-                            -Dsonar.login=${SONAR_TOKEN} \
-                            -Dsonar.python.coverage.reportPaths=app/coverage.xml
+                    sonar-scanner \
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                        -Dsonar.sources=./app \
+                        -Dsonar.host.url=${SONAR_HOST_URL} \
+                        -Dsonar.login=${SONAR_TOKEN} \
+                        -Dsonar.python.coverage.reportPaths=app/coverage.xml
                     '''
                 }
             }
@@ -56,14 +60,7 @@ pipeline {
 
         stage('Trivy FS Scan') {
             steps {
-                script {
-                    // Use Trivy Docker image for filesystem scanning
-                    sh '''
-                        docker run --rm -v "${WORKSPACE}:/workspace" -w /workspace \
-                            aquasec/trivy:latest fs --format table -o trivy-fs-report.txt \
-                            --severity HIGH,CRITICAL .
-                    '''
-                }
+                sh "trivy fs --format table -o trivy-fs-report.txt --severity HIGH,CRITICAL ."
                 archiveArtifacts artifacts: 'trivy-fs-report.txt', allowEmptyArchive: true
             }
         }
@@ -72,16 +69,9 @@ pipeline {
             steps {
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
-                    
-                    // Build the Docker image
                     sh "docker build -t ${fullImageName} ./app"
-                    
-                    // Tag as latest
-                    sh "docker tag ${fullImageName} ${env.REGISTRY}/${env.IMAGE_NAME}:latest"
-                    
-                    // Push to MicroK8s registry (if registry is enabled)
+                    // Assuming Docker credentials are configured on the Jenkins agent
                     sh "docker push ${fullImageName}"
-                    sh "docker push ${env.REGISTRY}/${env.IMAGE_NAME}:latest"
                 }
             }
         }
@@ -90,12 +80,7 @@ pipeline {
             steps {
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
-                    
-                    // Use Trivy Docker image for image scanning
-                    sh '''
-                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-                            aquasec/trivy:latest image --format table -o trivy-image-report.txt \
-                            --severity HIGH,CRITICAL ''' + fullImageName
+                    sh "trivy image --format table -o trivy-image-report.txt --severity HIGH,CRITICAL ${fullImageName}"
                 }
                 archiveArtifacts artifacts: 'trivy-image-report.txt', allowEmptyArchive: true
             }
@@ -104,17 +89,9 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // Update the image tag in deployment
-                    def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
-                    
-                    // Apply Kubernetes manifests
-                    sh 'kubectl apply -f k8s/'
-                    
-                    // Update the deployment with new image
-                    sh "kubectl set image deployment/flask-app flask-app=${fullImageName} -n flask-app"
-                    
-                    // Wait for rollout to complete
-                    sh 'kubectl rollout status deployment/flask-app -n flask-app --timeout=300s'
+                    // Assuming kubeconfig is set up on the Jenkins agent
+                    sh 'microk8s kubectl apply -f k8s/'
+                    sh 'microk8s kubectl rollout status deployment/flask-app -n flask-app --timeout=300s'
                 }
             }
         }
