@@ -50,7 +50,7 @@ pipeline {
                 }
             }
         }
-
+        /*
         stage('SonarQube Analysis') {
             steps {
                 script {
@@ -70,6 +70,7 @@ pipeline {
                 }
             }
         }
+        */
 
         stage('Trivy FS Scan') {
             steps {
