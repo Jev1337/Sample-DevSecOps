@@ -107,16 +107,14 @@ config.load_incluster_config()
 batch_v1 = client.BatchV1Api()
 v1 = client.CoreV1Api()
 
-# Prepare git URL for Kaniko (remove git:// prefix if URL already has protocol)
+# Use git clone approach instead of direct git:// context
 git_url = "${gitUrl}"
-if git_url.startswith("https://") or git_url.startswith("http://"):
-    kaniko_context = git_url + "#${gitCommit}"
-else:
-    kaniko_context = "git://" + git_url + "#${gitCommit}"
+git_commit = "${gitCommit}"
 
-print(f"Using Kaniko context: {kaniko_context}")
+print(f"Git URL: {git_url}")
+print(f"Git Commit: {git_commit}")
 
-# Job manifest
+# Job manifest with git clone initContainer
 job_manifest = {
     'apiVersion': 'batch/v1',
     'kind': 'Job',
@@ -128,18 +126,35 @@ job_manifest = {
         'template': {
             'spec': {
                 'restartPolicy': 'Never',
+                'initContainers': [{
+                    'name': 'git-clone',
+                    'image': 'alpine/git:latest',
+                    'command': ['sh', '-c'],
+                    'args': [f'git clone {git_url} /workspace && cd /workspace && git checkout {git_commit}'],
+                    'volumeMounts': [{
+                        'name': 'workspace',
+                        'mountPath': '/workspace'
+                    }]
+                }],
                 'containers': [{
                     'name': 'kaniko',
                     'image': 'gcr.io/kaniko-project/executor:latest',
                     'args': [
-                        f'--context={kaniko_context}',
-                        '--context-sub-path=app',
-                        '--dockerfile=app/Dockerfile',
+                        '--context=/workspace/app',
+                        '--dockerfile=/workspace/app/Dockerfile',
                         '--destination=${fullImageName}',
                         '--insecure',
                         '--skip-tls-verify',
                         '--verbosity=info'
-                    ]
+                    ],
+                    'volumeMounts': [{
+                        'name': 'workspace',
+                        'mountPath': '/workspace'
+                    }]
+                }],
+                'volumes': [{
+                    'name': 'workspace',
+                    'emptyDir': {}
                 }]
             }
         }
