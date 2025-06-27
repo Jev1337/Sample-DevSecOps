@@ -24,3 +24,7 @@ podSecurityContext:
 deployment:
   strategy:
     type: "Recreate"
+
+# Unset edition and enable community edition
+community:
+  enabled: true

@@ -39,11 +39,7 @@ sed -i 's|localhost:32000/flask-k8s-app:latest|flask-k8s-app:latest|g' k8s/deplo
 echo "❌ Removing local Docker images..."
 docker rmi flask-k8s-app:latest localhost:32000/flask-k8s-app:latest || true
 
-# --- 4. Remove Helm configurations ---
-echo "Removing Helm values directory..."
-rm -rf helm || true
-
-# --- 5. Remove Helm Repositories ---
+# --- 4. Remove Helm Repositories ---
 echo "Removing Jenkins Helm repo..."
 microk8s helm3 repo remove jenkins || true
 echo "Removing SonarQube Helm repo..."
