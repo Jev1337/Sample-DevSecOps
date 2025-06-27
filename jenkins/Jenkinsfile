@@ -78,14 +78,15 @@ pipeline {
             steps {
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
+                    def buildNumber = env.BUILD_NUMBER
+                    def workspace = env.WORKSPACE
                     
                     // Create Kaniko build job
-                    sh """
-cat > kaniko-job.yaml << 'YAML'
+                    writeFile file: 'kaniko-job.yaml', text: """
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: build-${env.BUILD_NUMBER}
+  name: build-${buildNumber}
   namespace: jenkins
 spec:
   template:
@@ -100,16 +101,16 @@ spec:
         - "--destination=${fullImageName}"
         - "--insecure"
         - "--skip-tls-verify"
-        - "--verbosity=debug"
         volumeMounts:
         - name: workspace
           mountPath: /workspace
       volumes:
       - name: workspace
         hostPath:
-          path: ${env.WORKSPACE}
-YAML
-
+          path: ${workspace}
+"""
+                    
+                    sh '''
 python3 -c "
 from kubernetes import client, config, utils
 import yaml
@@ -123,9 +124,9 @@ with open('kaniko-job.yaml', 'r') as f:
 utils.create_from_dict(k8s_client, job_manifest)
 print('Kaniko build job created')
 "
-                    """
+                    '''
                     
-                    // Check job and pod status with detailed logging
+                    // Wait for job completion
                     sh """
 python3 -c "
 import time
@@ -135,33 +136,38 @@ config.load_incluster_config()
 batch_v1 = client.BatchV1Api()
 v1 = client.CoreV1Api()
 
-job_name = 'build-${env.BUILD_NUMBER}'
+job_name = 'build-${buildNumber}'
 namespace = 'jenkins'
 
 print('Waiting for build job to complete...')
-for i in range(20):  # 200 seconds timeout
+for i in range(60):  # 10 minute timeout
     try:
-        # Check job status
         job = batch_v1.read_namespaced_job(name=job_name, namespace=namespace)
-        print(f'Iteration {i+1}: Job status - Active: {job.status.active}, Succeeded: {job.status.succeeded}, Failed: {job.status.failed}')
         
-        # Check pod status
+        # Check pod logs for debugging
         pods = v1.list_namespaced_pod(namespace=namespace, label_selector=f'job-name={job_name}')
-        for pod in pods.items:
-            print(f'Pod {pod.metadata.name} status: {pod.status.phase}')
-            if pod.status.container_statuses:
-                for container in pod.status.container_statuses:
-                    print(f'Container {container.name}: ready={container.ready}, state={container.state}')
-        
+        if pods.items:
+            pod_name = pods.items[0].metadata.name
+            print(f'Kaniko pod: {pod_name}')
+            
         if job.status.conditions:
             for condition in job.status.conditions:
-                print(f'Job condition: {condition.type} = {condition.status}')
                 if condition.type == 'Complete' and condition.status == 'True':
                     print('Build job completed successfully')
                     exit(0)
                 elif condition.type == 'Failed' and condition.status == 'True':
                     print('Build job failed')
+                    # Get pod logs for debugging
+                    if pods.items:
+                        try:
+                            logs = v1.read_namespaced_pod_log(name=pod_name, namespace=namespace)
+                            print('Pod logs:')
+                            print(logs[-2000:])  # Last 2000 chars
+                        except:
+                            pass
                     exit(1)
+        
+        print(f'Waiting... (attempt {i+1}/60)')
         time.sleep(10)
     except Exception as e:
         print(f'Error checking job status: {e}')
@@ -181,10 +187,11 @@ config.load_incluster_config()
 batch_v1 = client.BatchV1Api()
 
 try:
-    batch_v1.delete_namespaced_job(name='build-${env.BUILD_NUMBER}', namespace='jenkins')
+    batch_v1.delete_namespaced_job(name='build-${buildNumber}', namespace='jenkins', 
+                                  body=client.V1DeleteOptions(propagation_policy='Foreground'))
     print('Cleanup: Build job deleted')
-except:
-    pass
+except Exception as e:
+    print(f'Cleanup error: {e}')
 "
                     """
                 }
