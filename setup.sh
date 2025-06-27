@@ -152,9 +152,9 @@ else
 fi
 
 # Deploy Trivy Operator
-if ! microk8s helm3 status trivy -n trivy-system &> /dev/null; then
+if ! microk8s helm3 status trivy-operator -n trivy-system &> /dev/null; then
     echo "Deploying Trivy Operator via Helm..."
-    microk8s helm3 install trivy aquasecurity/trivy -n trivy-system -f helm/trivy/values.yaml
+    microk8s helm3 install trivy-operator aquasecurity/trivy-operator -n trivy-system
 else
     echo "✅ Trivy Operator is already deployed."
 fi

@@ -5,48 +5,116 @@ set -e
 echo "🧹 DevSecOps Cleanup Script (MicroK8s installation preserved)"
 echo "=============================================================="
 
-# --- 1. Remove Jenkins and SonarQube ---
-echo "❌ Uninstalling Jenkins..."
-microk8s helm3 uninstall jenkins -n jenkins || true
-echo "Deleting Jenkins namespace..."
-microk8s kubectl delete ns jenkins --ignore-not-found
+# --- Function to remove Jenkins and SonarQube ---
+cleanup_core_services() {
+    echo "❌ Uninstalling Jenkins..."
+    microk8s helm3 uninstall jenkins -n jenkins || true
+    echo "Deleting Jenkins namespace..."
+    microk8s kubectl delete ns jenkins --ignore-not-found
 
-echo "❌ Uninstalling SonarQube..."
-microk8s helm3 uninstall sonarqube -n sonarqube || true
-echo "❌ Uninstalling PostgreSQL..."
-microk8s helm3 uninstall postgresql -n sonarqube || true
-echo "Deleting SonarQube PVCs..."
-microk8s kubectl delete pvc -n sonarqube --all || true
-echo "Deleting SonarQube namespace..."
-microk8s kubectl delete ns sonarqube --ignore-not-found
+    echo "❌ Uninstalling SonarQube..."
+    microk8s helm3 uninstall sonarqube -n sonarqube || true
+    echo "❌ Uninstalling PostgreSQL..."
+    microk8s helm3 uninstall postgresql -n sonarqube || true
+    echo "Deleting SonarQube PVCs..."
+    microk8s kubectl delete pvc -n sonarqube --all || true
+    echo "Deleting SonarQube namespace..."
+    microk8s kubectl delete ns sonarqube --ignore-not-found
+}
 
-# --- 2. Remove Monitoring Stack ---
-echo "❌ Uninstalling Loki..."
-microk8s helm3 uninstall loki -n monitoring || true
-echo "❌ Uninstalling Grafana..."
-microk8s helm3 uninstall grafana -n monitoring || true
-echo "❌ Uninstalling Alloy..."
-microk8s helm3 uninstall alloy -n monitoring || true
-echo "Deleting Monitoring namespace..."
-microk8s kubectl delete ns monitoring --ignore-not-found
+# --- Function to remove Monitoring Stack ---
+cleanup_monitoring() {
+    echo "❌ Uninstalling Loki..."
+    microk8s helm3 uninstall loki -n monitoring || true
+    echo "❌ Uninstalling Grafana..."
+    microk8s helm3 uninstall grafana -n monitoring || true
+    echo "❌ Uninstalling Alloy..."
+    microk8s helm3 uninstall alloy -n monitoring || true
+    echo "Deleting Monitoring namespace..."
+    microk8s kubectl delete ns monitoring --ignore-not-found
+}
 
-# --- 3. Remove Application Deployment ---
-echo "❌ Deleting Flask application resources..."
-microk8s kubectl delete -f k8s/ --ignore-not-found
-echo "Reverting image in deployment.yaml..."
-sed -i 's|localhost:32000/flask-k8s-app:latest|flask-k8s-app:latest|g' k8s/deployment.yaml || true
+# --- Function to remove Security Tools ---
+cleanup_security() {
+    echo "❌ Uninstalling Trivy Operator..."
+    microk8s helm3 uninstall trivy-operator -n trivy-system || true
+    echo "Deleting Trivy namespace..."
+    microk8s kubectl delete ns trivy-system --ignore-not-found
+}
 
-echo "❌ Removing local Docker images..."
-docker rmi flask-k8s-app:latest localhost:32000/flask-k8s-app:latest || true
+# --- Function to remove Application Deployment ---
+cleanup_application() {
+    echo "❌ Deleting Flask application resources..."
+    microk8s kubectl delete -f k8s/ --ignore-not-found
+    echo "Reverting image in deployment.yaml..."
+    sed -i 's|localhost:32000/flask-k8s-app:latest|flask-k8s-app:latest|g' k8s/deployment.yaml || true
 
-# --- 4. Remove Helm Repositories ---
-echo "Removing Jenkins Helm repo..."
-microk8s helm3 repo remove jenkins || true
-echo "Removing SonarQube Helm repo..."
-microk8s helm3 repo remove sonarqube || true
-echo "Removing Grafana Helm repo..."
-microk8s helm3 repo remove grafana || true
-echo "Removing Bitnami Helm repo..."
-microk8s helm3 repo remove bitnami || true
+    echo "❌ Removing local Docker images..."
+    docker rmi flask-k8s-app:latest localhost:32000/flask-k8s-app:latest || true
+}
 
-echo "✅ Cleanup completed! MicroK8s remains installed."
+# --- Function to remove Helm Repositories ---
+cleanup_repos() {
+    echo "Removing Jenkins Helm repo..."
+    microk8s helm3 repo remove jenkins || true
+    echo "Removing SonarQube Helm repo..."
+    microk8s helm3 repo remove sonarqube || true
+    echo "Removing Grafana Helm repo..."
+    microk8s helm3 repo remove grafana || true
+    echo "Removing Bitnami Helm repo..."
+    microk8s helm3 repo remove bitnami || true
+    echo "Removing Aqua Security Helm repo..."
+    microk8s helm3 repo remove aquasecurity || true
+}
+
+# --- Function to clean up everything ---
+cleanup_all() {
+    cleanup_core_services
+    cleanup_monitoring
+    cleanup_security
+    cleanup_application
+    cleanup_repos
+}
+
+# --- Main Menu ---
+while true; do
+    echo ""
+    echo "Select the cleanup action:"
+    echo "  1) Cleanup Core Services (Jenkins, SonarQube)"
+    echo "  2) Cleanup Monitoring Stack (Loki, Grafana, Alloy)"
+    echo "  3) Cleanup Security Tools (Trivy)"
+    echo "  4) Cleanup Application Deployment"
+    echo "  5) Cleanup ALL"
+    echo "  6) Exit"
+    read -p "Enter your choice [1-6]: " choice
+
+    case $choice in
+        1)
+            cleanup_core_services
+            echo "✅ Core services cleanup complete."
+            ;;
+        2)
+            cleanup_monitoring
+            echo "✅ Monitoring stack cleanup complete."
+            ;;
+        3)
+            cleanup_security
+            echo "✅ Security tools cleanup complete."
+            ;;
+        4)
+            cleanup_application
+            echo "✅ Application deployment cleanup complete."
+            ;;
+        5)
+            cleanup_all
+            echo "✅ Full cleanup completed! MicroK8s remains installed."
+            ;;
+        6)
+            echo "Exiting cleanup script."
+            exit 0
+            ;;
+        *)
+            echo "Invalid option. Please try again."
+            ;;
+    esac
+done
