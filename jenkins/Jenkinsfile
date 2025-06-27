@@ -5,8 +5,9 @@ pipeline {
         REGISTRY = 'your-docker-registry' // Replace with your Docker registry
         IMAGE_NAME = 'flask-k8s-app'
         TAG = "build-${env.BUILD_NUMBER}"
-        SONAR_HOST_URL = "http://sonarqube.local"
+        SONAR_HOST_URL = "http://10.152.183.26:9000" // SonarQube ClusterIP service in MicroK8s
         SONAR_PROJECT_KEY = "flask-k8s-devsecops"
+        SONAR_TOKEN = credentials('sonar-token') // Add SonarQube token from Jenkins credentials
     }
 
     stages {
@@ -46,15 +47,20 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh '''
-                    sonar-scanner \
-                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                        -Dsonar.sources=./app \
-                        -Dsonar.host.url=${SONAR_HOST_URL} \
-                        -Dsonar.login=${SONAR_TOKEN} \
-                        -Dsonar.python.coverage.reportPaths=app/coverage.xml
-                    '''
+                script {
+                    withSonarQubeEnv('SonarQube') {
+                        dir('app') {
+                            sh '''
+                            sonar-scanner \
+                                -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                -Dsonar.sources=. \
+                                -Dsonar.host.url=${SONAR_HOST_URL} \
+                                -Dsonar.login=${SONAR_TOKEN} \
+                                -Dsonar.python.coverage.reportPaths=coverage.xml \
+                                -Dsonar.python.xunit.reportPath=test-results.xml
+                            '''
+                        }
+                    }
                 }
             }
         }
