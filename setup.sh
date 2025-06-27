@@ -47,8 +47,19 @@ microk8s enable registry --size 20Gi
 echo "✅ Addons enabled."
 echo ""
 
-# --- 3. Deploy Core Services (Jenkins & SonarQube) ---
-echo "🚀 Step 3: Deploying Jenkins and SonarQube..."
+# --- 3. Build Custom Jenkins Image ---
+echo "🔨 Step 3: Building Custom Jenkins Image..."
+echo "Building Jenkins DevSecOps image..."
+cd jenkins
+docker build -t jenkins-devsecops:latest .
+docker tag jenkins-devsecops:latest localhost:32000/jenkins-devsecops:latest
+docker push localhost:32000/jenkins-devsecops:latest
+cd ..
+echo "✅ Custom Jenkins image built and pushed."
+echo ""
+
+# --- 4. Deploy Core Services (Jenkins & SonarQube) ---
+echo "🚀 Step 4: Deploying Jenkins and SonarQube..."
 
 # Create Namespaces
 echo "Creating namespaces..."
@@ -56,11 +67,16 @@ microk8s kubectl apply -f k8s/namespace.yaml
 microk8s kubectl get ns jenkins >/dev/null 2>&1 || microk8s kubectl create ns jenkins
 microk8s kubectl get ns sonarqube >/dev/null 2>&1 || microk8s kubectl create ns sonarqube
 
+# Add Helm repositories
+echo "Adding Helm repositories..."
+microk8s helm3 repo add jenkins https://charts.jenkins.io
+microk8s helm3 repo add bitnami https://charts.bitnami.com/bitnami
+microk8s helm3 repo add sonarqube https://SonarSource.github.io/helm-chart-sonarqube
+microk8s helm3 repo update
+
 # Deploy Jenkins
 if ! microk8s helm3 status jenkins -n jenkins &> /dev/null; then
     echo "Deploying Jenkins via Helm..."
-    microk8s helm3 repo add jenkins https://charts.jenkins.io
-    microk8s helm3 repo update
     microk8s helm3 install jenkins jenkins/jenkins -n jenkins -f helm/jenkins/values.yaml
 else
     echo "✅ Jenkins is already deployed."
@@ -69,8 +85,6 @@ fi
 # Deploy PostgreSQL for SonarQube
 if ! microk8s helm3 status postgresql -n sonarqube &> /dev/null; then
     echo "Deploying PostgreSQL via Helm..."
-    microk8s helm3 repo add bitnami https://charts.bitnami.com/bitnami
-    microk8s helm3 repo update
     microk8s helm3 install postgresql bitnami/postgresql -n sonarqube -f helm/postgresql/values.yaml
 else
     echo "✅ PostgreSQL is already deployed."
@@ -79,8 +93,6 @@ fi
 # Deploy SonarQube
 if ! microk8s helm3 status sonarqube -n sonarqube &> /dev/null; then
     echo "Deploying SonarQube via Helm..."
-    microk8s helm3 repo add sonarqube https://SonarSource.github.io/helm-chart-sonarqube
-    microk8s helm3 repo update
     microk8s helm3 install sonarqube sonarqube/sonarqube -n sonarqube -f helm/sonarqube/values.yaml
 else
     echo "✅ SonarQube is already deployed."
@@ -93,8 +105,8 @@ microk8s kubectl rollout status statefulset/sonarqube-sonarqube -n sonarqube --t
 echo "✅ Jenkins and SonarQube are ready."
 echo ""
 
-# --- 4. Deploy Monitoring Stack ---
-echo "📊 Step 4: Deploying Monitoring Stack via Helm..."
+# --- 5. Deploy Monitoring Stack ---
+echo "📊 Step 5: Deploying Monitoring Stack via Helm..."
 microk8s kubectl get ns monitoring >/dev/null 2>&1 || microk8s kubectl create ns monitoring
 
 # Add Grafana Helm Repo if not already added

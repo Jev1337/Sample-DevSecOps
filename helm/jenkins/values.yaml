@@ -1,4 +1,7 @@
 controller:
+  image: "localhost:32000/jenkins-devsecops"
+  tag: "latest"
+  imagePullPolicy: "Always"
   ingress:
     enabled: true
     hostName: jenkins.local
@@ -20,6 +23,16 @@ controller:
   sidecars:
     configAutoReload:
       enabled: false
+  # Mount Docker socket for Docker builds
+  extraVolumes:
+    - name: docker-sock
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket
+  extraVolumeMounts:
+    - name: docker-sock
+      mountPath: /var/run/docker.sock
+      readOnly: false
 persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"
