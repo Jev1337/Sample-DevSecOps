@@ -38,7 +38,8 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     flask \
     requests \
     coverage \
-    kubernetes
+    kubernetes \
+    pyyaml
 
 # Switch back to jenkins user
 USER jenkins

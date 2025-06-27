@@ -74,97 +74,104 @@ pipeline {
             }
         }
 
-        stage('Build & Deploy via Kubernetes') {
+        stage('Build & Push Image') {
             steps {
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
                     
-                    // Create BuildKit job to build and push image
+                    // Create Kaniko build job
                     sh """
-                        python3 << 'EOF'
-import os
-from kubernetes import client, config
+cat > kaniko-job.yaml << 'YAML'
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: build-${env.BUILD_NUMBER}
+  namespace: jenkins
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: kaniko
+        image: gcr.io/kaniko-project/executor:latest
+        args:
+        - "--context=dir:///workspace/app"
+        - "--dockerfile=/workspace/app/Dockerfile"
+        - "--destination=${fullImageName}"
+        - "--insecure"
+        - "--skip-tls-verify"
+        volumeMounts:
+        - name: workspace
+          mountPath: /workspace
+      volumes:
+      - name: workspace
+        hostPath:
+          path: ${env.WORKSPACE}
+YAML
 
-# Load in-cluster config
+python3 -c "
+from kubernetes import client, config, utils
+import yaml
+
 config.load_incluster_config()
+k8s_client = client.ApiClient()
 
-# Create Kubernetes API client
-v1 = client.CoreV1Api()
-batch_v1 = client.BatchV1Api()
+with open('kaniko-job.yaml', 'r') as f:
+    job_manifest = yaml.safe_load(f)
 
-# Define BuildKit job
-job_manifest = {
-    "apiVersion": "batch/v1",
-    "kind": "Job",
-    "metadata": {
-        "name": "build-${env.BUILD_NUMBER}",
-        "namespace": "jenkins"
-    },
-    "spec": {
-        "template": {
-            "spec": {
-                "restartPolicy": "Never",
-                "containers": [{
-                    "name": "buildkit",
-                    "image": "moby/buildkit:latest",
-                    "command": ["buildctl-daemonless.sh"],
-                    "args": [
-                        "build",
-                        "--frontend", "dockerfile.v0",
-                        "--local", "context=/workspace",
-                        "--local", "dockerfile=/workspace",
-                        "--output", "type=image,name=${fullImageName},push=true"
-                    ],
-                    "volumeMounts": [{
-                        "name": "workspace",
-                        "mountPath": "/workspace"
-                    }],
-                    "securityContext": {
-                        "privileged": True
-                    }
-                }],
-                "volumes": [{
-                    "name": "workspace",
-                    "hostPath": {
-                        "path": "${env.WORKSPACE}/app"
-                    }
-                }]
-            }
-        }
-    }
-}
-
-# Create the job
-batch_v1.create_namespaced_job(namespace="jenkins", body=job_manifest)
-print("Build job created successfully")
-EOF
+utils.create_from_dict(k8s_client, job_manifest)
+print('Kaniko build job created')
+"
                     """
                     
-                    // Wait for build job to complete
+                    // Wait for job completion
                     sh """
-                        python3 << 'EOF'
+python3 -c "
 import time
 from kubernetes import client, config
 
 config.load_incluster_config()
 batch_v1 = client.BatchV1Api()
 
-job_name = "build-${env.BUILD_NUMBER}"
-namespace = "jenkins"
+job_name = 'build-${env.BUILD_NUMBER}'
+namespace = 'jenkins'
 
-# Wait for job completion
-while True:
-    job = batch_v1.read_namespaced_job(name=job_name, namespace=namespace)
-    if job.status.conditions:
-        for condition in job.status.conditions:
-            if condition.type == "Complete" and condition.status == "True":
-                print("Build job completed successfully")
-                exit(0)
-            elif condition.type == "Failed" and condition.status == "True":
-                print("Build job failed")
-                exit(1)
-    time.sleep(10)
-EOF
+print('Waiting for build job to complete...')
+for i in range(60):  # 10 minute timeout
+    try:
+        job = batch_v1.read_namespaced_job(name=job_name, namespace=namespace)
+        if job.status.conditions:
+            for condition in job.status.conditions:
+                if condition.type == 'Complete' and condition.status == 'True':
+                    print('Build job completed successfully')
+                    exit(0)
+                elif condition.type == 'Failed' and condition.status == 'True':
+                    print('Build job failed')
+                    exit(1)
+        time.sleep(10)
+    except Exception as e:
+        print(f'Error checking job status: {e}')
+        time.sleep(10)
+
+print('Build job timed out')
+exit(1)
+"
+                    """
+                    
+                    // Cleanup job
+                    sh """
+python3 -c "
+from kubernetes import client, config
+
+config.load_incluster_config()
+batch_v1 = client.BatchV1Api()
+
+try:
+    batch_v1.delete_namespaced_job(name='build-${env.BUILD_NUMBER}', namespace='jenkins')
+    print('Cleanup: Build job deleted')
+except:
+    pass
+"
                     """
                 }
             }
