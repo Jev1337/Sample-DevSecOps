@@ -9,10 +9,6 @@ pipeline {
         SONAR_PROJECT_KEY = "flask-k8s-devsecops"
     }
 
-    tools {
-        python 'python3'
-    }
-
     stages {
         stage('Checkout SCM') {
             steps {
@@ -20,22 +16,16 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies') {
-            steps {
-                script {
-                    dir('app') {
-                        sh 'python3 -m pip install --upgrade pip'
-                        sh 'python3 -m pip install -r requirements.txt'
-                    }
-                }
+        stage('Build and Test') {
+            agent {
+                docker { image 'python:3.9-slim' }
             }
-        }
-
-        stage('Run Tests') {
             steps {
                 script {
                     dir('app') {
-                        sh 'python3 -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --junitxml=test-results.xml'
+                        sh 'python -m pip install --upgrade pip'
+                        sh 'python -m pip install -r requirements.txt'
+                        sh 'python -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --junitxml=test-results.xml'
                     }
                 }
             }
