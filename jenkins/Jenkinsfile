@@ -114,6 +114,22 @@ git_commit = "${gitCommit}"
 print(f"Git URL: {git_url}")
 print(f"Git Commit: {git_commit}")
 
+# For MicroK8s registry, use the host IP instead of localhost
+registry_address = "localhost:32000"
+# Try to use host.docker.internal or the actual cluster registry service
+cluster_registry = "registry.container-registry.svc.cluster.local:5000"
+full_image_name = "${fullImageName}"
+
+print(f"Original image name: {full_image_name}")
+
+# Replace localhost with cluster-accessible address
+if "localhost:32000" in full_image_name:
+    # Use the host network approach
+    cluster_image_name = full_image_name.replace("localhost:32000", "registry.container-registry.svc.cluster.local:5000")
+    print(f"Cluster image name: {cluster_image_name}")
+else:
+    cluster_image_name = full_image_name
+
 # Job manifest with git clone initContainer
 job_manifest = {
     'apiVersion': 'batch/v1',
@@ -126,6 +142,7 @@ job_manifest = {
         'template': {
             'spec': {
                 'restartPolicy': 'Never',
+                'hostNetwork': True,  # Use host network to access localhost:32000
                 'initContainers': [{
                     'name': 'git-clone',
                     'image': 'alpine/git:latest',
@@ -142,9 +159,10 @@ job_manifest = {
                     'args': [
                         '--context=/workspace/app',
                         '--dockerfile=/workspace/app/Dockerfile',
-                        '--destination=${fullImageName}',
+                        f'--destination={full_image_name}',
                         '--insecure',
                         '--skip-tls-verify',
+                        '--skip-push-permission-check',
                         '--verbosity=info'
                     ],
                     'volumeMounts': [{
