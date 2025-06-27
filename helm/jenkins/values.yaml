@@ -8,6 +8,9 @@ controller:
   podSecurityContext:
     fsGroup: 1000
     runAsUser: 1000
+  dnsConfig:
+    nameservers:
+      - "8.8.8.8"
   sidecars:
     configAutoReload:
       enabled: false
