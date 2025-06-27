@@ -115,16 +115,6 @@ spec:
             name: jenkins
             port:
               number: 8080
-  - host: ${EXTERNAL_IP}
-    http:
-      paths:
-      - path: /jenkins
-        pathType: Prefix
-        backend:
-          service:
-            name: jenkins
-            port:
-              number: 8080
 EOF
 
 # Update SonarQube ingress
@@ -143,16 +133,6 @@ spec:
     http:
       paths:
       - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: sonarqube
-            port:
-              number: 9000
-  - host: ${EXTERNAL_IP}
-    http:
-      paths:
-      - path: /sonarqube
         pathType: Prefix
         backend:
           service:
@@ -183,16 +163,6 @@ spec:
             name: grafana
             port:
               number: 3000
-  - host: ${EXTERNAL_IP}
-    http:
-      paths:
-      - path: /grafana
-        pathType: Prefix
-        backend:
-          service:
-            name: grafana
-            port:
-              number: 3000
 EOF
 
 # Update Flask App ingress
@@ -217,16 +187,46 @@ spec:
             name: flask-app
             port:
               number: 5000
-  - host: ${EXTERNAL_IP}
-    http:
-      paths:
-      - path: /app
-        pathType: Prefix
-        backend:
-          service:
-            name: flask-app
-            port:
-              number: 5000
+EOF
+
+echo "✅ External ingress configurations created"
+echo ""
+
+# Wait for services to be ready
+echo "⏳ Waiting for services to get external IPs..."
+sleep 30
+
+# Display access information
+echo ""
+echo "🌐 EXTERNAL ACCESS INFORMATION"
+echo "============================="
+echo ""
+echo "🔗 Access your services via these URLs:"
+echo ""
+echo "📊 **Using nip.io domains (recommended):**"
+echo "   - Jenkins:   http://jenkins.${EXTERNAL_IP}.nip.io"
+echo "   - SonarQube: http://sonarqube.${EXTERNAL_IP}.nip.io"
+echo "   - Grafana:   http://grafana.${EXTERNAL_IP}.nip.io"
+echo "   - Flask App: http://app.${EXTERNAL_IP}.nip.io"
+echo ""
+echo "🌐 **Using LoadBalancer IPs (check table below):**"
+echo "   - Access services directly via their assigned external IPs"
+echo ""
+
+# Check LoadBalancer external IPs
+echo "📋 **LoadBalancer External IPs:**"
+microk8s kubectl get svc -A --field-selector spec.type=LoadBalancer
+
+echo ""
+echo "🛡️ **Security Notes:**"
+echo "   - Ensure Azure NSG allows inbound traffic on ports 80, 443, 8080, 9000, 3000, 5000"
+echo "   - Consider setting up SSL/TLS certificates for production use"
+echo "   - Default credentials:"
+echo "     • Jenkins: admin / (check output above for password)"
+echo "     • SonarQube: admin / admin"
+echo "     • Grafana: admin / admin123"
+echo ""
+echo "✅ External access configuration completed!"
 EOF
 
 echo "✅ External ingress configurations created"
