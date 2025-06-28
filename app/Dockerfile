@@ -1,5 +1,9 @@
 FROM python:3.11-alpine
 
+# Build arguments for cache busting and version info
+ARG BUILD_DATE
+ARG GIT_COMMIT
+
 WORKDIR /app
 
 RUN addgroup -g 1001 -S appgroup && \
@@ -9,6 +13,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+# Add build info to a file for debugging
+RUN echo "Build Date: $BUILD_DATE" > /app/build-info.txt && \
+    echo "Git Commit: $GIT_COMMIT" >> /app/build-info.txt && \
+    echo "Build Timestamp: $(date)" >> /app/build-info.txt
 
 RUN chown -R appuser:appgroup /app
 
