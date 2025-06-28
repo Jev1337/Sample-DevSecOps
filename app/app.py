@@ -96,6 +96,7 @@ def home():
     <body>
         <div class="container">
             <h1>🚀 Flask K8s DevSecOps Demo</h1>
+            <h2> Version 1.0.0</h2>
             <p class="status">✅ Application is running successfully!</p>
             
             <div class="api-section">
