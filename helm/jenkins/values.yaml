@@ -1,13 +1,12 @@
 controller:
+
   image:
     registry: "localhost:32000"
     repository: "jenkins-devsecops"
     tag: "latest"
     pullPolicy: "Always"
+  # Disable plugin installation since our custom image already contains plugins
   installPlugins: false
- 
-  jenkinsUrlProtocol: "http"
-  jenkinsUriPrefix: "/"
   ingress:
     enabled: true
     hostName: jenkins.local
@@ -15,10 +14,10 @@ controller:
     annotations:
       nginx.ingress.kubernetes.io/ssl-redirect: "false"
       nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
-  servicePort: 8080
   jenkinsUrl: http://jenkins.local/
-  serviceType: ClusterIP
-  nodePort: 30080
+  # External access service configuration
+  # nodePort: 30080
+  # Run as root to allow k8s API access
   podSecurityContext:
     runAsUser: 0
     runAsNonRoot: false
@@ -40,7 +39,6 @@ persistence:
 # Authentication and security configuration
 serviceAccount:
   create: true
-  annotations: {}
 
 # Enable RBAC with cluster-admin permissions
 rbac:
