@@ -107,30 +107,6 @@ config.load_incluster_config()
 batch_v1 = client.BatchV1Api()
 v1 = client.CoreV1Api()
 
-# Cleanup old kaniko jobs (keep only last 3)
-try:
-    jobs = batch_v1.list_namespaced_job(namespace='jenkins')
-    kaniko_jobs = [job for job in jobs.items if job.metadata.name.startswith('kaniko-build-')]
-    
-    # Sort by creation time (newest first)
-    kaniko_jobs.sort(key=lambda x: x.metadata.creation_timestamp, reverse=True)
-    
-    # Delete jobs older than the last 3
-    if len(kaniko_jobs) > 3:
-        old_jobs = kaniko_jobs[3:]
-        print(f"Cleaning up {len(old_jobs)} old kaniko jobs...")
-        for job in old_jobs:
-            try:
-                batch_v1.delete_namespaced_job(name=job.metadata.name, namespace='jenkins')
-                print(f"  Deleted job: {job.metadata.name}")
-            except Exception as e:
-                print(f"  Failed to delete {job.metadata.name}: {e}")
-    else:
-        print(f"Found {len(kaniko_jobs)} kaniko jobs, no cleanup needed")
-        
-except Exception as e:
-    print(f"Failed to cleanup old jobs: {e}")
-
 # Use git clone approach instead of direct git:// context
 git_url = "${gitUrl}"
 git_commit = "${gitCommit}"
@@ -160,7 +136,10 @@ job_manifest = {
     'kind': 'Job',
     'metadata': {
         'name': 'kaniko-build-${buildNumber}',
-        'namespace': 'jenkins'
+        'namespace': 'jenkins',
+        'labels': {
+            'app': 'kaniko-build'
+        }
     },
     'spec': {
         'template': {
@@ -206,6 +185,39 @@ job_manifest = {
         }
     }
 }
+
+# Cleanup old Kaniko build jobs (keep only last 3)
+print("Cleaning up old Kaniko build jobs...")
+try:
+    jobs = batch_v1.list_namespaced_job(namespace='jenkins', label_selector='app=kaniko-build')
+    kaniko_jobs = [j for j in jobs.items if j.metadata.name.startswith('kaniko-build-')]
+    
+    # Sort by build number (extract from job name)
+    def get_build_number(job_name):
+        try:
+            return int(job_name.split('-')[-1])
+        except:
+            return 0
+    
+    kaniko_jobs.sort(key=lambda j: get_build_number(j.metadata.name), reverse=True)
+    
+    # Delete all but the last 3 (including current build which will be created)
+    jobs_to_delete = kaniko_jobs[2:]  # Keep 2 old ones + current one = 3 total
+    
+    for job in jobs_to_delete:
+        try:
+            print(f"Deleting old job: {job.metadata.name}")
+            batch_v1.delete_namespaced_job(name=job.metadata.name, namespace='jenkins')
+        except Exception as e:
+            print(f"Could not delete job {job.metadata.name}: {e}")
+    
+    if jobs_to_delete:
+        print(f"Cleaned up {len(jobs_to_delete)} old Kaniko build jobs")
+    else:
+        print("No old jobs to clean up")
+        
+except Exception as e:
+    print(f"Error during cleanup: {e}")
 
 print("Creating Kaniko build job...")
 try:
