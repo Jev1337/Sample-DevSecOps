@@ -463,6 +463,8 @@ PYEOF
             steps {
                 script {
                     def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
+                    def buildNumber = env.BUILD_NUMBER
+                    def gitCommit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
                     
                     // Update deployment using Python Kubernetes API
                     sh """
@@ -478,6 +480,8 @@ apps_v1 = client.AppsV1Api()
 v1 = client.CoreV1Api()
 
 print("Updating deployment with new image: ${fullImageName}")
+print("Build number: ${buildNumber}")
+print("Git commit: ${gitCommit}")
 
 try:
     # Read current deployment
@@ -490,6 +494,25 @@ try:
     
     # Update the image
     deployment.spec.template.spec.containers[0].image = "${fullImageName}"
+    
+    # Add build environment variables to the container
+    if not hasattr(deployment.spec.template.spec.containers[0], 'env') or deployment.spec.template.spec.containers[0].env is None:
+        deployment.spec.template.spec.containers[0].env = []
+    
+    # Remove existing build-related env vars to avoid duplicates
+    deployment.spec.template.spec.containers[0].env = [
+        env for env in deployment.spec.template.spec.containers[0].env 
+        if env.name not in ['BUILD_NUMBER', 'GIT_COMMIT', 'IMAGE_TAG']
+    ]
+    
+    # Add new build environment variables
+    from kubernetes.client.models import V1EnvVar
+    build_env_vars = [
+        V1EnvVar(name="BUILD_NUMBER", value="${buildNumber}"),
+        V1EnvVar(name="GIT_COMMIT", value="${gitCommit}"),
+        V1EnvVar(name="IMAGE_TAG", value="${fullImageName.split(':')[-1]}")
+    ]
+    deployment.spec.template.spec.containers[0].env.extend(build_env_vars)
     
     # Force pods to be recreated by updating a timestamp annotation
     import time
