@@ -483,19 +483,8 @@ try:
     # Read current deployment
     deployment = apps_v1.read_namespaced_deployment(name="flask-app", namespace="flask-app")
     
-    # Show current image
-    current_image = deployment.spec.template.spec.containers[0].image
-    print(f"Current image: {current_image}")
-    print(f"New image: ${fullImageName}")
-    
     # Update the image
     deployment.spec.template.spec.containers[0].image = "${fullImageName}"
-    
-    # Force pods to be recreated by updating a timestamp annotation
-    import time
-    if not deployment.spec.template.metadata.annotations:
-        deployment.spec.template.metadata.annotations = {}
-    deployment.spec.template.metadata.annotations['deployment.kubernetes.io/restart'] = str(int(time.time()))
     
     # Apply the update
     apps_v1.patch_namespaced_deployment(
@@ -520,23 +509,11 @@ try:
             if (ready_replicas == desired_replicas and updated_replicas == desired_replicas):
                 print("✅ Deployment rollout completed successfully")
                 
-                # Show pod status with detailed info
+                # Show pod status
                 pods = v1.list_namespaced_pod(namespace="flask-app", label_selector="app=flask-app")
                 print("Pod status:")
                 for pod in pods.items:
-                    pod_image = pod.spec.containers[0].image if pod.spec.containers else "unknown"
-                    print(f"  {pod.metadata.name}: {pod.status.phase} - Image: {pod_image}")
-                
-                # Verify the actual running image matches what we deployed
-                running_images = set()
-                for pod in pods.items:
-                    if pod.spec.containers:
-                        running_images.add(pod.spec.containers[0].image)
-                
-                if "${fullImageName}" in running_images:
-                    print(f"✅ Verified: Pods are running the new image: ${fullImageName}")
-                else:
-                    print(f"⚠️  Warning: Expected image ${fullImageName} but found: {running_images}")
+                    print(f"  {pod.metadata.name}: {pod.status.phase}")
                 
                 print(f"Deployment updated successfully with image: ${fullImageName}")
                 exit(0)
