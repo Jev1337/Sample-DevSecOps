@@ -25,6 +25,7 @@ pipeline {
                         . venv/bin/activate
                         python -m pip install --upgrade pip
                         python -m pip install -r requirements.txt
+                        python -m pip install coverage pytest-cov
                     '''
                 }
             }
@@ -54,11 +55,11 @@ pipeline {
             steps {
                 dir('app') {
                     sh '''
-                        # Install dependencies for coverage
-                        python3 -m pip install --user coverage pytest-cov
+                        # Activate virtual environment
+                        . venv/bin/activate
                         
                         # Run tests with coverage
-                        python3 -m pytest tests/ --cov=. --cov-report=xml --junitxml=test-results.xml
+                        python -m pytest tests/ --cov=. --cov-report=xml --junitxml=test-results.xml
                         
                         # Run SonarQube analysis
                         sonar-scanner \
