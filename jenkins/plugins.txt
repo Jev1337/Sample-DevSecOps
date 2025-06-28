@@ -20,4 +20,3 @@ pam-auth
 ldap
 role-strategy
 configuration-as-code
-matrix-auth
