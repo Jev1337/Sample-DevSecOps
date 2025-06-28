@@ -1,7 +1,6 @@
 controller:
-  JCasC:
-    defaultConfig: false
-  disableSetupWizard: false      # make sure the wizard still runs
+  # Disable setup wizard since we're configuring security via JCasC
+  disableSetupWizard: true
 
   image:
     registry: "localhost:32000"
@@ -10,7 +9,8 @@ controller:
     pullPolicy: "Always"
   # Disable plugin installation since our custom image already contains plugins
   installPlugins: false
-  disableSetupWizard: false
+  # Disable setup wizard since we're configuring everything via JCasC
+  disableSetupWizard: true
 
   # Jenkins URL and security configuration
   jenkinsUrlProtocol: "http"
@@ -65,4 +65,76 @@ clusterRoleBinding:
 agent:
   enabled: true
   defaultsProviderTemplate: ""
+
+# Jenkins Configuration as Code
+JCasC:
+  # Enable default Jenkins configuration via configuration as code plugin
+  defaultConfig: true
+  
+  # Whether Jenkins Config as Code should overwrite any existing configuration
+  overwriteConfiguration: true
+  
+  # Jenkins Config as Code security-section
+  security:
+    # Enable script security
+    globalJobDslSecurityConfiguration:
+      useScriptSecurity: true
+    apiToken:
+      creationOfLegacyTokenEnabled: false
+      tokenGenerationOnCreationEnabled: false
+      usageStatisticsEnabled: true
+
+  # Jenkins Config as Code Security Realm-section (Jenkins' own user database)
+  securityRealm: |-
+    local:
+      allowsSignup: false
+      enableCaptcha: false
+      users:
+      - id: "${chart-admin-username}"
+        name: "Jenkins Admin"
+        password: "${chart-admin-password}"
+
+  # Jenkins Config as Code Authorization Strategy-section (Disable anonymous read access)
+  authorizationStrategy: |-
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+  # Additional security configuration
+  configScripts:
+    security: |
+      jenkins:
+        securityRealm:
+          local:
+            allowsSignup: false
+            enableCaptcha: false
+            users:
+            - id: "${chart-admin-username}"
+              name: "Jenkins Admin"
+              password: "${chart-admin-password}"
+        authorizationStrategy:
+          loggedInUsersCanDoAnything:
+            allowAnonymousRead: false
+        remotingSecurity:
+          enabled: true
+
+# Admin user configuration
+admin:
+  # Admin username created as a secret
+  username: "admin"
+  # Admin password (will be auto-generated if not specified)
+  password: "admin123"
+  
+  # The key in the existing admin secret containing the username
+  userKey: jenkins-admin-user
+  # The key in the existing admin secret containing the password
+  passwordKey: jenkins-admin-password
+  
+  # Create secret for admin user
+  createSecret: true
+  
+  # The name of an existing secret containing the admin credentials
+  existingSecret: ""
+
+# Email address for the administrator of the Jenkins instance
+jenkinsAdminEmail: "admin@jenkins.local"
 
