@@ -107,6 +107,30 @@ config.load_incluster_config()
 batch_v1 = client.BatchV1Api()
 v1 = client.CoreV1Api()
 
+# Cleanup old kaniko jobs (keep only last 3)
+try:
+    jobs = batch_v1.list_namespaced_job(namespace='jenkins')
+    kaniko_jobs = [job for job in jobs.items if job.metadata.name.startswith('kaniko-build-')]
+    
+    # Sort by creation time (newest first)
+    kaniko_jobs.sort(key=lambda x: x.metadata.creation_timestamp, reverse=True)
+    
+    # Delete jobs older than the last 3
+    if len(kaniko_jobs) > 3:
+        old_jobs = kaniko_jobs[3:]
+        print(f"Cleaning up {len(old_jobs)} old kaniko jobs...")
+        for job in old_jobs:
+            try:
+                batch_v1.delete_namespaced_job(name=job.metadata.name, namespace='jenkins')
+                print(f"  Deleted job: {job.metadata.name}")
+            except Exception as e:
+                print(f"  Failed to delete {job.metadata.name}: {e}")
+    else:
+        print(f"Found {len(kaniko_jobs)} kaniko jobs, no cleanup needed")
+        
+except Exception as e:
+    print(f"Failed to cleanup old jobs: {e}")
+
 # Use git clone approach instead of direct git:// context
 git_url = "${gitUrl}"
 git_commit = "${gitCommit}"
