@@ -7,28 +7,7 @@ controller:
   # Disable plugin installation since our custom image already contains plugins
   installPlugins: false
   disableSetupWizard: false
-  # Enable authentication and create admin user
-  admin:
-    # -- Admin username created as a secret if `controller.admin.createSecret` is true
-    username: "admin"
-    # -- Admin password created as a secret if `controller.admin.createSecret` is true
-    # @default -- <random password>
-    password: "password"
 
-    # -- The key in the existing admin secret containing the username
-    userKey: jenkins-admin-user
-    # -- The key in the existing admin secret containing the password
-    passwordKey: jenkins-admin-password
-
-    # The default configuration uses this secret to configure an admin user
-    # If you don't need that user or use a different security realm, then you can disable it
-    # -- Create secret for admin user
-    createSecret: true
-
-    # -- The name of an existing secret containing the admin credentials
-    existingSecret: ""
-  # -- Email address for the administrator of the Jenkins instance
-  jenkinsAdminEmail:
   # Jenkins URL and security configuration
   jenkinsUrlProtocol: "http"
   # Disable setup wizard since we're configuring everything
@@ -82,3 +61,70 @@ clusterRoleBinding:
 agent:
   enabled: true
   defaultsProviderTemplate: ""
+
+JCasC:
+  # -- Enables default Jenkins configuration via configuration as code plugin
+  defaultConfig: true
+
+  # If true, the init container deletes all the plugin config files and Jenkins Config as Code overwrites any existing configuration
+  # -- Whether Jenkins Config as Code should overwrite any existing configuration
+  overwriteConfiguration: false
+  # -- Remote URLs for configuration files.
+  configUrls: []
+  # - https://acme.org/jenkins.yaml
+  # -- List of Jenkins Config as Code scripts
+  configScripts: {}
+  #  welcome-message: |
+  #    jenkins:
+  #      systemMessage: Welcome to our CI\CD server. This Jenkins is configured and managed 'as code'.
+
+  # Allows adding to the top-level security JCasC section. For legacy purposes, by default, the chart includes apiToken configurations
+  # -- Jenkins Config as Code security-section
+  security:
+    apiToken:
+      creationOfLegacyTokenEnabled: false
+      tokenGenerationOnCreationEnabled: false
+      usageStatisticsEnabled: true
+
+  # Ignored if securityRealm is defined in controller.JCasC.configScripts
+  # -- Jenkins Config as Code Security Realm-section
+  securityRealm: |-
+    local:
+      allowsSignup: false
+      enableCaptcha: false
+      users:
+      - id: "${chart-admin-username}"
+        name: "Jenkins Admin"
+        password: "${chart-admin-password}"
+
+  # Ignored if authorizationStrategy is defined in controller.JCasC.configScripts
+  # -- Jenkins Config as Code Authorization Strategy-section
+  authorizationStrategy: |-
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+  # -- Annotations for the JCasC ConfigMap
+  configMapAnnotations: {}
+
+
+admin:
+  # -- Admin username created as a secret if `controller.admin.createSecret` is true
+  username: "admin"
+  # -- Admin password created as a secret if `controller.admin.createSecret` is true
+  # @default -- <random password>
+  password:
+
+  # -- The key in the existing admin secret containing the username
+  userKey: jenkins-admin-user
+  # -- The key in the existing admin secret containing the password
+  passwordKey: jenkins-admin-password
+
+  # The default configuration uses this secret to configure an admin user
+  # If you don't need that user or use a different security realm, then you can disable it
+  # -- Create secret for admin user
+  createSecret: true
+
+  # -- The name of an existing secret containing the admin credentials
+  existingSecret: ""
+# -- Email address for the administrator of the Jenkins instance
+jenkinsAdminEmail:
