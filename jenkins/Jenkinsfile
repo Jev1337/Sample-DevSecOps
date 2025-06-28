@@ -50,27 +50,36 @@ pipeline {
                 }
             }
         }
-        /*
         stage('SonarQube Analysis') {
             steps {
-                script {
-                    withSonarQubeEnv('SonarQube') {
-                        dir('app') {
-                            sh '''
-                                sonar-scanner \
-                                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                    -Dsonar.sources=. \
-                                    -Dsonar.host.url=${SONAR_HOST_URL} \
-                                    -Dsonar.login=${SONAR_TOKEN} \
-                                    -Dsonar.python.coverage.reportPaths=coverage.xml \
-                                    -Dsonar.python.xunit.reportPath=test-results.xml
-                            '''
-                        }
-                    }
+                dir('app') {
+                    sh '''
+                        # Install dependencies for coverage
+                        python3 -m pip install --user coverage pytest-cov
+                        
+                        # Run tests with coverage
+                        python3 -m pytest tests/ --cov=. --cov-report=xml --junitxml=test-results.xml
+                        
+                        # Run SonarQube analysis
+                        sonar-scanner \
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                            -Dsonar.sources=. \
+                            -Dsonar.tests=tests \
+                            -Dsonar.host.url=${SONAR_HOST_URL} \
+                            -Dsonar.token=${SONAR_TOKEN} \
+                            -Dsonar.python.coverage.reportPaths=coverage.xml \
+                            -Dsonar.python.xunit.reportPath=test-results.xml \
+                            -Dsonar.exclusions=**/*_test.py,**/test_*.py,**/__pycache__/**,**/venv/**
+                    '''
+                }
+            }
+            post {
+                always {
+                    publishTestResults testResultsPattern: 'app/test-results.xml'
+                    archiveArtifacts artifacts: 'app/coverage.xml', allowEmptyArchive: true
                 }
             }
         }
-        */
 
         stage('Trivy FS Scan') {
             steps {
