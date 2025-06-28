@@ -81,13 +81,16 @@ JCasC:
   # Allows adding to the top-level security JCasC section. For legacy purposes, by default, the chart includes apiToken configurations
   # -- Jenkins Config as Code security-section
   security:
+    # Enable Jenkins security
+    globalJobDslSecurityConfiguration:
+      useScriptSecurity: true
     apiToken:
       creationOfLegacyTokenEnabled: false
       tokenGenerationOnCreationEnabled: false
       usageStatisticsEnabled: true
 
   # Ignored if securityRealm is defined in controller.JCasC.configScripts
-  # -- Jenkins Config as Code Security Realm-section
+  # -- Jenkins Config as Code Security Realm-section (Jenkins' own user database)
   securityRealm: |-
     local:
       allowsSignup: false
@@ -98,7 +101,7 @@ JCasC:
         password: "${chart-admin-password}"
 
   # Ignored if authorizationStrategy is defined in controller.JCasC.configScripts
-  # -- Jenkins Config as Code Authorization Strategy-section
+  # -- Jenkins Config as Code Authorization Strategy-section (Disable anonymous read access)
   authorizationStrategy: |-
     loggedInUsersCanDoAnything:
       allowAnonymousRead: false
