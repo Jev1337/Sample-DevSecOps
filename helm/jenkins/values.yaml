@@ -15,6 +15,9 @@ controller:
       nginx.ingress.kubernetes.io/ssl-redirect: "false"
       nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
   jenkinsUrl: http://jenkins.local/
+  jenkinsUrlProtocol: "http"
+  jenkinsUriPrefix: "/"
+  
   # External access service configuration
   # nodePort: 30080
   # Run as root to allow k8s API access
