@@ -36,20 +36,20 @@ persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"
 
-## Authentication and security configuration
-#serviceAccount:
-#  create: true
-#
-## Enable RBAC with cluster-admin permissions
-#rbac:
-#  create: true
-#  readSecrets: true
-#
-## Create ClusterRoleBinding for jenkins service account
-#clusterRoleBinding:
-#  create: true
-#
-## Agent configuration
-#agent:
-#  enabled: true
-#  defaultsProviderTemplate: ""
+# Authentication and security configuration
+serviceAccount:
+  create: true
+
+# Enable RBAC with cluster-admin permissions
+rbac:
+  create: true
+  readSecrets: true
+
+# Create ClusterRoleBinding for jenkins service account
+clusterRoleBinding:
+  create: true
+
+# Agent configuration
+agent:
+  enabled: true
+  defaultsProviderTemplate: ""
