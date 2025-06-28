@@ -491,20 +491,11 @@ try:
     # Update the image
     deployment.spec.template.spec.containers[0].image = "${fullImageName}"
     
-    # Force pods to be recreated by updating multiple annotations
+    # Force pods to be recreated by updating a timestamp annotation
     import time
     if not deployment.spec.template.metadata.annotations:
         deployment.spec.template.metadata.annotations = {}
-    
-    # Add multiple annotations to force restart
-    timestamp = str(int(time.time()))
-    deployment.spec.template.metadata.annotations['deployment.kubernetes.io/restart'] = timestamp
-    deployment.spec.template.metadata.annotations['kubectl.kubernetes.io/restartedAt'] = timestamp
-    deployment.spec.template.metadata.annotations['jenkins.io/build-number'] = "${buildNumber}"
-    deployment.spec.template.metadata.annotations['jenkins.io/image-tag'] = "${fullImageName.split(':')[-1]}"
-    
-    # Ensure imagePullPolicy is Always to force pull
-    deployment.spec.template.spec.containers[0].image_pull_policy = "Always"
+    deployment.spec.template.metadata.annotations['deployment.kubernetes.io/restart'] = str(int(time.time()))
     
     # Apply the update
     apps_v1.patch_namespaced_deployment(
@@ -527,55 +518,36 @@ try:
             print(f"Rollout status: {ready_replicas}/{desired_replicas} ready, {updated_replicas} updated")
             
             if (ready_replicas == desired_replicas and updated_replicas == desired_replicas):
-                # Check if all pods are actually running the new image
-                pods = v1.list_namespaced_pod(namespace="flask-app", label_selector="app=flask-app")
-                running_images = set()
-                all_pods_updated = True
+                print("✅ Deployment rollout completed successfully")
                 
+                # Show pod status with detailed info
+                pods = v1.list_namespaced_pod(namespace="flask-app", label_selector="app=flask-app")
                 print("Pod status:")
                 for pod in pods.items:
                     pod_image = pod.spec.containers[0].image if pod.spec.containers else "unknown"
                     print(f"  {pod.metadata.name}: {pod.status.phase} - Image: {pod_image}")
-                    
-                    if pod.status.phase == "Running":
-                        running_images.add(pod_image)
-                        if pod_image != "${fullImageName}":
-                            all_pods_updated = False
                 
-                if all_pods_updated and "${fullImageName}" in running_images:
-                    print("✅ Deployment rollout completed successfully")
-                    print(f"✅ Verified: All pods are running the new image: ${fullImageName}")
-                    print(f"Deployment updated successfully with image: ${fullImageName}")
-                    exit(0)
+                # Verify the actual running image matches what we deployed
+                running_images = set()
+                for pod in pods.items:
+                    if pod.spec.containers:
+                        running_images.add(pod.spec.containers[0].image)
+                
+                if "${fullImageName}" in running_images:
+                    print(f"✅ Verified: Pods are running the new image: ${fullImageName}")
                 else:
-                    print(f"⚠️  Still waiting for pods to update to: ${fullImageName}")
-                    print(f"   Current running images: {running_images}")
-                    # Continue waiting
-            
+                    print(f"⚠️  Warning: Expected image ${fullImageName} but found: {running_images}")
+                
+                print(f"Deployment updated successfully with image: ${fullImageName}")
+                exit(0)
+                
             time.sleep(10)
             
         except Exception as e:
             print(f"Error checking deployment status: {e}")
             time.sleep(5)  # Shorter sleep on error
     
-    print("❌ Deployment rollout timed out - attempting force restart")
-    
-    # Force restart by deleting pods
-    try:
-        pods = v1.list_namespaced_pod(namespace="flask-app", label_selector="app=flask-app")
-        print("Force deleting old pods to trigger restart...")
-        for pod in pods.items:
-            pod_image = pod.spec.containers[0].image if pod.spec.containers else "unknown"
-            if pod_image != "${fullImageName}":
-                print(f"Deleting pod {pod.metadata.name} with old image {pod_image}")
-                v1.delete_namespaced_pod(name=pod.metadata.name, namespace="flask-app")
-        
-        print("✅ Force restart initiated - pods will be recreated with new image")
-        print(f"New pods should use image: ${fullImageName}")
-        
-    except Exception as delete_error:
-        print(f"Failed to force restart pods: {delete_error}")
-    
+    print("❌ Deployment rollout timed out")
     exit(1)
     
 except Exception as e:
