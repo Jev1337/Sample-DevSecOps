@@ -58,10 +58,7 @@ pipeline {
                         # Activate virtual environment
                         . venv/bin/activate
                         
-                        # Run tests with coverage
-                        python -m pytest tests/ --cov=. --cov-report=xml --junitxml=test-results.xml
-                        
-                        # Run SonarQube analysis
+                        # Run SonarQube analysis (tests and coverage already generated in previous stage)
                         sonar-scanner \
                             -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                             -Dsonar.sources=. \
@@ -76,7 +73,6 @@ pipeline {
             }
             post {
                 always {
-                    publishTestResults testResultsPattern: 'app/test-results.xml'
                     archiveArtifacts artifacts: 'app/coverage.xml', allowEmptyArchive: true
                 }
             }
