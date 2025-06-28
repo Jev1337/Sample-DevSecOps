@@ -61,12 +61,48 @@ pipeline {
                         # Run tests with coverage
                         python -m pytest tests/ --cov=. --cov-report=xml --junitxml=test-results.xml
                         
-                        # Run SonarQube analysis
+                        # Debug: Test SonarQube connectivity
+                        echo "Testing SonarQube connectivity..."
+                        echo "Current SONAR_HOST_URL: ${SONAR_HOST_URL}"
+                        
+                        # Try different SonarQube URLs
+                        SONAR_URLS=(
+                            "${SONAR_HOST_URL}"
+                            "http://sonarqube:9000"
+                            "http://sonarqube.default.svc.cluster.local:9000"
+                            "http://my-sonarqube:9000"
+                            "http://my-sonarqube.sonarqube.svc.cluster.local:9000"
+                        )
+                        
+                        WORKING_URL=""
+                        for url in "${SONAR_URLS[@]}"; do
+                            echo "Testing: $url"
+                            if curl -s --connect-timeout 5 "$url" > /dev/null 2>&1; then
+                                echo "✅ SUCCESS: $url is reachable"
+                                WORKING_URL="$url"
+                                break
+                            else
+                                echo "❌ FAILED: $url is not reachable"
+                            fi
+                        done
+                        
+                        if [ -z "$WORKING_URL" ]; then
+                            echo "🔍 No SonarQube URL found. Checking available services..."
+                            # Try to resolve service names
+                            nslookup sonarqube || echo "sonarqube not found"
+                            nslookup my-sonarqube || echo "my-sonarqube not found"
+                            echo "Skipping SonarQube analysis due to connectivity issues"
+                            exit 0
+                        fi
+                        
+                        echo "Using SonarQube URL: $WORKING_URL"
+                        
+                        # Run SonarQube analysis with working URL
                         sonar-scanner \
                             -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                             -Dsonar.sources=. \
                             -Dsonar.tests=tests \
-                            -Dsonar.host.url=${SONAR_HOST_URL} \
+                            -Dsonar.host.url="$WORKING_URL" \
                             -Dsonar.token=${SONAR_TOKEN} \
                             -Dsonar.python.coverage.reportPaths=coverage.xml \
                             -Dsonar.python.xunit.reportPath=test-results.xml \
