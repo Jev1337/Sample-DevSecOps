@@ -557,10 +557,10 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
 
 **🚀 Créé avec ❤️ pour l'apprentissage DevSecOps**
 
-[![Stars](https://img.shields.io/github/stars/username/repo?style=social)](https://github.com/username/repo)
-[![Forks](https://img.shields.io/github/forks/username/repo?style=social)](https://github.com/username/repo)
-[![Issues](https://img.shields.io/github/issues/username/repo)](https://github.com/username/repo/issues)
+[![Stars](https://img.shields.io/github/stars/Jev1337/Sample-DevSecOps?style=social)](https://github.com/Jev1337/Sample-DevSecOps)
+[![Forks](https://img.shields.io/github/forks/Jev1337/Sample-DevSecOps?style=social)](https://github.com/Jev1337/Sample-DevSecOps)
+[![Issues](https://img.shields.io/github/issues/Jev1337/Sample-DevSecOps)](https://github.com/username/Jev1337/Sample-DevSecOps)
 
-[🐛 Reporter un Bug](https://github.com/username/repo/issues) • [💡 Demander une Fonctionnalité](https://github.com/username/repo/issues) • [📖 Documentation](PROJECT_DOCUMENTATION.md)
+[🐛 Reporter un Bug](https://github.com/Jev1337/repo/issues) • [💡 Demander une Fonctionnalité](https://github.com/Jev1337/Sample-DevSecOps/issues) • [📖 Documentation](PROJECT_DOCUMENTATION.md)
 
 </div>
