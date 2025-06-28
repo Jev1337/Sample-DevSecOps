@@ -1,21 +1,15 @@
 controller:
-  # Disable setup wizard since we're configuring security via JCasC
-  disableSetupWizard: true
-
   image:
     registry: "localhost:32000"
     repository: "jenkins-devsecops"
     tag: "latest"
     pullPolicy: "Always"
+  
   # Disable plugin installation since our custom image already contains plugins
   installPlugins: false
   # Disable setup wizard since we're configuring everything via JCasC
   disableSetupWizard: true
 
-  # Jenkins URL and security configuration
-  jenkinsUrlProtocol: "http"
-  # Disable setup wizard since we're configuring everything
-  jenkinsUriPrefix: "/"
   ingress:
     enabled: true
     hostName: jenkins.local
@@ -23,26 +17,9 @@ controller:
     annotations:
       nginx.ingress.kubernetes.io/ssl-redirect: "false"
       nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
-  servicePort: 8080
+  
   jenkinsUrl: http://jenkins.local/
-  # External access service configuration
-  serviceType: ClusterIP
-  # nodePort: 30080
-  # Run as root to allow k8s API access
-  podSecurityContext:
-    runAsUser: 0
-    runAsNonRoot: false
-  securityContext:
-    runAsUser: 0
-    runAsNonRoot: false
-    allowPrivilegeEscalation: true
-  dnsConfig:
-    nameservers:
-      - "8.8.8.8"
-  sidecars:
-    configAutoReload:
-      enabled: false
-  # Remove Docker-related volumes and mounts
+
 persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"
@@ -50,7 +27,6 @@ persistence:
 # Authentication and security configuration
 serviceAccount:
   create: true
-  annotations: {}
 
 # Enable RBAC with cluster-admin permissions
 rbac:
@@ -64,19 +40,13 @@ clusterRoleBinding:
 # Agent configuration
 agent:
   enabled: true
-  defaultsProviderTemplate: ""
 
 # Jenkins Configuration as Code
 JCasC:
-  # Enable default Jenkins configuration via configuration as code plugin
   defaultConfig: true
-  
-  # Whether Jenkins Config as Code should overwrite any existing configuration
   overwriteConfiguration: true
   
-  # Jenkins Config as Code security-section
   security:
-    # Enable script security
     globalJobDslSecurityConfiguration:
       useScriptSecurity: true
     apiToken:
@@ -84,7 +54,6 @@ JCasC:
       tokenGenerationOnCreationEnabled: false
       usageStatisticsEnabled: true
 
-  # Jenkins Config as Code Security Realm-section (Jenkins' own user database)
   securityRealm: |-
     local:
       allowsSignup: false
@@ -94,47 +63,12 @@ JCasC:
         name: "Jenkins Admin"
         password: "${chart-admin-password}"
 
-  # Jenkins Config as Code Authorization Strategy-section (Disable anonymous read access)
   authorizationStrategy: |-
     loggedInUsersCanDoAnything:
       allowAnonymousRead: false
 
-  # Additional security configuration
-  configScripts:
-    security: |
-      jenkins:
-        securityRealm:
-          local:
-            allowsSignup: false
-            enableCaptcha: false
-            users:
-            - id: "${chart-admin-username}"
-              name: "Jenkins Admin"
-              password: "${chart-admin-password}"
-        authorizationStrategy:
-          loggedInUsersCanDoAnything:
-            allowAnonymousRead: false
-        remotingSecurity:
-          enabled: true
-
 # Admin user configuration
 admin:
-  # Admin username created as a secret
   username: "admin"
-  # Admin password (will be auto-generated if not specified)
   password: "admin123"
-  
-  # The key in the existing admin secret containing the username
-  userKey: jenkins-admin-user
-  # The key in the existing admin secret containing the password
-  passwordKey: jenkins-admin-password
-  
-  # Create secret for admin user
   createSecret: true
-  
-  # The name of an existing secret containing the admin credentials
-  existingSecret: ""
-
-# Email address for the administrator of the Jenkins instance
-jenkinsAdminEmail: "admin@jenkins.local"
-
