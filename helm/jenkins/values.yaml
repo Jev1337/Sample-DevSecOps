@@ -18,13 +18,13 @@ controller:
   # External access service configuration
   # nodePort: 30080
   # Run as root to allow k8s API access
-  #podSecurityContext:
-  #  runAsUser: 0
-  #  runAsNonRoot: false
-  #securityContext:
-  #  runAsUser: 0
-  #  runAsNonRoot: false
-  #  allowPrivilegeEscalation: true
+  podSecurityContext:
+    runAsUser: 0
+    runAsNonRoot: false
+  securityContext:
+    runAsUser: 0
+    runAsNonRoot: false
+    allowPrivilegeEscalation: true
   dnsConfig:
     nameservers:
       - "8.8.8.8"
@@ -36,20 +36,20 @@ persistence:
   storageClass: "microk8s-hostpath"
   size: "8Gi"
 
-# Authentication and security configuration
-serviceAccount:
-  create: true
-
-# Enable RBAC with cluster-admin permissions
-rbac:
-  create: true
-  readSecrets: true
-
-# Create ClusterRoleBinding for jenkins service account
-clusterRoleBinding:
-  create: true
-
-# Agent configuration
-agent:
-  enabled: true
-  defaultsProviderTemplate: ""
+## Authentication and security configuration
+#serviceAccount:
+#  create: true
+#
+## Enable RBAC with cluster-admin permissions
+#rbac:
+#  create: true
+#  readSecrets: true
+#
+## Create ClusterRoleBinding for jenkins service account
+#clusterRoleBinding:
+#  create: true
+#
+## Agent configuration
+#agent:
+#  enabled: true
+#  defaultsProviderTemplate: ""
