@@ -6,6 +6,7 @@ controller:
     pullPolicy: "Always"
   # Disable plugin installation since our custom image already contains plugins
   installPlugins: false
+  disableSetupWizard: false
   # Enable authentication and create admin user
   admin:
     # -- Admin username created as a secret if `controller.admin.createSecret` is true
@@ -43,7 +44,7 @@ controller:
   jenkinsUrl: http://jenkins.local/
   # External access service configuration
   serviceType: ClusterIP
-  nodePort: 30080
+  # nodePort: 30080
   # Run as root to allow k8s API access
   podSecurityContext:
     runAsUser: 0
