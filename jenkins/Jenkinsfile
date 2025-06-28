@@ -592,71 +592,108 @@ PYEOF
         stage('Generate Security Report') {
             steps {
                 script {
-                    // Generate a comprehensive security report
-                    sh '''
+                    def fullImageName = "${env.REGISTRY}/${env.IMAGE_NAME}:${env.TAG}"
+                    def buildNumber = env.BUILD_NUMBER
+                    def gitCommit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                    def currentDate = sh(script: 'date', returnStdout: true).trim()
+                    
+                    // Use the existing security dashboard and update it with build info
+                    sh """
+                        # Ensure security reports directory exists
                         mkdir -p security/reports
                         
-                        # Create HTML security dashboard
-                        cat > security/reports/security-dashboard.html << 'EOL'
+                        # Check if the original security dashboard exists, if not create a basic template
+                        if [ ! -f security/reports/security-dashboard.html ]; then
+                            echo "Original security dashboard not found, creating basic template..."
+                            cp ${WORKSPACE}/security/reports/security-dashboard.html security/reports/security-dashboard.html 2>/dev/null || echo "Template not found in workspace"
+                        fi
+                        
+                        # If still no dashboard, create a basic one
+                        if [ ! -f security/reports/security-dashboard.html ]; then
+                            echo "Creating basic security dashboard template..."
+                            cat > security/reports/security-dashboard.html << 'TEMPLATE_EOF'
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>DevSecOps Security Dashboard - Build ${BUILD_NUMBER}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Dashboard - Flask K8s DevSecOps</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .header { background-color: #f4f4f4; padding: 20px; border-radius: 5px; }
-        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
-        .success { background-color: #d4edda; border-color: #c3e6cb; }
-        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
-        .error { background-color: #f8d7da; border-color: #f5c6cb; }
-        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
-        .timestamp { color: #666; font-size: 0.9em; }
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #2c3e50, #34495e); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .section { padding: 20px; margin: 10px 0; }
+        .status-item { background: #e8f5e8; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #27ae60; }
+        .status-item.info { background: #e3f2fd; border-left-color: #2196f3; }
+        h1 { margin: 0; font-size: 2.5em; }
+        h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .timestamp { color: #666; font-style: italic; text-align: center; padding: 20px; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>DevSecOps Security Dashboard</h1>
-        <p>Build #${BUILD_NUMBER} - Generated on $(date)</p>
-        <p>Jenkins Job: ${JOB_NAME}</p>
-        <p>Git Commit: ${GIT_COMMIT}</p>
-    </div>
-    
-    <div class="section success">
-        <h2>✅ Pipeline Status</h2>
-        <p>Build completed successfully with security scans</p>
-        <p>Image: ${REGISTRY}/${IMAGE_NAME}:${TAG}</p>
-    </div>
-    
-    <div class="section">
-        <h2>📊 Security Scan Results</h2>
-        <p>Filesystem and container image scanned for vulnerabilities</p>
-        <ul>
-            <li>Trivy Filesystem Scan: Available in build artifacts</li>
-            <li>Trivy Image Scan: Available in build artifacts</li>
-            <li>SonarQube Analysis: Check SonarQube dashboard</li>
-        </ul>
-    </div>
-    
-    <div class="section">
-        <h2>🔗 Links</h2>
-        <ul>
-            <li><a href="${BUILD_URL}">Jenkins Build</a></li>
-            <li><a href="${SONAR_HOST_URL}/dashboard?id=${SONAR_PROJECT_KEY}">SonarQube Project</a></li>
-            <li><a href="http://grafana.local">Grafana Dashboard</a></li>
-        </ul>
-    </div>
-    
-    <div class="timestamp">
-        Report generated at $(date)
+    <div class="container">
+        <div class="header">
+            <h1>🔒 Security Dashboard</h1>
+            <p>Flask K8s DevSecOps Security Report</p>
+        </div>
+        <div class="section">
+            <h2>📊 Security Status</h2>
+            <div class="status-item">
+                <h3>✅ Pipeline Security Checks</h3>
+                <p>All automated security scans have been completed successfully</p>
+            </div>
+        </div>
+        <div class="timestamp">
+            Dashboard generated by DevSecOps Pipeline
+        </div>
     </div>
 </body>
 </html>
-EOL
+                        fi
                         
-                        echo "Security dashboard generated"
-                    '''
+                        # Copy the security dashboard template for this build
+                        cp security/reports/security-dashboard.html security/reports/security-dashboard-build-${buildNumber}.html
+                        
+                        # Update the dashboard with build-specific information
+                        sed -i 's|Dashboard Sécurité - Flask K8s DevSecOps|DevSecOps Security Dashboard - Build ${buildNumber}|g' security/reports/security-dashboard-build-${buildNumber}.html
+                        
+                        # Add build information section after the header
+                        sed -i '/<div class="stats-grid">/i\\
+                        <div class="section">\\
+                            <h2>🔨 Build Information</h2>\\
+                            <div class="security-status">\\
+                                <div class="status-item success">\\
+                                    <h3>Build Details</h3>\\
+                                    <p><strong>Build Number:</strong> ${buildNumber}<br>\\
+                                    <strong>Git Commit:</strong> ${gitCommit}<br>\\
+                                    <strong>Image:</strong> ${fullImageName}<br>\\
+                                    <strong>Generated:</strong> ${currentDate}</p>\\
+                                </div>\\
+                                <div class="status-item success">\\
+                                    <h3>Pipeline Status</h3>\\
+                                    <p>✅ All security scans completed successfully<br>\\
+                                    ✅ Code quality checks passed<br>\\
+                                    ✅ Vulnerability scans completed<br>\\
+                                    ✅ Image deployed to Kubernetes</p>\\
+                                </div>\\
+                                <div class="status-item">\\
+                                    <h3>🔗 Quick Links</h3>\\
+                                    <p><a href="${BUILD_URL}" target="_blank">Jenkins Build</a><br>\\
+                                    <a href="${SONAR_HOST_URL}/dashboard?id=${SONAR_PROJECT_KEY}" target="_blank">SonarQube Dashboard</a><br>\\
+                                    <a href="http://grafana.local" target="_blank">Grafana Monitoring</a><br>\\
+                                    <a href="http://flask-app.local" target="_blank">Flask Application</a></p>\\
+                                </div>\\
+                            </div>\\
+                        </div>' security/reports/security-dashboard-build-${buildNumber}.html
+                        
+                        # Update the timestamp in the dashboard
+                        sed -i "s|new Date().toLocaleString('fr-FR')|'${currentDate}'|g" security/reports/security-dashboard-build-${buildNumber}.html
+                        
+                        echo "✅ Security dashboard updated with build information"
+                        echo "📊 Dashboard available: security/reports/security-dashboard-build-${buildNumber}.html"
+                    """
                     
-                    archiveArtifacts artifacts: 'security/reports/security-dashboard.html', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'security/reports/security-dashboard-build-*.html', allowEmptyArchive: true
                 }
             }
         }
