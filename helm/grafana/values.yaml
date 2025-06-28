@@ -23,11 +23,13 @@ securityContext:
   allowPrivilegeEscalation: true
 
 adminPassword: "admin123"
+
 ingress:
   enabled: true
   ingressClassName: public
   hosts:
     - grafana.local
+
 datasources:
   datasources.yaml:
     apiVersion: 1
@@ -45,20 +47,10 @@ datasources:
 # Additional configuration to prevent permission issues
 serviceAccount:
   create: true
-  
-# Ensure proper volume mounts
-extraVolumeMounts:
-  - name: grafana-storage
-    mountPath: /var/lib/grafana
-    
-# Environment variables for Grafana
+
+# Clean environment variables (no duplicates)
 env:
   GF_PATHS_DATA: /var/lib/grafana
   GF_PATHS_LOGS: /var/log/grafana
   GF_PATHS_PLUGINS: /var/lib/grafana/plugins
   GF_INSTALL_PLUGINS: ""
-
-podSecurityContext:
-  fsGroup: 0
-  runAsUser: 0
-  runAsGroup: 0
