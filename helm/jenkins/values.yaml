@@ -8,9 +8,26 @@ controller:
   installPlugins: false
   # Enable authentication and create admin user
   admin:
-    existingSecret: ""
+    # -- Admin username created as a secret if `controller.admin.createSecret` is true
+    username: "admin"
+    # -- Admin password created as a secret if `controller.admin.createSecret` is true
+    # @default -- <random password>
+    password:
+
+    # -- The key in the existing admin secret containing the username
     userKey: jenkins-admin-user
+    # -- The key in the existing admin secret containing the password
     passwordKey: jenkins-admin-password
+
+    # The default configuration uses this secret to configure an admin user
+    # If you don't need that user or use a different security realm, then you can disable it
+    # -- Create secret for admin user
+    createSecret: true
+
+    # -- The name of an existing secret containing the admin credentials
+    existingSecret: ""
+  # -- Email address for the administrator of the Jenkins instance
+  jenkinsAdminEmail:
   # Jenkins URL and security configuration
   jenkinsUrlProtocol: "http"
   # Disable setup wizard since we're configuring everything
