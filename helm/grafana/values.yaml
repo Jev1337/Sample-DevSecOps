@@ -24,6 +24,6 @@ datasources:
       editable: false
       orgId: 1
 podSecurityContext:
-  fsGroup: 472
-  runAsUser: 472
-  runAsGroup: 472
+  fsGroup: 0
+  runAsUser: 0
+  runAsGroup: 0
