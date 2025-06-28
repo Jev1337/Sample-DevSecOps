@@ -164,8 +164,8 @@ job_manifest = {
                         '--skip-tls-verify',
                         '--skip-push-permission-check',
                         '--verbosity=info',
-                        '--no-cache',
-                        '--force',
+                        '--cache=false',
+                        '--cleanup',
                         f'--build-arg=BUILD_DATE={int(time.time())}',
                         f'--build-arg=GIT_COMMIT={git_commit[:8]}'
                     ],
