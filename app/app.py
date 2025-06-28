@@ -76,6 +76,7 @@ def handle_exception(e):
 @app.route('/')
 def home():
     log_structured("INFO", "Home page accessed")
+    current_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     return render_template_string('''
     <!DOCTYPE html>
     <html>
@@ -96,7 +97,6 @@ def home():
     <body>
         <div class="container">
             <h1>🚀 Flask K8s DevSecOps Demo</h1>
-            <h2> Version 1.0.1</h2>
             <p class="status">✅ Application is running successfully!</p>
             
             <div class="api-section">
@@ -126,6 +126,11 @@ def home():
                     <span class="method">GET</span> <code>/metrics</code>
                     <p>Prometheus metrics endpoint</p>
                 </div>
+                
+                <div class="endpoint">
+                    <span class="method">GET</span> <code>/build-info</code>
+                    <p>Build and deployment information</p>
+                </div>
                                   
                 <div class="endpoint">
                     <span class="method">GET</span> <code>/api/unauthorized</code>
@@ -147,7 +152,7 @@ def home():
         </div>
     </body>
     </html>
-    ''')
+    ''', current_time=current_time)
 
 @app.route('/health')
 def health():
@@ -159,6 +164,34 @@ def health():
     }
     log_structured("INFO", "Health check performed", status="healthy")
     return jsonify(health_status)
+
+@app.route('/build-info')
+def build_info():
+    """Endpoint to show build and deployment information"""
+    build_data = {
+        "service": "flask-app",
+        "timestamp": datetime.utcnow().isoformat(),
+        "build_info": "No build info available"
+    }
+    
+    # Try to read build info from file created during Docker build
+    try:
+        with open('/app/build-info.txt', 'r') as f:
+            build_data["build_info"] = f.read().strip()
+    except FileNotFoundError:
+        build_data["build_info"] = "Build info file not found"
+    except Exception as e:
+        build_data["build_info"] = f"Error reading build info: {str(e)}"
+    
+    # Add environment variables that might contain build info
+    build_data["environment"] = {
+        "hostname": os.environ.get("HOSTNAME", "unknown"),
+        "build_number": os.environ.get("BUILD_NUMBER", "unknown"),
+        "git_commit": os.environ.get("GIT_COMMIT", "unknown")
+    }
+    
+    log_structured("INFO", "Build info requested")
+    return jsonify(build_data)
 
 @app.route('/api/users', methods=['GET'])
 def get_users():
