@@ -131,8 +131,8 @@ def test_create_user_no_content_type(client):
     
     response = client.post('/api/users', 
                           data=json.dumps(new_user))
-    # Should still work but might behave differently
-    assert response.status_code in [400, 201]
+    # Without content-type header, Flask returns 415 Unsupported Media Type
+    assert response.status_code == 415
 
 def test_create_user_with_optional_role(client):
     new_user = {
