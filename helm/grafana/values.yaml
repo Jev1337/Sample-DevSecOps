@@ -2,34 +2,14 @@ persistence:
   enabled: true
   storageClassName: "microk8s-hostpath"
   size: "2Gi"
-  accessModes:
-    - ReadWriteOnce
-
-# Disable the problematic init container
-initChownData:
-  enabled: false
-
-# Security context to run as root (for MicroK8s hostpath)
-podSecurityContext:
-  fsGroup: 0
-  runAsUser: 0
-  runAsGroup: 0
-  runAsNonRoot: false
-
-securityContext:
-  runAsUser: 0
-  runAsGroup: 0
-  runAsNonRoot: false
-  allowPrivilegeEscalation: true
-
+  initChownData:
+    enabled: false
 adminPassword: "admin123"
-
 ingress:
   enabled: true
   ingressClassName: public
   hosts:
     - grafana.local
-
 datasources:
   datasources.yaml:
     apiVersion: 1
@@ -43,14 +23,7 @@ datasources:
       version: 1
       editable: false
       orgId: 1
-
-# Additional configuration to prevent permission issues
-serviceAccount:
-  create: true
-
-# Clean environment variables (no duplicates)
-env:
-  GF_PATHS_DATA: /var/lib/grafana
-  GF_PATHS_LOGS: /var/log/grafana
-  GF_PATHS_PLUGINS: /var/lib/grafana/plugins
-  GF_INSTALL_PLUGINS: ""
+podSecurityContext:
+  fsGroup: 0
+  runAsUser: 0
+  runAsGroup: 0
