@@ -311,8 +311,7 @@ try:
             print(f"Error checking job status: {e}")
             time.sleep(5)  # Shorter sleep on error
     
-    print("Job timed out after 4 minutes")                # Let ttlSecondsAfterFinished handle cleanup automatically after timeout
-                print("Job timed out - will be automatically cleaned up in 5 minutes")
+    print("Job timed out after 4 minutes - will be automatically cleaned up in 5 minutes")
     exit(1)
     
 except Exception as e:
