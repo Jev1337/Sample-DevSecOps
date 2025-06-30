@@ -2,8 +2,6 @@ persistence:
   enabled: true
   storageClassName: "microk8s-hostpath"
   size: "2Gi"
-  initChownData:
-    enabled: false
 adminPassword: "admin123"
 ingress:
   enabled: true
@@ -23,7 +21,5 @@ datasources:
       version: 1
       editable: false
       orgId: 1
-podSecurityContext:
-  fsGroup: 0
-  runAsUser: 0
-  runAsGroup: 0
+initChownData:
+  enabled: false
