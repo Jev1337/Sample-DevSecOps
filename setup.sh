@@ -275,7 +275,6 @@ deploy_application() {
     
     log "✅ Flask application deployed successfully." "$GREEN"
 }
-
 # Function to configure Azure external access
 configure_azure_access() {
     log "🌐 Configuring Azure External Access..." "$BLUE"
@@ -357,15 +356,129 @@ spec:
     app: flask-app
 EOF
     
+    log "✅ LoadBalancer services created" "$GREEN"
+    
+    # Create Ingress configurations
+    log "📋 Creating Ingress configurations..." "$YELLOW"
+    
+    # Jenkins Ingress
+    cat <<EOF | microk8s kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jenkins-external
+  namespace: jenkins
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: public
+  rules:
+  - host: jenkins.${EXTERNAL_IP}.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: jenkins
+            port:
+              number: 8080
+EOF
+    
+    # SonarQube Ingress
+    cat <<EOF | microk8s kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sonarqube-external
+  namespace: sonarqube
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: public
+  rules:
+  - host: sonarqube.${EXTERNAL_IP}.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: sonarqube-sonarqube
+            port:
+              number: 9000
+EOF
+    
+    # Grafana Ingress
+    cat <<EOF | microk8s kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-external
+  namespace: monitoring
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: public
+  rules:
+  - host: grafana.${EXTERNAL_IP}.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 80
+EOF
+    
+    # Flask App Ingress
+    cat <<EOF | microk8s kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flask-app-external
+  namespace: flask-app
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: public
+  rules:
+  - host: app.${EXTERNAL_IP}.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: flask-app-service
+            port:
+              number: 80
+EOF
+    
+    log "✅ External ingress configurations created" "$GREEN"
+    
     log "⏳ Waiting for LoadBalancer services..." "$YELLOW"
     sleep 30
     
     log "✅ Azure external access configured!" "$GREEN"
-    log "🔗 External Access URLs:" "$CYAN"
-    log "   - Jenkins:   http://$EXTERNAL_IP:8080" "$CYAN"
-    log "   - SonarQube: http://$EXTERNAL_IP:9000" "$CYAN"
-    log "   - Grafana:   http://$EXTERNAL_IP:3000" "$CYAN"
-    log "   - Flask App: http://$EXTERNAL_IP" "$CYAN"
+    log "🌐 EXTERNAL ACCESS INFORMATION" "$CYAN"
+    log "=============================" "$CYAN"
+    log "🔗 Access your services via these URLs:" "$CYAN"
+    log "📊 Using nip.io domains (recommended):" "$YELLOW"
+    log "   - Jenkins:   http://jenkins.$EXTERNAL_IP.nip.io" "$CYAN"
+    log "   - SonarQube: http://sonarqube.$EXTERNAL_IP.nip.io" "$CYAN"
+    log "   - Grafana:   http://grafana.$EXTERNAL_IP.nip.io" "$CYAN"
+    log "   - Flask App: http://app.$EXTERNAL_IP.nip.io" "$CYAN"
+    log "🌐 Using LoadBalancer IPs:" "$YELLOW"
+    log "   - Check the table below for assigned external IPs" "$CYAN"
+    log "📋 LoadBalancer External IPs:" "$YELLOW"
+    microk8s kubectl get svc -A --field-selector spec.type=LoadBalancer
+    log "🛡️ Security Notes:" "$YELLOW"
+    log "   - Ensure Azure NSG allows inbound traffic on ports 80, 443, 8080, 9000, 3000, 5000" "$YELLOW"
+    log "   - Consider setting up SSL/TLS certificates for production use" "$YELLOW"
+    log "   - Default credentials provided in access info section" "$YELLOW"
 }
 
 # Function to run development mode with Docker Compose
