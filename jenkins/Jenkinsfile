@@ -226,11 +226,8 @@ try:
                                 print(f"Could not get logs: {log_error}")
                             break
                 
-                # Cleanup and exit
-                try:
-                    batch_v1.delete_namespaced_job(name='kaniko-build-${buildNumber}', namespace='jenkins')
-                except:
-                    pass
+                # Let ttlSecondsAfterFinished handle cleanup for failed jobs
+                print("Multiple failures detected - job will be automatically cleaned up in 5 minutes")
                 exit(1)
             
             # Show pod status too
@@ -282,12 +279,8 @@ try:
                             except Exception as log_error:
                                 print(f"Could not get logs: {log_error}")
                         
-                        # Cleanup job
-                        try:
-                            batch_v1.delete_namespaced_job(name='kaniko-build-${buildNumber}', namespace='jenkins')
-                            print("Job cleaned up")
-                        except:
-                            pass
+                        # Let ttlSecondsAfterFinished handle cleanup automatically
+                        print("Job will be automatically cleaned up in 5 minutes (ttlSecondsAfterFinished)")
                         
                         print("Successfully built and pushed ${fullImageName}")
                         exit(0)
@@ -306,11 +299,8 @@ try:
                             except Exception as log_error:
                                 print(f"Could not get logs: {log_error}")
                         
-                        # Cleanup job
-                        try:
-                            batch_v1.delete_namespaced_job(name='kaniko-build-${buildNumber}', namespace='jenkins')
-                        except:
-                            pass
+                        # Let ttlSecondsAfterFinished handle cleanup automatically
+                        print("Failed job will be automatically cleaned up in 5 minutes")
                         
                         exit(1)
             
@@ -321,12 +311,8 @@ try:
             print(f"Error checking job status: {e}")
             time.sleep(5)  # Shorter sleep on error
     
-    print("Job timed out after 4 minutes")
-    # Cleanup on timeout
-    try:
-        batch_v1.delete_namespaced_job(name='kaniko-build-${buildNumber}', namespace='jenkins')
-    except:
-        pass
+    print("Job timed out after 4 minutes")                # Let ttlSecondsAfterFinished handle cleanup automatically after timeout
+                print("Job timed out - will be automatically cleaned up in 5 minutes")
     exit(1)
     
 except Exception as e:
