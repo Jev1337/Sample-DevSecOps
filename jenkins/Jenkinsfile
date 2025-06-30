@@ -145,6 +145,7 @@ job_manifest = {
         'namespace': 'jenkins'
     },
     'spec': {
+        'ttlSecondsAfterFinished': 300,
         'template': {
             'spec': {
                 'restartPolicy': 'Never',
