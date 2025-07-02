@@ -1,0 +1,78 @@
+---
+# Grafana Helm Values Template
+
+persistence:
+  enabled: true
+  storageClassName: "{{ monitoring.grafana.storage.class }}"
+  size: "{{ monitoring.grafana.storage.size }}"
+
+adminPassword: "{{ monitoring.grafana.admin_password }}"
+
+{% if monitoring.grafana.ingress.enabled %}
+ingress:
+  enabled: true
+  ingressClassName: {{ monitoring.grafana.ingress.class }}
+  hosts:
+    - {{ monitoring.grafana.ingress.hostname }}
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "{{ features.ssl_redirect | string | lower }}"
+{% endif %}
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+{% for datasource in monitoring.grafana.datasources %}
+    - name: {{ datasource.name }}
+      type: {{ datasource.type }}
+      access: proxy
+      url: {{ datasource.url }}
+      uid: {{ datasource.name | lower }}
+      isDefault: {{ datasource.default | lower }}
+      version: 1
+      editable: false
+      orgId: 1
+{% endfor %}
+
+initChownData:
+  enabled: false
+
+# Resource configuration
+resources:
+  requests:
+    cpu: "{{ resources.grafana.requests.cpu }}"
+    memory: "{{ resources.grafana.requests.memory }}"
+  limits:
+    cpu: "{{ resources.grafana.limits.cpu }}"
+    memory: "{{ resources.grafana.limits.memory }}"
+
+# Security context
+securityContext:
+  runAsUser: 472
+  runAsGroup: 472
+  fsGroup: 472
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+# Dashboard providers
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+    - name: 'default'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: false
+      editable: true
+      options:
+        path: /var/lib/grafana/dashboards/default
+
+# Environment variables
+env:
+  GF_SECURITY_ADMIN_PASSWORD: "{{ monitoring.grafana.admin_password }}"
+  GF_SECURITY_ADMIN_USER: "admin"

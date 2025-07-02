@@ -1,0 +1,31 @@
+---
+# PostgreSQL Helm Values Template
+
+auth:
+  username: "{{ postgresql.auth.username }}"
+  password: "{{ postgresql.auth.password }}"
+  database: "{{ postgresql.auth.database }}"
+
+primary:
+  persistence:
+    enabled: true
+    storageClass: "{{ postgresql.storage.class }}"
+    size: "{{ postgresql.storage.size }}"
+  
+  resources:
+    requests:
+      cpu: "{{ resources.postgresql.requests.cpu }}"
+      memory: "{{ resources.postgresql.requests.memory }}"
+    limits:
+      cpu: "{{ resources.postgresql.limits.cpu }}"
+      memory: "{{ resources.postgresql.limits.memory }}"
+
+# Disable metrics to reduce resource usage
+metrics:
+  enabled: false
+
+# Security configuration
+securityContext:
+  enabled: true
+  fsGroup: 1001
+  runAsUser: 1001

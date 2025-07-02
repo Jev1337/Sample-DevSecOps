@@ -1,0 +1,257 @@
+---
+# Global Configuration Variables for DevSecOps Environment
+
+# =============================================================================
+# INFRASTRUCTURE CONFIGURATION
+# =============================================================================
+
+# External IP configuration
+external_ip: "auto"  # Options: "auto" (auto-detect), "manual" (specify below), IP address
+manual_external_ip: "1.2.3.4"  # Used when external_ip is "manual"
+
+# Domain configuration
+domain_suffix: "local"  # Domain suffix for local services
+use_nip_io: true       # Use nip.io for external access
+
+# =============================================================================
+# SYSTEM CONFIGURATION
+# =============================================================================
+
+# System packages to install
+system_packages:
+  - curl
+  - wget
+  - git
+  - unzip
+  - gnupg
+  - software-properties-common
+  - apt-transport-https
+  - ca-certificates
+  - lsb-release
+
+# Python packages
+python_packages:
+  - pip
+  - setuptools
+  - wheel
+
+# =============================================================================
+# DOCKER CONFIGURATION
+# =============================================================================
+
+# Docker installation
+docker_users:
+  - "{{ ansible_user }}"
+
+docker_compose_version: "2.21.0"
+
+# =============================================================================
+# MICROK8S CONFIGURATION
+# =============================================================================
+
+# MicroK8s installation
+microk8s_channel: "1.30/stable"
+microk8s_users:
+  - "{{ ansible_user }}"
+
+# MicroK8s addons to enable
+microk8s_addons:
+  - dns
+  - helm3
+  - ingress
+  - metrics-server
+  - storage
+  - registry --size 20Gi
+
+# Kubeconfig location
+kubeconfig_path: "{{ ansible_env.HOME }}/.kube/config"
+
+# =============================================================================
+# APPLICATION CONFIGURATION
+# =============================================================================
+
+# Application details
+app_name: "flask-k8s-app"
+app_version: "1.0.0"
+app_namespace: "flask-app"
+
+# Container registry
+container_registry: "localhost:32000"
+
+# =============================================================================
+# SECURITY CONFIGURATION
+# =============================================================================
+
+# Default passwords (change these in production!)
+jenkins_admin_password: "admin123"
+sonarqube_admin_password: "admin"
+grafana_admin_password: "admin123"
+postgresql_password: "sonarpassword"
+
+# Secrets (base64 encoded)
+secrets:
+  flask_secret_key: "Zmxhc2stc2VjcmV0LWtleS1mb3ItcHJvZHVjdGlvbg=="  # flask-secret-key-for-production
+  database_password: "c2VjdXJlLWRhdGFiYXNlLXBhc3N3b3Jk"                    # secure-database-password
+  api_token: "YXBpLXRva2VuLWZvci1leHRlcm5hbC1zZXJ2aWNlcw=="              # api-token-for-external-services
+
+# =============================================================================
+# RESOURCE CONFIGURATION
+# =============================================================================
+
+# Storage configurations
+storage:
+  microk8s_registry_size: "20Gi"
+  jenkins_storage_size: "8Gi"
+  postgresql_storage_size: "8Gi"
+  grafana_storage_size: "2Gi"
+  loki_storage_size: "5Gi"
+
+# Resource limits
+resources:
+  jenkins:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2000m"
+      memory: "4Gi"
+  
+  sonarqube:
+    requests:
+      cpu: "500m"
+      memory: "1024Mi"
+    limits:
+      cpu: "1000m"
+      memory: "2048Mi"
+  
+  postgresql:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "200m"
+      memory: "512Mi"
+  
+  grafana:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+  
+  loki:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  
+  flask_app:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+
+# =============================================================================
+# NETWORKING CONFIGURATION
+# =============================================================================
+
+# Service ports
+service_ports:
+  jenkins: 8080
+  sonarqube: 9000
+  grafana: 3000
+  flask_app: 5000
+  loki: 3100
+
+# LoadBalancer external ports (for Azure/Cloud)
+external_ports:
+  jenkins: 8080
+  sonarqube: 9000
+  grafana: 3000
+  flask_app: 80
+
+# =============================================================================
+# MONITORING CONFIGURATION
+# =============================================================================
+
+# Prometheus metrics
+prometheus_enabled: true
+metrics_path: "/metrics"
+
+# Log retention
+log_retention: "72h"
+
+# =============================================================================
+# CI/CD CONFIGURATION
+# =============================================================================
+
+# Jenkins configuration
+jenkins_executor_count: 2
+jenkins_plugins_install: false  # Custom image already has plugins
+
+# SonarQube configuration
+sonar_project_key: "flask-k8s-devsecops"
+sonar_project_name: "Flask K8s DevSecOps"
+
+# =============================================================================
+# HELM REPOSITORIES
+# =============================================================================
+
+helm_repos:
+  - name: jenkins
+    url: https://charts.jenkins.io
+  - name: bitnami
+    url: https://charts.bitnami.com/bitnami
+  - name: sonarqube
+    url: https://SonarSource.github.io/helm-chart-sonarqube
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+
+# =============================================================================
+# FEATURE FLAGS
+# =============================================================================
+
+# Enable/disable features
+features:
+  azure_external_access: true
+  development_mode: false
+  ssl_redirect: false
+  monitoring_enabled: true
+  security_scanning: true
+  auto_scaling: true
+
+# =============================================================================
+# PATHS AND DIRECTORIES
+# =============================================================================
+
+# Local paths
+project_root: "../"
+k8s_manifests_path: "{{ project_root }}/k8s"
+helm_values_path: "{{ project_root }}/helm"
+jenkins_files_path: "{{ project_root }}/jenkins"
+app_source_path: "{{ project_root }}/app"
+
+# Remote paths
+remote_project_path: "/opt/devsecops"
+remote_logs_path: "/var/log/devsecops"
+
+# =============================================================================
+# TIMEOUTS AND RETRIES
+# =============================================================================
+
+# Deployment timeouts
+timeouts:
+  helm_install: "10m"
+  rollout_status: "5m"
+  service_ready: "2m"
+  pod_ready: "1m"
+
+# Retry configuration
+retries:
+  max_attempts: 3
+  delay: 10

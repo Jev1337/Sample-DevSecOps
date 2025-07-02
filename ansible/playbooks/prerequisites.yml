@@ -1,0 +1,120 @@
+---
+# Prerequisites Installation Playbook
+# Installs system packages and basic requirements
+
+- name: "📝 Install system prerequisites"
+  hosts: devsecops
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: "🔍 Check if running as root"
+      fail:
+        msg: "This playbook should not be run as root user. Please use a regular user with sudo privileges."
+      when: ansible_user_id == "root"
+
+    - name: "📦 Update package cache (Debian/Ubuntu)"
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+      retries: "{{ retries.max_attempts }}"
+      delay: "{{ retries.delay }}"
+
+    - name: "📦 Update package cache (RedHat/CentOS)"
+      yum:
+        update_cache: yes
+      when: ansible_os_family == "RedHat"
+      retries: "{{ retries.max_attempts }}"
+      delay: "{{ retries.delay }}"
+
+    - name: "📋 Install system packages (Debian/Ubuntu)"
+      apt:
+        name: "{{ system_packages }}"
+        state: present
+      when: ansible_os_family == "Debian"
+      retries: "{{ retries.max_attempts }}"
+      delay: "{{ retries.delay }}"
+
+    - name: "📋 Install system packages (RedHat/CentOS)"
+      yum:
+        name: "{{ system_packages }}"
+        state: present
+      when: ansible_os_family == "RedHat"
+      retries: "{{ retries.max_attempts }}"
+      delay: "{{ retries.delay }}"
+
+    - name: "🐍 Install Python3 and pip"
+      package:
+        name:
+          - python3
+          - python3-pip
+          - python3-setuptools
+        state: present
+
+    - name: "📦 Install Python packages"
+      pip:
+        name: "{{ python_packages }}"
+        state: present
+        executable: pip3
+
+    - name: "📦 Install snap package manager"
+      apt:
+        name: snapd
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: "🔍 Check if snap is working"
+      command: snap version
+      register: snap_check
+      failed_when: false
+      changed_when: false
+
+    - name: "⏰ Wait for snap to be ready"
+      wait_for:
+        path: /var/lib/snapd/snap
+        state: present
+        timeout: 60
+      when: snap_check.rc == 0
+
+    - name: "🔧 Install Git"
+      package:
+        name: git
+        state: present
+
+    - name: "🔍 Verify Git installation"
+      command: git --version
+      register: git_version
+      changed_when: false
+
+    - name: "🔍 Check curl installation"
+      command: curl --version
+      register: curl_check
+      changed_when: false
+      failed_when: curl_check.rc != 0
+
+    - name: "🔍 Check wget installation"
+      command: wget --version
+      register: wget_check
+      changed_when: false
+      failed_when: wget_check.rc != 0
+
+    - name: "✅ Display installed versions"
+      debug:
+        msg:
+          - "🐍 Python: {{ ansible_python_version }}"
+          - "📦 Git: {{ git_version.stdout.split('\n')[0] }}"
+          - "📥 Curl: {{ curl_check.stdout.split('\n')[0] | regex_replace('^curl\\s+', '') }}"
+          - "📥 Wget: {{ wget_check.stdout.split('\n')[0] | regex_replace('^GNU Wget\\s+', '') }}"
+
+    - name: "📁 Create log directory"
+      file:
+        path: "{{ remote_logs_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: "📝 Log prerequisites completion"
+      lineinfile:
+        path: "{{ remote_logs_path }}/deployment.log"
+        line: "{{ ansible_date_time.iso8601 }} - Prerequisites installation completed"
+        create: yes

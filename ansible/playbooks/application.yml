@@ -1,0 +1,332 @@
+---
+# Flask Application Deployment Playbook
+
+- name: "🐍 Deploy Flask application"
+  hosts: devsecops
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: "🔍 Check if Flask app is already deployed"
+      command: microk8s kubectl get pods -n {{ flask_app.namespace }} -l app=flask-app
+      register: flask_check
+      failed_when: false
+      changed_when: false
+      become_user: "{{ ansible_user }}"
+
+    - name: "✅ Flask app already deployed"
+      debug:
+        msg: "Flask application is already running"
+      when: "'flask-app-' in flask_check.stdout and 'Running' in flask_check.stdout"
+
+    - name: "🐳 Build and deploy Flask application"
+      block:
+        - name: "📁 Copy application source to remote"
+          copy:
+            src: "{{ app_source_path }}/"
+            dest: "{{ remote_project_path }}/app/"
+            mode: '0644'
+
+        - name: "🔨 Build Flask application image"
+          docker_image:
+            name: "{{ app_name }}"
+            tag: latest
+            build:
+              path: "{{ remote_project_path }}/app"
+              args:
+                BUILD_DATE: "{{ ansible_date_time.iso8601 }}"
+                GIT_COMMIT: "{{ ansible_env.GIT_COMMIT | default('ansible-build') }}"
+            source: build
+            state: present
+
+        - name: "🏷️ Tag image for registry"
+          docker_image:
+            name: "{{ app_name }}:latest"
+            repository: "{{ container_registry }}/{{ app_name }}"
+            tag: latest
+            source: local
+
+        - name: "📤 Push image to registry"
+          docker_image:
+            name: "{{ container_registry }}/{{ app_name }}:latest"
+            push: yes
+            source: local
+
+      when: "'flask-app-' not in flask_check.stdout or 'Running' not in flask_check.stdout"
+
+    - name: "📁 Copy Kubernetes manifests"
+      copy:
+        src: "{{ k8s_manifests_path }}/"
+        dest: "{{ remote_project_path }}/k8s/"
+        mode: '0644'
+
+    - name: "🔧 Update deployment image reference"
+      replace:
+        path: "{{ remote_project_path }}/k8s/deployment.yaml"
+        regexp: 'image: flask-k8s-app:latest'
+        replace: 'image: {{ container_registry }}/{{ app_name }}:latest'
+
+    - name: "📋 Apply ConfigMap"
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: flask-config
+            namespace: "{{ flask_app.namespace }}"
+            labels:
+              app: flask-app
+          data:
+            PORT: "{{ flask_app.config.port }}"
+            FLASK_ENV: "{{ flask_app.config.flask_env }}"
+            PYTHONUNBUFFERED: "{{ flask_app.config.python_unbuffered }}"
+            LOG_LEVEL: "{{ flask_app.config.log_level }}"
+            APP_NAME: "{{ flask_app.config.app_name }}"
+            APP_VERSION: "{{ flask_app.config.app_version }}"
+      become_user: "{{ ansible_user }}"
+
+    - name: "🔐 Apply Secret"
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: flask-secrets
+            namespace: "{{ flask_app.namespace }}"
+            labels:
+              app: flask-app
+          type: Opaque
+          data:
+            SECRET_KEY: "{{ secrets.flask_secret_key }}"
+            DATABASE_PASSWORD: "{{ secrets.database_password }}"
+            API_TOKEN: "{{ secrets.api_token }}"
+      become_user: "{{ ansible_user }}"
+
+    - name: "🚀 Apply Deployment"
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: flask-app
+            namespace: "{{ flask_app.namespace }}"
+            labels:
+              app: flask-app
+              version: v1
+          spec:
+            replicas: "{{ flask_app.replicas }}"
+            selector:
+              matchLabels:
+                app: flask-app
+            template:
+              metadata:
+                labels:
+                  app: flask-app
+                  version: v1
+                annotations:
+                  prometheus.io/scrape: "true"
+                  prometheus.io/port: "5000"
+                  prometheus.io/path: "/metrics"
+              spec:
+                containers:
+                - name: flask-app
+                  image: "{{ container_registry }}/{{ app_name }}:latest"
+                  imagePullPolicy: Always
+                  ports:
+                  - containerPort: 5000
+                    name: http
+                  envFrom:
+                  - configMapRef:
+                      name: flask-config
+                  - secretRef:
+                      name: flask-secrets
+                  resources:
+                    requests:
+                      memory: "{{ resources.flask_app.requests.memory }}"
+                      cpu: "{{ resources.flask_app.requests.cpu }}"
+                    limits:
+                      memory: "{{ resources.flask_app.limits.memory }}"
+                      cpu: "{{ resources.flask_app.limits.cpu }}"
+                  livenessProbe:
+                    httpGet:
+                      path: "{{ flask_app.health_checks.liveness.path }}"
+                      port: "{{ flask_app.health_checks.liveness.port }}"
+                    initialDelaySeconds: "{{ flask_app.health_checks.liveness.initial_delay }}"
+                    periodSeconds: "{{ flask_app.health_checks.liveness.period }}"
+                    timeoutSeconds: "{{ flask_app.health_checks.liveness.timeout }}"
+                    failureThreshold: "{{ flask_app.health_checks.liveness.failure_threshold }}"
+                  readinessProbe:
+                    httpGet:
+                      path: "{{ flask_app.health_checks.readiness.path }}"
+                      port: "{{ flask_app.health_checks.readiness.port }}"
+                    initialDelaySeconds: "{{ flask_app.health_checks.readiness.initial_delay }}"
+                    periodSeconds: "{{ flask_app.health_checks.readiness.period }}"
+                    timeoutSeconds: "{{ flask_app.health_checks.readiness.timeout }}"
+                    failureThreshold: "{{ flask_app.health_checks.readiness.failure_threshold }}"
+                  securityContext:
+                    allowPrivilegeEscalation: "{{ flask_app.security_context.allow_privilege_escalation }}"
+                    runAsNonRoot: "{{ flask_app.security_context.run_as_non_root }}"
+                    runAsUser: "{{ flask_app.security_context.run_as_user }}"
+                    runAsGroup: "{{ flask_app.security_context.run_as_group }}"
+                    readOnlyRootFilesystem: "{{ flask_app.security_context.read_only_root_filesystem }}"
+                    capabilities:
+                      drop:
+                      - ALL
+      become_user: "{{ ansible_user }}"
+
+    - name: "🌐 Apply Service"
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: flask-app-service
+            namespace: "{{ flask_app.namespace }}"
+            labels:
+              app: flask-app
+          spec:
+            selector:
+              app: flask-app
+            ports:
+            - name: http
+              port: "{{ flask_app.service.port }}"
+              targetPort: "{{ flask_app.service.target_port }}"
+              protocol: TCP
+            type: "{{ flask_app.service.type }}"
+      become_user: "{{ ansible_user }}"
+
+    - name: "🌐 Apply Ingress"
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: flask-app-ingress
+            namespace: "{{ flask_app.namespace }}"
+            labels:
+              app: flask-app
+            annotations:
+              kubernetes.io/ingress.class: "public"
+              nginx.ingress.kubernetes.io/rewrite-target: /
+              nginx.ingress.kubernetes.io/ssl-redirect: "{{ features.ssl_redirect | string | lower }}"
+          spec:
+            ingressClassName: public
+            rules:
+            - host: "{{ flask_app.ingress.hostname }}"
+              http:
+                paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: flask-app-service
+                      port:
+                        number: "{{ flask_app.service.port }}"
+      become_user: "{{ ansible_user }}"
+      when: flask_app.ingress.enabled
+
+    - name: "📈 Apply HPA (Horizontal Pod Autoscaler)"
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: autoscaling/v2
+          kind: HorizontalPodAutoscaler
+          metadata:
+            name: flask-app-hpa
+            namespace: "{{ flask_app.namespace }}"
+            labels:
+              app: flask-app
+          spec:
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: flask-app
+            minReplicas: "{{ flask_app.autoscaling.min_replicas }}"
+            maxReplicas: "{{ flask_app.autoscaling.max_replicas }}"
+            metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                target:
+                  type: Utilization
+                  averageUtilization: "{{ flask_app.autoscaling.cpu_threshold }}"
+            - type: Resource
+              resource:
+                name: memory
+                target:
+                  type: Utilization
+                  averageUtilization: "{{ flask_app.autoscaling.memory_threshold }}"
+            behavior:
+              scaleDown:
+                stabilizationWindowSeconds: 300
+                policies:
+                - type: Percent
+                  value: 50
+                  periodSeconds: 60
+              scaleUp:
+                stabilizationWindowSeconds: 0
+                policies:
+                - type: Percent
+                  value: 100
+                  periodSeconds: 15
+                - type: Pods
+                  value: 4
+                  periodSeconds: 15
+                selectPolicy: Max
+      become_user: "{{ ansible_user }}"
+      when: flask_app.autoscaling.enabled
+
+    - name: "⏳ Wait for Flask application to be ready"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ flask_app.namespace }}"
+        label_selectors:
+          - "app=flask-app"
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: "{{ timeouts.pod_ready | int * 60 }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+      become_user: "{{ ansible_user }}"
+
+    - name: "🚀 Check deployment rollout status"
+      command: microk8s kubectl rollout status deployment/flask-app -n {{ flask_app.namespace }} --timeout={{ timeouts.rollout_status }}
+      become_user: "{{ ansible_user }}"
+
+    - name: "📊 Display Flask application deployment information"
+      debug:
+        msg:
+          - "✅ Flask application deployed successfully"
+          - "🌐 Access URL: http://{{ flask_app.ingress.hostname }}"
+          - "🐳 Image: {{ container_registry }}/{{ app_name }}:latest"
+          - "📋 Namespace: {{ flask_app.namespace }}"
+          - "🔄 Replicas: {{ flask_app.replicas }}"
+          - "📈 HPA: {{ flask_app.autoscaling.min_replicas }}-{{ flask_app.autoscaling.max_replicas }} replicas"
+
+    - name: "📊 Display application endpoints"
+      debug:
+        msg:
+          - "🔗 Application endpoints:"
+          - "  - Home: http://{{ flask_app.ingress.hostname }}/"
+          - "  - Health: http://{{ flask_app.ingress.hostname }}/health"
+          - "  - API Users: http://{{ flask_app.ingress.hostname }}/api/users"
+          - "  - Metrics: http://{{ flask_app.ingress.hostname }}/metrics"
+
+    - name: "📝 Log Flask application deployment completion"
+      lineinfile:
+        path: "{{ remote_logs_path }}/deployment.log"
+        line: "{{ ansible_date_time.iso8601 }} - Flask application deployment completed in namespace {{ flask_app.namespace }}"
+        create: yes

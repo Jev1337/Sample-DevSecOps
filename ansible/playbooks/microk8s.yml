@@ -1,0 +1,155 @@
+---
+# MicroK8s Installation and Configuration Playbook
+
+- name: "🔧 Setup MicroK8s Kubernetes cluster"
+  hosts: devsecops
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: "🔍 Check if MicroK8s is already installed"
+      command: microk8s version
+      register: microk8s_installed
+      failed_when: false
+      changed_when: false
+
+    - name: "✅ MicroK8s already installed"
+      debug:
+        msg: "MicroK8s is already installed"
+      when: microk8s_installed.rc == 0
+
+    - name: "🔧 Install MicroK8s"
+      block:
+        - name: "📦 Install MicroK8s via snap"
+          snap:
+            name: microk8s
+            classic: yes
+            channel: "{{ microk8s_channel }}"
+          when: microk8s_installed.rc != 0
+
+        - name: "👥 Add users to microk8s group"
+          user:
+            name: "{{ item }}"
+            groups: microk8s
+            append: yes
+          loop: "{{ microk8s_users }}"
+
+        - name: "🔒 Set permissions for kubectl config directory"
+          file:
+            path: "{{ ansible_env.HOME }}/.kube"
+            state: directory
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0755'
+          become_user: "{{ ansible_user }}"
+
+        - name: "⏰ Wait for MicroK8s to be ready"
+          command: microk8s status --wait-ready
+          register: microk8s_status
+          retries: 10
+          delay: 30
+          until: microk8s_status.rc == 0
+
+      when: microk8s_installed.rc != 0
+
+    - name: "🔌 Enable MicroK8s addons"
+      command: "microk8s enable {{ item }}"
+      loop: "{{ microk8s_addons }}"
+      register: addon_result
+      failed_when: 
+        - addon_result.rc != 0
+        - "'already enabled' not in addon_result.stderr"
+      changed_when: "'already enabled' not in addon_result.stderr"
+
+    - name: "⏰ Wait for addons to be ready"
+      pause:
+        seconds: 30
+        prompt: "Waiting for MicroK8s addons to initialize..."
+
+    - name: "🔍 Check addon status"
+      command: microk8s status
+      register: microk8s_addon_status
+      changed_when: false
+
+    - name: "📋 Display MicroK8s status"
+      debug:
+        var: microk8s_addon_status.stdout_lines
+
+    - name: "⚙️ Generate kubeconfig"
+      shell: microk8s config > {{ kubeconfig_path }}
+      become_user: "{{ ansible_user }}"
+      args:
+        creates: "{{ kubeconfig_path }}"
+
+    - name: "🔒 Set kubeconfig permissions"
+      file:
+        path: "{{ kubeconfig_path }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0600'
+
+    - name: "🔍 Test kubectl access"
+      command: microk8s kubectl get nodes
+      register: kubectl_test
+      become_user: "{{ ansible_user }}"
+      retries: 3
+      delay: 10
+      until: kubectl_test.rc == 0
+
+    - name: "🗃️ Create Kubernetes namespaces"
+      kubernetes.core.k8s:
+        name: "{{ item.name }}"
+        api_version: v1
+        kind: Namespace
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          metadata:
+            labels: "{{ item.labels }}"
+      loop: "{{ namespaces }}"
+      become_user: "{{ ansible_user }}"
+      environment:
+        KUBECONFIG: "{{ kubeconfig_path }}"
+
+    - name: "📦 Add Helm repositories"
+      kubernetes.core.helm_repository:
+        name: "{{ item.name }}"
+        repo_url: "{{ item.url }}"
+      loop: "{{ helm_repos }}"
+      become_user: "{{ ansible_user }}"
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
+
+    - name: "📦 Update Helm repositories"
+      command: microk8s helm3 repo update
+      become_user: "{{ ansible_user }}"
+
+    - name: "🔍 Verify registry is running"
+      command: microk8s kubectl get pods -n container-registry
+      register: registry_pods
+      retries: 5
+      delay: 30
+      until: "'Running' in registry_pods.stdout"
+      become_user: "{{ ansible_user }}"
+
+    - name: "📊 Display cluster information"
+      debug:
+        msg:
+          - "✅ MicroK8s cluster is ready"
+          - "🗃️ Namespaces created: {{ namespaces | map(attribute='name') | list | join(', ') }}"
+          - "📦 Helm repositories: {{ helm_repos | map(attribute='name') | list | join(', ') }}"
+          - "🏪 Container registry: localhost:32000"
+          - "⚙️ Kubeconfig: {{ kubeconfig_path }}"
+
+    - name: "📝 Log MicroK8s setup completion"
+      lineinfile:
+        path: "{{ remote_logs_path }}/deployment.log"
+        line: "{{ ansible_date_time.iso8601 }} - MicroK8s setup completed with addons: {{ microk8s_addons | join(', ') }}"
+        create: yes
+
+    - name: "⚠️ Display important notes"
+      debug:
+        msg:
+          - "⚠️ IMPORTANT: You may need to run 'newgrp microk8s' or log out/in for group changes"
+          - "🔧 Use 'microk8s kubectl' or configure KUBECONFIG={{ kubeconfig_path }}"
+          - "🏪 Container registry available at localhost:32000"

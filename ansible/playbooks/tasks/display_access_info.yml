@@ -1,0 +1,148 @@
+---
+# Display Access Information Task
+
+- name: "🔗 Get Jenkins admin password"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: jenkins
+    namespace: "{{ jenkins.namespace }}"
+    kubeconfig: "{{ kubeconfig_path }}"
+  register: jenkins_secret
+  become_user: "{{ ansible_user }}"
+  failed_when: false
+
+- name: "🔑 Extract Jenkins admin password"
+  set_fact:
+    jenkins_admin_password_actual: "{{ jenkins_secret.resources[0].data['jenkins-admin-password'] | b64decode }}"
+  when: 
+    - jenkins_secret.resources is defined
+    - jenkins_secret.resources | length > 0
+
+- name: "🌐 Get external IP from saved info"
+  slurp:
+    src: "{{ remote_project_path }}/external_access_info.yml"
+  register: external_info_file
+  failed_when: false
+
+- name: "📊 Parse external access info"
+  set_fact:
+    external_access_info: "{{ external_info_file.content | b64decode | from_yaml }}"
+  when: external_info_file.content is defined
+
+- name: "🔗 Display local access information"
+  debug:
+    msg:
+      - "🔗 LOCAL ACCESS INFORMATION"
+      - "=========================="
+      - ""
+      - "📝 Add these lines to your /etc/hosts file:"
+      - "{{ ansible_default_ipv4.address }} jenkins.{{ domain_suffix }}"
+      - "{{ ansible_default_ipv4.address }} sonarqube.{{ domain_suffix }}"
+      - "{{ ansible_default_ipv4.address }} grafana.{{ domain_suffix }}"
+      - "{{ ansible_default_ipv4.address }} flask-app.{{ domain_suffix }}"
+      - ""
+      - "🌐 Local Access URLs:"
+      - "   - Flask App: http://flask-app.{{ domain_suffix }}"
+      - "   - Jenkins:   http://jenkins.{{ domain_suffix }}"
+      - "   - SonarQube: http://sonarqube.{{ domain_suffix }}"
+      - "   - Grafana:   http://grafana.{{ domain_suffix }}"
+
+- name: "🌐 Display external access information"
+  debug:
+    msg:
+      - "🌐 EXTERNAL ACCESS INFORMATION"
+      - "=============================="
+      - ""
+      - "🔗 External IP: {{ external_access_info.external_ip | default('Not configured') }}"
+      - ""
+      - "📊 External URLs (nip.io):"
+      - "   - Jenkins:   {{ external_access_info.services.jenkins | default('Not configured') }}"
+      - "   - SonarQube: {{ external_access_info.services.sonarqube | default('Not configured') }}"
+      - "   - Grafana:   {{ external_access_info.services.grafana | default('Not configured') }}"
+      - "   - Flask App: {{ external_access_info.services.flask_app | default('Not configured') }}"
+  when: external_access_info is defined
+
+- name: "🔐 Display default credentials"
+  debug:
+    msg:
+      - "🔐 DEFAULT CREDENTIALS"
+      - "====================="
+      - ""
+      - "🚀 Jenkins:"
+      - "   Username: admin"
+      - "   Password: {{ jenkins_admin_password_actual | default('Check deployment logs') }}"
+      - ""
+      - "🔍 SonarQube:"
+      - "   Username: admin"
+      - "   Password: {{ sonarqube_admin_password }}"
+      - ""
+      - "📊 Grafana:"
+      - "   Username: admin"
+      - "   Password: {{ grafana_admin_password }}"
+
+- name: "🛠️ Display CI/CD pipeline setup information"
+  debug:
+    msg:
+      - "🛠️ CI/CD PIPELINE SETUP"
+      - "======================="
+      - ""
+      - "📋 Jenkins Pipeline Configuration:"
+      - "   1. Access Jenkins web interface"
+      - "   2. Create a new 'Pipeline' job"
+      - "   3. Point it to your Git repository"
+      - "   4. Set 'Script Path' to 'jenkins/Jenkinsfile'"
+      - "   5. Configure webhook for automatic builds"
+      - ""
+      - "🔍 SonarQube Project Setup:"
+      - "   1. Access SonarQube web interface"
+      - "   2. Create project with key: {{ sonar_project_key }}"
+      - "   3. Generate authentication token"
+      - "   4. Configure in Jenkins SonarQube plugin"
+      - ""
+      - "📊 Monitoring Setup:"
+      - "   1. Access Grafana web interface"
+      - "   2. Verify Loki datasource connection"
+      - "   3. Import dashboards from monitoring/grafana/dashboards/"
+
+- name: "🛡️ Display security recommendations"
+  debug:
+    msg:
+      - "🛡️ SECURITY RECOMMENDATIONS"
+      - "============================"
+      - ""
+      - "🔐 Immediate Actions:"
+      - "   ✅ Change all default passwords"
+      - "   ✅ Configure firewall rules"
+      - "   ✅ Set up SSL/TLS certificates"
+      - "   ✅ Enable service authentication"
+      - ""
+      - "🔧 Production Hardening:"
+      - "   ✅ Regular security updates"
+      - "   ✅ Backup strategies"
+      - "   ✅ Monitoring and alerting"
+      - "   ✅ Access control and RBAC"
+      - "   ✅ Network security policies"
+
+- name: "📋 Display useful commands"
+  debug:
+    msg:
+      - "📋 USEFUL COMMANDS"
+      - "=================="
+      - ""
+      - "🔍 Status Checks:"
+      - "   microk8s kubectl get pods -A"
+      - "   microk8s kubectl get svc -A"
+      - "   microk8s kubectl get ingress -A"
+      - ""
+      - "📊 Monitoring:"
+      - "   microk8s kubectl top nodes"
+      - "   microk8s kubectl top pods -A"
+      - ""
+      - "📝 Logs:"
+      - "   microk8s kubectl logs -n jenkins -l app.kubernetes.io/instance=jenkins"
+      - "   microk8s kubectl logs -n sonarqube -l app=sonarqube"
+      - "   microk8s kubectl logs -n monitoring -l app.kubernetes.io/name=grafana"
+      - ""
+      - "🧹 Cleanup:"
+      - "   ansible-playbook -i inventory/hosts.yml playbooks/cleanup.yml --tags [component]"

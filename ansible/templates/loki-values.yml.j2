@@ -1,0 +1,72 @@
+---
+# Loki Helm Values Template
+
+deploymentMode: {{ monitoring.loki.deployment_mode }}
+
+loki:
+  auth_enabled: {{ monitoring.loki.auth_enabled | lower }}
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: '{{ monitoring.loki.storage.type }}'
+    filesystem:
+      chunks_directory: /var/loki/chunks
+      rules_directory: /var/loki/rules
+  schemaConfig:
+    configs:
+    - from: "2024-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: loki_index_
+        period: 24h
+
+# SingleBinary configuration with resource limits
+singleBinary:
+  replicas: 1
+  persistence:
+    enabled: true
+    storageClass: "{{ monitoring.loki.storage.class }}"
+    size: "{{ monitoring.loki.storage.size }}"
+  resources:
+    requests:
+      cpu: "{{ resources.loki.requests.cpu }}"
+      memory: "{{ resources.loki.requests.memory }}"
+    limits:
+      cpu: "{{ resources.loki.limits.cpu }}"
+      memory: "{{ resources.loki.limits.memory }}"
+
+# Disable all other components to ensure only SingleBinary runs
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+
+# Disable cache components that consume too much memory
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+# Disable memcached components
+memcached:
+  enabled: false
+memcachedChunks:
+  enabled: false
+memcachedFrontend:
+  enabled: false
+memcachedIndexQueries:
+  enabled: false
+memcachedIndexWrites:
+  enabled: false
+
+# Disable gateway and other optional components
+gateway:
+  enabled: false
+
+# Monitoring
+monitoring:
+  enabled: false

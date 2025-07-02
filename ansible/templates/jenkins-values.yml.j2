@@ -1,0 +1,76 @@
+---
+# Jenkins Helm Values Template
+
+controller:
+  image:
+    registry: "{{ jenkins.image.registry }}"
+    repository: "{{ jenkins.image.repository }}"
+    tag: "{{ jenkins.image.tag }}"
+    pullPolicy: "{{ jenkins.image.pull_policy }}"
+  
+  # Disable plugin installation since our custom image already contains plugins
+  installPlugins: {{ jenkins_plugins_install | lower }}
+  
+  ingress:
+    enabled: {{ jenkins.ingress.enabled | lower }}
+    hostName: {{ jenkins.ingress.hostname }}
+    ingressClassName: {{ jenkins.ingress.class }}
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "{{ features.ssl_redirect | string | lower }}"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "{{ features.ssl_redirect | string | lower }}"
+  
+  jenkinsUrl: http://{{ jenkins.ingress.hostname }}/
+  numExecutors: {{ jenkins_executor_count }}
+  
+  servicePort: {{ jenkins.service.port }}
+  serviceType: {{ jenkins.service.type }}
+
+  # Run as root to allow k8s API access
+  podSecurityContext:
+    runAsUser: {{ jenkins.security.run_as_user }}
+    runAsNonRoot: {{ jenkins.security.run_as_non_root | lower }}
+  
+  securityContext:
+    runAsUser: {{ jenkins.security.run_as_user }}
+    runAsNonRoot: {{ jenkins.security.run_as_non_root | lower }}
+    allowPrivilegeEscalation: {{ jenkins.security.allow_privilege_escalation | lower }}
+  
+  dnsConfig:
+    nameservers:
+      - "8.8.8.8"
+  
+  sidecars:
+    configAutoReload:
+      enabled: false
+
+  # Resource configuration
+  resources:
+    requests:
+      cpu: "{{ resources.jenkins.requests.cpu }}"
+      memory: "{{ resources.jenkins.requests.memory }}"
+    limits:
+      cpu: "{{ resources.jenkins.limits.cpu }}"
+      memory: "{{ resources.jenkins.limits.memory }}"
+
+# Persistence configuration
+persistence:
+  storageClass: "{{ jenkins.storage.class }}"
+  size: "{{ jenkins.storage.size }}"
+
+# Authentication and security configuration
+serviceAccount:
+  create: true
+
+# Enable RBAC with cluster-admin permissions
+rbac:
+  create: {{ jenkins.rbac.create | lower }}
+  readSecrets: true
+
+# Create ClusterRoleBinding for jenkins service account
+clusterRoleBinding:
+  create: true
+
+# Agent configuration
+agent:
+  enabled: true
+  defaultsProviderTemplate: ""

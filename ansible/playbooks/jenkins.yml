@@ -1,0 +1,180 @@
+---
+# Jenkins Deployment Playbook
+
+- name: "🚀 Deploy Jenkins CI/CD server"
+  hosts: devsecops
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: "🔍 Check if Jenkins is already deployed"
+      command: microk8s kubectl get pods -n {{ jenkins.namespace }} -l app.kubernetes.io/instance=jenkins
+      register: jenkins_check
+      failed_when: false
+      changed_when: false
+      become_user: "{{ ansible_user }}"
+
+    - name: "✅ Jenkins already deployed"
+      debug:
+        msg: "Jenkins is already running"
+      when: "'jenkins-0' in jenkins_check.stdout"
+
+    - name: "🔨 Build custom Jenkins image"
+      block:
+        - name: "📁 Copy Jenkins files to remote"
+          copy:
+            src: "{{ jenkins_files_path }}/"
+            dest: "{{ remote_project_path }}/jenkins/"
+            mode: '0644'
+
+        - name: "🔍 Get Docker group ID"
+          shell: getent group docker | cut -d: -f3 || echo 999
+          register: docker_gid
+          changed_when: false
+
+        - name: "🔨 Build Jenkins DevSecOps image"
+          docker_image:
+            name: jenkins-devsecops
+            tag: latest
+            build:
+              path: "{{ remote_project_path }}/jenkins"
+              args:
+                DOCKER_GID: "{{ docker_gid.stdout }}"
+            source: build
+            state: present
+
+        - name: "🏷️ Tag image for registry"
+          docker_image:
+            name: jenkins-devsecops:latest
+            repository: "{{ container_registry }}/jenkins-devsecops"
+            tag: latest
+            source: local
+
+        - name: "📤 Push image to registry"
+          docker_image:
+            name: "{{ container_registry }}/jenkins-devsecops:latest"
+            push: yes
+            source: local
+
+      when: "'jenkins-0' not in jenkins_check.stdout"
+
+    - name: "📋 Apply Jenkins RBAC configuration"
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: jenkins-cluster-admin
+          rules:
+            - apiGroups: [""]
+              resources: ["*"]
+              verbs: ["*"]
+            - apiGroups: ["apps"]
+              resources: ["*"]
+              verbs: ["*"]
+            - apiGroups: ["networking.k8s.io"]
+              resources: ["*"]
+              verbs: ["*"]
+            - apiGroups: ["extensions"]
+              resources: ["*"]
+              verbs: ["*"]
+      become_user: "{{ ansible_user }}"
+
+    - name: "📋 Apply Jenkins RBAC binding"
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: jenkins-cluster-admin-binding
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: jenkins-cluster-admin
+          subjects:
+            - kind: ServiceAccount
+              name: jenkins
+              namespace: "{{ jenkins.namespace }}"
+      become_user: "{{ ansible_user }}"
+
+    - name: "📊 Create Jenkins Helm values template"
+      template:
+        src: jenkins-values.yml.j2
+        dest: "{{ remote_project_path }}/jenkins-values.yml"
+        mode: '0644'
+
+    - name: "🚀 Deploy Jenkins via Helm"
+      kubernetes.core.helm:
+        name: "{{ jenkins.release_name }}"
+        chart_ref: jenkins/jenkins
+        namespace: "{{ jenkins.namespace }}"
+        values_files:
+          - "{{ remote_project_path }}/jenkins-values.yml"
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: "{{ timeouts.helm_install }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+      become_user: "{{ ansible_user }}"
+      environment:
+        PATH: "/snap/bin:{{ ansible_env.PATH }}"
+      when: "'jenkins-0' not in jenkins_check.stdout"
+
+    - name: "⏳ Wait for Jenkins to be ready"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ jenkins.namespace }}"
+        label_selectors:
+          - "app.kubernetes.io/instance=jenkins"
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: "{{ timeouts.pod_ready | int * 60 }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+      become_user: "{{ ansible_user }}"
+
+    - name: "🔑 Get Jenkins admin password"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: jenkins
+        namespace: "{{ jenkins.namespace }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+      register: jenkins_secret
+      become_user: "{{ ansible_user }}"
+
+    - name: "🔍 Extract admin password"
+      set_fact:
+        jenkins_admin_password_decoded: "{{ jenkins_secret.resources[0].data['jenkins-admin-password'] | b64decode }}"
+      when: jenkins_secret.resources | length > 0
+
+    - name: "📊 Display Jenkins deployment information"
+      debug:
+        msg:
+          - "✅ Jenkins deployed successfully"
+          - "🌐 Access URL: http://jenkins.{{ domain_suffix }}"
+          - "👤 Username: admin"
+          - "🔑 Password: {{ jenkins_admin_password_decoded | default('Check logs for password') }}"
+          - "📋 Namespace: {{ jenkins.namespace }}"
+
+    - name: "📝 Log Jenkins deployment completion"
+      lineinfile:
+        path: "{{ remote_logs_path }}/deployment.log"
+        line: "{{ ansible_date_time.iso8601 }} - Jenkins deployment completed in namespace {{ jenkins.namespace }}"
+        create: yes
+
+    - name: "📋 Display Jenkins configuration notes"
+      debug:
+        msg:
+          - "🔧 Configure Jenkins pipeline:"
+          - "  1. Create a new 'Pipeline' job"
+          - "  2. Point to your Git repository"
+          - "  3. Set 'Script Path' to 'jenkins/Jenkinsfile'"
+          - "  4. Configure webhook for automatic builds"

@@ -1,0 +1,73 @@
+# External Access Information
+
+## 🌐 DevSecOps Environment External Access
+
+**Last Updated:** {{ ansible_date_time.iso8601 }}  
+**External IP:** {{ external_ip_address }}
+
+### 📊 Service URLs
+
+#### nip.io Domains (Recommended)
+- **Jenkins:** http://jenkins.{{ external_ip_address }}.nip.io
+- **SonarQube:** http://sonarqube.{{ external_ip_address }}.nip.io
+- **Grafana:** http://grafana.{{ external_ip_address }}.nip.io
+- **Flask App:** http://app.{{ external_ip_address }}.nip.io
+
+#### Direct IP Access (LoadBalancer)
+Check the LoadBalancer external IPs with:
+```bash
+microk8s kubectl get svc -A -o wide | grep LoadBalancer
+```
+
+### 🔐 Default Credentials
+
+| Service | Username | Password |
+|---------|----------|----------|
+| Jenkins | admin | (check deployment logs) |
+| SonarQube | admin | {{ sonarqube_admin_password }} |
+| Grafana | admin | {{ grafana_admin_password }} |
+
+### 🛡️ Security Configuration
+
+#### Required Azure NSG Rules
+Ensure the following inbound rules are configured in your Azure Network Security Group:
+
+| Port | Protocol | Source | Description |
+|------|----------|--------|-------------|
+| 80 | TCP | Internet | HTTP Web Traffic |
+| 443 | TCP | Internet | HTTPS Web Traffic |
+| 8080 | TCP | Internet | Jenkins |
+| 9000 | TCP | Internet | SonarQube |
+| 3000 | TCP | Internet | Grafana |
+| 5000 | TCP | Internet | Flask App |
+
+#### Security Recommendations
+- ✅ Change all default passwords immediately
+- ✅ Configure SSL/TLS certificates for production
+- ✅ Implement proper firewall rules
+- ✅ Set up monitoring and alerting
+- ✅ Enable authentication for all services
+- ✅ Regular security updates and patches
+
+### 🔧 Configuration Steps
+
+1. **Access Services:** Use the URLs above to access each service
+2. **Change Passwords:** Update default credentials for security
+3. **Configure Jenkins:** Set up CI/CD pipelines
+4. **Configure SonarQube:** Create projects and quality gates
+5. **Configure Grafana:** Import dashboards and set up alerts
+
+### 📞 Support
+
+For issues with external access:
+- Check Azure NSG rules
+- Verify LoadBalancer services: `microk8s kubectl get svc -A`
+- Check ingress status: `microk8s kubectl get ingress -A`
+- Review logs: `microk8s kubectl logs -n <namespace> <pod-name>`
+
+### 🔄 Cleanup
+
+To remove external access configurations:
+```bash
+ansible-playbook -i inventory/hosts.yml playbooks/cleanup.yml --tags external-access
+```
