@@ -474,7 +474,7 @@ EOF
     log "🌐 Using LoadBalancer IPs:" "$YELLOW"
     log "   - Check the table below for assigned external IPs" "$CYAN"
     log "📋 LoadBalancer External IPs:" "$YELLOW"
-    microk8s kubectl get svc -A --field-selector spec.type=LoadBalancer
+    microk8s kubectl get svc -A -o=jsonpath='{range .items[?(@.spec.type=="LoadBalancer")]}{"NAMESPACE: "}{.metadata.namespace}{"\tSERVICE: "}{.metadata.name}{"\tEXTERNAL-IP: "}{.status.loadBalancer.ingress[0].ip}{"\n"}{end}'
     log "🛡️ Security Notes:" "$YELLOW"
     log "   - Ensure Azure NSG allows inbound traffic on ports 80, 443, 8080, 9000, 3000, 5000" "$YELLOW"
     log "   - Consider setting up SSL/TLS certificates for production use" "$YELLOW"
