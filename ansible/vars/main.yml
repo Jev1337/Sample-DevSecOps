@@ -1,7 +1,45 @@
 ---
 # Default variables for DevSecOps Ansible setup
-# You can override these in your own vars file if needed
+
+# MicroK8s configuration
 microk8s_channel: "1.30/stable"
+microk8s_addons:
+  - dns
+  - helm3
+  - ingress
+  - metrics-server
+  - storage
+  - registry --size 20Gi
+
+# Docker configuration
 docker_gid: 999
-flask_app_image: "localhost:32000/flask-k8s-app:latest"
-jenkins_image: "localhost:32000/jenkins-devsecops:latest"
+
+# Image configurations
+jenkins_image_name: "jenkins-devsecops"
+jenkins_image_tag: "latest"
+flask_app_image_name: "flask-k8s-app"
+flask_app_image_tag: "latest"
+
+# Registry configuration
+local_registry: "localhost:32000"
+
+# Service configurations
+jenkins_namespace: "jenkins"
+sonarqube_namespace: "sonarqube"
+monitoring_namespace: "monitoring"
+flask_app_namespace: "flask-app"
+
+# Default credentials (change for production)
+grafana_admin_password: "admin123"
+sonarqube_admin_password: "admin"
+
+# Paths
+project_root: "{{ playbook_dir }}/../.."
+jenkins_dir: "{{ project_root }}/jenkins"
+app_dir: "{{ project_root }}/app"
+k8s_dir: "{{ project_root }}/k8s"
+helm_dir: "{{ project_root }}/helm"
+
+# Timeouts
+deployment_timeout: "5m"
+app_deployment_timeout: "2m"
