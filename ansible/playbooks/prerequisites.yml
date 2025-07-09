@@ -6,6 +6,13 @@
   hosts: devsecops
   become: yes
   gather_facts: yes
+  vars:
+    retries:
+      max_attempts: 3
+      delay: 5
+    system_packages: []
+    python_packages: []
+    remote_logs_path: /var/log/devsecops
 
   tasks:
     - name: "🔍 Check if running as root"
