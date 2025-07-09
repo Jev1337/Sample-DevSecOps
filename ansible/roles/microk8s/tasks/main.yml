@@ -1,0 +1,28 @@
+- name: Install MicroK8s
+  community.general.snap:
+    name: microk8s
+    classic: yes
+    channel: 1.30/stable
+  become: yes
+
+- name: Add user to microk8s group
+  user:
+    name: "{{ ansible_user_id }}"
+    groups: microk8s
+    append: yes
+  become: yes
+
+- name: Wait for MicroK8s to be ready
+  command: microk8s status --wait-ready
+  become: yes
+
+- name: Enable MicroK8s addons
+  command: "microk8s enable {{ item }}"
+  become: yes
+  loop:
+    - dns
+    - helm3
+    - ingress
+    - metrics-server
+    - storage
+    - registry --size 20Gi

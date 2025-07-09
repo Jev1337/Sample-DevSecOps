@@ -1,0 +1,38 @@
+- name: Build and push application image
+  docker_image:
+    name: flask-k8s-app
+    tag: latest
+    build:
+      path: "{{ playbook_dir }}/../../app"
+    source: build
+    push: yes
+    repository: localhost:32000/flask-k8s-app
+
+- name: Create flask-app namespace
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: flask-app
+
+- name: Update deployment image
+  replace:
+    path: "{{ playbook_dir }}/../../k8s/deployment.yaml"
+    regexp: 'image: flask-k8s-app:latest'
+    replace: 'image: localhost:32000/flask-k8s-app:latest'
+
+- name: Deploy application manifests
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ item }}"
+  loop:
+    - "{{ playbook_dir }}/../../k8s/configmap.yaml"
+    - "{{ playbook_dir }}/../../k8s/deployment.yaml"
+    - "{{ playbook_dir }}/../../k8s/hpa.yaml"
+    - "{{ playbook_dir }}/../../k8s/ingress.yaml"
+    - "{{ playbook_dir }}/../../k8s/jenkins-rbac.yaml"
+    - "{{ playbook_dir }}/../../k8s/namespace.yaml"
+    - "{{ playbook_dir }}/../../k8s/secret.yaml"
+    - "{{ playbook_dir }}/../../k8s/service.yaml"

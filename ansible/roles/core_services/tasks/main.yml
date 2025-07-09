@@ -1,0 +1,48 @@
+- name: Create namespaces
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ item }}"
+  loop:
+    - jenkins
+    - sonarqube
+
+- name: Add Helm repositories
+  kubernetes.core.helm_repository:
+    name: "{{ item.name }}"
+    repo_url: "{{ item.url }}"
+    state: present
+  loop:
+    - { name: 'jenkins', url: 'https://charts.jenkins.io' }
+    - { name: 'bitnami', url: 'https://charts.bitnami.com/bitnami' }
+    - { name: 'sonarqube', url: 'https://SonarSource.github.io/helm-chart-sonarqube' }
+
+- name: Deploy Jenkins
+  kubernetes.core.helm:
+    name: jenkins
+    chart_ref: jenkins/jenkins
+    release_namespace: jenkins
+    values_files:
+      - "{{ playbook_dir }}/../../helm/jenkins/values.yaml"
+    state: present
+
+- name: Deploy PostgreSQL for SonarQube
+  kubernetes.core.helm:
+    name: postgresql
+    chart_ref: bitnami/postgresql
+    release_namespace: sonarqube
+    values_files:
+      - "{{ playbook_dir }}/../../helm/postgresql/values.yaml"
+    state: present
+
+- name: Deploy SonarQube
+  kubernetes.core.helm:
+    name: sonarqube
+    chart_ref: sonarqube/sonarqube
+    release_namespace: sonarqube
+    values_files:
+      - "{{ playbook_dir }}/../../helm/sonarqube/values.yaml"
+    state: present

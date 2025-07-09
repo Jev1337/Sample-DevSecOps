@@ -1,0 +1,20 @@
+- name: Check for required commands
+  command: "{{ item }}"
+  register: command_result
+  failed_when: false
+  changed_when: false
+  loop:
+    - snap --version
+    - git --version
+    - docker --version
+
+- name: Install Docker if not present
+  include_tasks: install_docker.yml
+  when: "'docker' not in command_result.results[2].stdout"
+
+- name: Install snap if not present
+  apt:
+    name: snapd
+    state: present
+  become: yes
+  when: "'snap' not in command_result.results[0].stdout"

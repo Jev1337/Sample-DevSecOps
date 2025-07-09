@@ -1,0 +1,28 @@
+---
+- hosts: localhost
+  connection: local
+  become: yes
+  tasks:
+    - name: Run prerequisites role
+      include_role:
+        name: prerequisites
+
+    - name: Run microk8s role
+      include_role:
+        name: microk8s
+
+    - name: Run jenkins role
+      include_role:
+        name: jenkins
+
+    - name: Run core_services role
+      include_role:
+        name: core_services
+
+    - name: Run monitoring role
+      include_role:
+        name: monitoring
+
+    - name: Run application role
+      include_role:
+        name: application

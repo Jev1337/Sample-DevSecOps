@@ -1,0 +1,41 @@
+- name: Create monitoring namespace
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: monitoring
+
+- name: Add Grafana Helm repository
+  kubernetes.core.helm_repository:
+    name: grafana
+    repo_url: https://grafana.github.io/helm-charts
+    state: present
+
+- name: Deploy Loki
+  kubernetes.core.helm:
+    name: loki
+    chart_ref: grafana/loki
+    release_namespace: monitoring
+    values_files:
+      - "{{ playbook_dir }}/../../helm/loki/values.yaml"
+    state: present
+
+- name: Deploy Grafana
+  kubernetes.core.helm:
+    name: grafana
+    chart_ref: grafana/grafana
+    release_namespace: monitoring
+    values_files:
+      - "{{ playbook_dir }}/../../helm/grafana/values.yaml"
+    state: present
+
+- name: Deploy Alloy
+  kubernetes.core.helm:
+    name: alloy
+    chart_ref: grafana/alloy
+    release_namespace: monitoring
+    values_files:
+      - "{{ playbook_dir }}/../../helm/alloy/values.yaml"
+    state: present
