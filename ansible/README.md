@@ -12,16 +12,6 @@ The Ansible automation provides:
 - **Application Deployment**: Flask application with security scanning
 - **External Access**: Azure-ready LoadBalancer and Ingress configurations
 
-### 🔧 Compatibility & Requirements
-
-- **Ansible Version**: 2.10+ (recommended: 2.15+)
-- **Python Version**: 3.8+
-- **Target OS**: Ubuntu 20.04, 22.04, or compatible Linux distributions
-- **Memory**: Minimum 4GB RAM (8GB recommended)
-- **Storage**: Minimum 20GB free disk space
-
-> **Note**: This automation includes fixes for all Ansible deprecation warnings and uses FQCN (Fully Qualified Collection Names) for all modules.
-
 ## 📁 Directory Structure
 
 ```

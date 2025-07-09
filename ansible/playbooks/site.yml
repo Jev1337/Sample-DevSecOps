@@ -39,21 +39,21 @@
   tasks:
     # Prerequisites and system setup
     - name: "📝 Install prerequisites"
-      ansible.builtin.include_tasks: prerequisites.yml
+      include: prerequisites.yml
       tags: 
         - prerequisites
         - base
 
     # Docker installation
     - name: "🐳 Install and configure Docker"
-      ansible.builtin.include_tasks: docker.yml
+      include: docker.yml
       tags:
         - docker
         - base
 
     # MicroK8s setup
     - name: "🔧 Setup MicroK8s"
-      ansible.builtin.include_tasks: microk8s.yml
+      include: microk8s.yml
       tags:
         - microk8s
         - kubernetes
@@ -61,7 +61,7 @@
 
     # Core services deployment
     - name: "🚀 Deploy Jenkins"
-      ansible.builtin.include_tasks: jenkins.yml
+      include: jenkins.yml
       tags:
         - jenkins
         - core
@@ -69,7 +69,7 @@
       when: deployment_mode == "kubernetes"
 
     - name: "🔍 Deploy SonarQube"
-      ansible.builtin.include_tasks: sonarqube.yml
+      include: sonarqube.yml
       tags:
         - sonarqube
         - core
@@ -78,7 +78,7 @@
 
     # Monitoring stack
     - name: "📊 Deploy monitoring stack"
-      ansible.builtin.include_tasks: monitoring.yml
+      include: monitoring.yml
       tags:
         - monitoring
         - observability
@@ -89,7 +89,7 @@
 
     # Application deployment
     - name: "🐍 Deploy Flask application"
-      ansible.builtin.include_tasks: application.yml
+      include: application.yml
       tags:
         - application
         - app
@@ -98,7 +98,7 @@
 
     # External access configuration
     - name: "🌐 Configure external access"
-      ansible.builtin.include_tasks: azure-access.yml
+      include: azure-access.yml
       tags:
         - external-access
         - azure
@@ -109,7 +109,7 @@
 
     # Development mode (Docker Compose)
     - name: "🧪 Setup development mode"
-      ansible.builtin.include_tasks: development.yml
+      include_tasks: development.yml
       tags:
         - development
         - docker-compose
@@ -131,7 +131,7 @@
           - "📋 Check the access information below:"
 
     - name: "🔗 Display access information"
-      ansible.builtin.include_tasks: tasks/display_access_info.yml
+      include_tasks: tasks/display_access_info.yml
       tags: always
 
   handlers:
