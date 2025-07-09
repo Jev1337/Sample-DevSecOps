@@ -1,0 +1,13 @@
+---
+# Partial deployment playbook for core services only
+- name: Deploy Core Services Only
+  hosts: localhost
+  become: true
+  vars_files:
+    - ../vars/main.yml
+  roles:
+    - prerequisites
+    - docker
+    - microk8s
+    - jenkins_image
+    - core_services

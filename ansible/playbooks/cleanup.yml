@@ -1,0 +1,72 @@
+---
+# Cleanup playbook to remove all deployed services
+- name: DevSecOps Cleanup
+  hosts: localhost
+  vars_files:
+    - ../vars/main.yml
+  tasks:
+    - name: Cleanup Core Services
+      ansible.builtin.shell: |
+        microk8s helm3 uninstall jenkins -n jenkins || true
+        microk8s helm3 uninstall sonarqube -n sonarqube || true
+        microk8s helm3 uninstall postgresql -n sonarqube || true
+        microk8s kubectl delete pvc -n sonarqube --all || true
+        microk8s kubectl delete ns jenkins --ignore-not-found
+        microk8s kubectl delete ns sonarqube --ignore-not-found
+      args:
+        executable: /bin/bash
+      
+    - name: Cleanup Monitoring Stack
+      ansible.builtin.shell: |
+        microk8s helm3 uninstall loki -n monitoring || true
+        microk8s helm3 uninstall grafana -n monitoring || true
+        microk8s helm3 uninstall alloy -n monitoring || true
+        microk8s kubectl delete ns monitoring --ignore-not-found
+      args:
+        executable: /bin/bash
+        
+    - name: Cleanup Flask Application
+      ansible.builtin.shell: |
+        microk8s kubectl delete -f {{ playbook_dir }}/../../k8s/ --ignore-not-found
+      args:
+        executable: /bin/bash
+        
+    - name: Revert image in deployment.yaml
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../../k8s/deployment.yaml"
+        regexp: 'localhost:32000/flask-k8s-app:latest'
+        replace: 'flask-k8s-app:latest'
+      
+    - name: Remove local Docker images
+      ansible.builtin.shell: |
+        docker rmi flask-k8s-app:latest localhost:32000/flask-k8s-app:latest || true
+        docker rmi jenkins-devsecops:latest localhost:32000/jenkins-devsecops:latest || true
+        
+    - name: Remove Azure LoadBalancer services
+      ansible.builtin.shell: |
+        microk8s kubectl delete service jenkins-loadbalancer -n jenkins || true
+        microk8s kubectl delete service sonarqube-loadbalancer -n sonarqube || true
+        microk8s kubectl delete service grafana-loadbalancer -n monitoring || true
+        microk8s kubectl delete service flask-app-loadbalancer -n flask-app || true
+      args:
+        executable: /bin/bash
+      
+    - name: Remove Helm repositories
+      ansible.builtin.shell: |
+        microk8s helm3 repo remove jenkins || true
+        microk8s helm3 repo remove sonarqube || true
+        microk8s helm3 repo remove grafana || true
+        microk8s helm3 repo remove bitnami || true
+      args:
+        executable: /bin/bash
+      
+    - name: Stop Docker Compose services
+      community.docker.docker_compose:
+        project_src: "{{ playbook_dir }}/../../"
+        state: absent
+        remove_volumes: true
+      ignore_errors: true
+      
+    - name: Print cleanup completion message
+      ansible.builtin.debug:
+        msg: "✅ Full cleanup completed!"

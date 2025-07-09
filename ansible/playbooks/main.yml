@@ -1,0 +1,17 @@
+---
+# Main playbook to orchestrate all setup steps for DevSecOps environment
+- name: DevSecOps Environment Setup (MicroK8s Single Node)
+  hosts: localhost
+  become: true
+  vars_files:
+    - ../vars/main.yml
+  roles:
+    - prerequisites
+    - docker
+    - microk8s
+    - jenkins_image
+    - core_services
+    - monitoring_stack
+    - flask_app
+    - azure_access
+    - access_info

@@ -1,20 +1,26 @@
-- name: Check for required commands
-  command: "{{ item }}"
-  register: command_result
-  failed_when: false
-  changed_when: false
-  loop:
-    - snap --version
-    - git --version
-    - docker --version
-
-- name: Install Docker if not present
-  include_tasks: install_docker.yml
-  when: "'docker' not in command_result.results[2].stdout"
-
-- name: Install snap if not present
-  apt:
+---
+# Ensure required tools are installed: snap, git, curl
+- name: Ensure snapd is installed
+  ansible.builtin.package:
     name: snapd
     state: present
-  become: yes
-  when: "'snap' not in command_result.results[0].stdout"
+
+- name: Ensure git is installed
+  ansible.builtin.package:
+    name: git
+    state: present
+
+- name: Ensure curl is installed
+  ansible.builtin.package:
+    name: curl
+    state: present
+
+- name: Ensure python3-pip is installed
+  ansible.builtin.package:
+    name: python3-pip
+    state: present
+
+- name: Ensure python3-venv is installed
+  ansible.builtin.package:
+    name: python3-venv
+    state: present

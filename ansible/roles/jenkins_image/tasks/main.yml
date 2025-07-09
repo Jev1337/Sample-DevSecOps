@@ -1,0 +1,31 @@
+---
+# Build and push custom Jenkins image to local registry
+- name: Get Docker group GID
+  ansible.builtin.command: getent group docker
+  register: docker_group
+  changed_when: false
+  failed_when: false
+
+- name: Set Docker GID fact
+  ansible.builtin.set_fact:
+    docker_gid: "{{ docker_group.stdout.split(':')[2] if docker_group.stdout else '999' }}"
+
+- name: Build Jenkins DevSecOps image
+  community.docker.docker_image:
+    build:
+      path: "{{ playbook_dir }}/../../jenkins"
+      args:
+        DOCKER_GID: "{{ docker_gid }}"
+    name: jenkins-devsecops
+    tag: latest
+    push: false
+
+- name: Tag Jenkins image for local registry
+  ansible.builtin.command: docker tag jenkins-devsecops:latest localhost:32000/jenkins-devsecops:latest
+  args:
+    chdir: "{{ playbook_dir }}/../../jenkins"
+
+- name: Push Jenkins image to local registry
+  ansible.builtin.command: docker push localhost:32000/jenkins-devsecops:latest
+  args:
+    chdir: "{{ playbook_dir }}/../../jenkins"

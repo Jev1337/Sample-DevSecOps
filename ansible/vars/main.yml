@@ -1,0 +1,7 @@
+---
+# Default variables for DevSecOps Ansible setup
+# You can override these in your own vars file if needed
+microk8s_channel: "1.30/stable"
+docker_gid: 999
+flask_app_image: "localhost:32000/flask-k8s-app:latest"
+jenkins_image: "localhost:32000/jenkins-devsecops:latest"

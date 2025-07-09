@@ -1,0 +1,35 @@
+---
+# Show access information for all services
+- name: Get Jenkins admin password from pod
+  ansible.builtin.shell: |
+    microk8s kubectl exec --namespace jenkins -it svc/jenkins -c jenkins -- /bin/cat /run/secrets/additional/chart-admin-password 2>/dev/null || \
+    microk8s kubectl get secret jenkins -n jenkins -o jsonpath="{.data.jenkins-admin-password}" | base64 --decode 2>/dev/null || echo "Unable to retrieve"
+  register: jenkins_pass
+  changed_when: false
+  failed_when: false
+
+- name: Print /etc/hosts entries
+  ansible.builtin.debug:
+    msg: |
+      Add these lines to your /etc/hosts file for local access:
+        127.0.0.1 jenkins.local
+        127.0.0.1 sonarqube.local
+        127.0.0.1 grafana.local
+        127.0.0.1 flask-app.local
+
+- name: Print local access URLs
+  ansible.builtin.debug:
+    msg: |
+      Local Access URLs:
+        - Flask App: http://flask-app.local
+        - Jenkins:   http://jenkins.local (admin/{{ jenkins_pass.stdout }})
+        - SonarQube: http://sonarqube.local (admin/admin)
+        - Grafana:   http://grafana.local (admin/admin123)
+
+- name: Print CI/CD pipeline setup instructions
+  ansible.builtin.debug:
+    msg: |
+      CI/CD Pipeline Setup:
+        1. Configure a new 'Pipeline' job in Jenkins
+        2. Point it to your Git repository
+        3. Set 'Script Path' to 'jenkins/Jenkinsfile'

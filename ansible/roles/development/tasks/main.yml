@@ -1,0 +1,32 @@
+---
+# Start development environment with Docker Compose
+- name: Check if docker-compose is available
+  ansible.builtin.shell: |
+    docker-compose --version || docker compose version
+  register: docker_compose_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if docker-compose is not available
+  ansible.builtin.fail:
+    msg: "Docker Compose not found. Please install Docker Compose."
+  when: docker_compose_check.rc != 0
+
+- name: Start all services with Docker Compose
+  community.docker.docker_compose:
+    project_src: "{{ playbook_dir }}/../../"
+    state: present
+    detach: true
+
+- name: Wait for services to start
+  ansible.builtin.pause:
+    seconds: 10
+
+- name: Print development access URLs
+  ansible.builtin.debug:
+    msg: |
+      Development Access URLs:
+        - Flask App: http://localhost:5000
+        - SonarQube: http://localhost:9000
+        - Grafana:   http://localhost:3000
+        - Loki:      http://localhost:3100

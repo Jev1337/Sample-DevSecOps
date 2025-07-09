@@ -1,0 +1,12 @@
+---
+# Partial deployment playbook for monitoring stack only
+- name: Deploy Monitoring Stack Only
+  hosts: localhost
+  become: true
+  vars_files:
+    - ../vars/main.yml
+  roles:
+    - prerequisites
+    - docker
+    - microk8s
+    - monitoring_stack

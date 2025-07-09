@@ -1,0 +1,45 @@
+---
+# Deploy Loki, Grafana, and Alloy using Helm
+- name: Create monitoring namespace
+  ansible.builtin.shell: microk8s kubectl get ns monitoring || microk8s kubectl create ns monitoring
+  args:
+    executable: /bin/bash
+
+- name: Add Grafana Helm repository if not present
+  ansible.builtin.shell: |
+    microk8s helm3 repo list | grep -q "grafana" || (microk8s helm3 repo add grafana https://grafana.github.io/helm-charts && microk8s helm3 repo update)
+  args:
+    executable: /bin/bash
+
+- name: Deploy Loki via Helm
+  ansible.builtin.shell: |
+    microk8s helm3 status loki -n monitoring || microk8s helm3 install loki grafana/loki -n monitoring -f {{ playbook_dir }}/../../helm/loki/values.yaml
+  args:
+    executable: /bin/bash
+
+- name: Deploy Grafana via Helm
+  ansible.builtin.shell: |
+    microk8s helm3 status grafana -n monitoring || microk8s helm3 install grafana grafana/grafana -n monitoring -f {{ playbook_dir }}/../../helm/grafana/values.yaml
+  args:
+    executable: /bin/bash
+
+- name: Deploy Alloy via Helm
+  ansible.builtin.shell: |
+    microk8s helm3 status alloy -n monitoring || microk8s helm3 install alloy grafana/alloy -n monitoring -f {{ playbook_dir }}/../../helm/alloy/values.yaml
+  args:
+    executable: /bin/bash
+
+- name: Wait for Loki StatefulSet
+  ansible.builtin.shell: microk8s kubectl rollout status statefulset/loki -n monitoring --timeout=5m
+  args:
+    executable: /bin/bash
+
+- name: Wait for Grafana Deployment
+  ansible.builtin.shell: microk8s kubectl rollout status deployment/grafana -n monitoring --timeout=5m
+  args:
+    executable: /bin/bash
+
+- name: Wait for Alloy DaemonSet
+  ansible.builtin.shell: microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=5m
+  args:
+    executable: /bin/bash

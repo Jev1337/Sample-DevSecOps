@@ -1,28 +1,39 @@
+---
+# Install and configure MicroK8s with required addons
+- name: Check if MicroK8s is installed
+  ansible.builtin.command: microk8s status --wait-ready
+  register: microk8s_check
+  ignore_errors: true
+
 - name: Install MicroK8s
   community.general.snap:
     name: microk8s
     classic: yes
     channel: 1.30/stable
-  become: yes
+    state: present
+  when: microk8s_check.rc != 0
 
 - name: Add user to microk8s group
-  user:
+  ansible.builtin.user:
     name: "{{ ansible_user_id }}"
     groups: microk8s
     append: yes
-  become: yes
 
-- name: Wait for MicroK8s to be ready
-  command: microk8s status --wait-ready
-  become: yes
+- name: Change ownership of ~/.kube
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user_id }}/.kube"
+    owner: "{{ ansible_user_id }}"
+    recurse: yes
+  ignore_errors: true
 
 - name: Enable MicroK8s addons
-  command: "microk8s enable {{ item }}"
-  become: yes
-  loop:
-    - dns
-    - helm3
-    - ingress
-    - metrics-server
-    - storage
-    - registry --size 20Gi
+  ansible.builtin.command: "microk8s enable dns helm3 ingress metrics-server storage registry --size 20Gi"
+  changed_when: false
+
+- name: Wait for MicroK8s to be ready
+  ansible.builtin.command: microk8s status --wait-ready
+  changed_when: false
+
+- name: Print MicroK8s install message
+  ansible.builtin.debug:
+    msg: "MicroK8s setup complete. Please run 'newgrp microk8s' or log out/in for group changes if this is your first install."

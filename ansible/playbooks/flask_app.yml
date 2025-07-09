@@ -1,0 +1,12 @@
+---
+# Partial deployment playbook for Flask application only
+- name: Deploy Flask Application Only
+  hosts: localhost
+  become: true
+  vars_files:
+    - ../vars/main.yml
+  roles:
+    - prerequisites
+    - docker
+    - microk8s
+    - flask_app

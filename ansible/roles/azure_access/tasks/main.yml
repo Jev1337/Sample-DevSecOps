@@ -1,0 +1,90 @@
+---
+# Configure Azure external access (LoadBalancer and Ingress)
+- name: Get external IP
+  ansible.builtin.shell: |
+    curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com
+  register: external_ip
+
+- name: Create Jenkins LoadBalancer service
+  ansible.builtin.template:
+    src: jenkins-loadbalancer.yaml.j2
+    dest: /tmp/jenkins-loadbalancer.yaml
+  vars:
+    external_ip: "{{ external_ip.stdout }}"
+
+- name: Apply Jenkins LoadBalancer service
+  ansible.builtin.shell: microk8s kubectl apply -f /tmp/jenkins-loadbalancer.yaml
+
+- name: Create SonarQube LoadBalancer service
+  ansible.builtin.template:
+    src: sonarqube-loadbalancer.yaml.j2
+    dest: /tmp/sonarqube-loadbalancer.yaml
+  vars:
+    external_ip: "{{ external_ip.stdout }}"
+
+- name: Apply SonarQube LoadBalancer service
+  ansible.builtin.shell: microk8s kubectl apply -f /tmp/sonarqube-loadbalancer.yaml
+
+- name: Create Grafana LoadBalancer service
+  ansible.builtin.template:
+    src: grafana-loadbalancer.yaml.j2
+    dest: /tmp/grafana-loadbalancer.yaml
+  vars:
+    external_ip: "{{ external_ip.stdout }}"
+
+- name: Apply Grafana LoadBalancer service
+  ansible.builtin.shell: microk8s kubectl apply -f /tmp/grafana-loadbalancer.yaml
+
+- name: Create Flask App LoadBalancer service
+  ansible.builtin.template:
+    src: flask-app-loadbalancer.yaml.j2
+    dest: /tmp/flask-app-loadbalancer.yaml
+  vars:
+    external_ip: "{{ external_ip.stdout }}"
+
+- name: Apply Flask App LoadBalancer service
+  ansible.builtin.shell: microk8s kubectl apply -f /tmp/flask-app-loadbalancer.yaml
+
+- name: Create Jenkins Ingress
+  ansible.builtin.template:
+    src: jenkins-ingress.yaml.j2
+    dest: /tmp/jenkins-ingress.yaml
+  vars:
+    external_ip: "{{ external_ip.stdout }}"
+
+- name: Apply Jenkins Ingress
+  ansible.builtin.shell: microk8s kubectl apply -f /tmp/jenkins-ingress.yaml
+
+- name: Create SonarQube Ingress
+  ansible.builtin.template:
+    src: sonarqube-ingress.yaml.j2
+    dest: /tmp/sonarqube-ingress.yaml
+  vars:
+    external_ip: "{{ external_ip.stdout }}"
+
+- name: Apply SonarQube Ingress
+  ansible.builtin.shell: microk8s kubectl apply -f /tmp/sonarqube-ingress.yaml
+
+- name: Create Grafana Ingress
+  ansible.builtin.template:
+    src: grafana-ingress.yaml.j2
+    dest: /tmp/grafana-ingress.yaml
+  vars:
+    external_ip: "{{ external_ip.stdout }}"
+
+- name: Apply Grafana Ingress
+  ansible.builtin.shell: microk8s kubectl apply -f /tmp/grafana-ingress.yaml
+
+- name: Create Flask App Ingress
+  ansible.builtin.template:
+    src: flask-app-ingress.yaml.j2
+    dest: /tmp/flask-app-ingress.yaml
+  vars:
+    external_ip: "{{ external_ip.stdout }}"
+
+- name: Apply Flask App Ingress
+  ansible.builtin.shell: microk8s kubectl apply -f /tmp/flask-app-ingress.yaml
+
+- name: Wait for LoadBalancer services
+  ansible.builtin.pause:
+    seconds: 30
