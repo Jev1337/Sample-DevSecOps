@@ -11,6 +11,7 @@
     classic: yes
     channel: 1.30/stable
     state: present
+  become: true
   when: microk8s_check.rc != 0
 
 - name: Add user to microk8s group
@@ -18,12 +19,14 @@
     name: "{{ ansible_user_id }}"
     groups: microk8s
     append: yes
+  become: true
 
 - name: Change ownership of ~/.kube
   ansible.builtin.file:
     path: "/home/{{ ansible_user_id }}/.kube"
     owner: "{{ ansible_user_id }}"
     recurse: yes
+  become: true
   ignore_errors: true
 
 - name: Enable MicroK8s addons

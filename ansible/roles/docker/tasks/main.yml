@@ -13,12 +13,14 @@
       - curl
       - software-properties-common
     state: present
+  become: true
   when: docker_check.rc != 0
 
 - name: Add Docker GPG key
   ansible.builtin.apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
     state: present
+  become: true
   when: docker_check.rc != 0
 
 - name: Add Docker repository
@@ -26,6 +28,7 @@
     repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename | default('focal') }} stable"
     state: present
     filename: docker
+  become: true
   when: docker_check.rc != 0
 
 - name: Install Docker Engine
@@ -38,6 +41,7 @@
       - docker-compose-plugin
     state: present
     update_cache: yes
+  become: true
   when: docker_check.rc != 0
 
 - name: Ensure Docker service is running
@@ -45,12 +49,14 @@
     name: docker
     state: started
     enabled: true
+  become: true
 
 - name: Add user to docker group
   ansible.builtin.user:
     name: "{{ ansible_user_id }}"
     groups: docker
     append: yes
+  become: true
 
 - name: Print Docker install message
   ansible.builtin.debug:

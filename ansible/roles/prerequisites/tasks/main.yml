@@ -4,23 +4,28 @@
   ansible.builtin.package:
     name: snapd
     state: present
+  become: true
 
 - name: Ensure git is installed
   ansible.builtin.package:
     name: git
     state: present
+  become: true
 
 - name: Ensure curl is installed
   ansible.builtin.package:
     name: curl
     state: present
+  become: true
 
 - name: Ensure python3-pip is installed
   ansible.builtin.package:
     name: python3-pip
     state: present
+  become: true
 
 - name: Ensure python3-venv is installed
   ansible.builtin.package:
     name: python3-venv
     state: present
+  become: true
