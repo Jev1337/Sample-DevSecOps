@@ -11,14 +11,11 @@
     docker_gid: "{{ docker_group.stdout.split(':')[2] if docker_group.stdout else '999' }}"
 
 - name: Build Jenkins DevSecOps image
-  community.docker.docker_image:
-    build:
-      path: "{{ playbook_dir }}/../../jenkins"
-      args:
-        DOCKER_GID: "{{ docker_gid }}"
-    name: jenkins-devsecops
-    tag: latest
-    push: false
+  ansible.builtin.command: docker build --build-arg DOCKER_GID={{ docker_gid }} -t jenkins-devsecops:latest .
+  args:
+    chdir: "{{ playbook_dir }}/../../jenkins"
+  register: docker_build
+  changed_when: docker_build.rc == 0
 
 - name: Tag Jenkins image for local registry
   ansible.builtin.command: docker tag jenkins-devsecops:latest localhost:32000/jenkins-devsecops:latest

@@ -1,31 +1,77 @@
 ---
 # Ensure required tools are installed: snap, git, curl
+- name: Wait for automatic system updates to complete
+  ansible.builtin.shell: |
+    while pgrep -x "unattended-upgr" > /dev/null; do
+      echo "Waiting for unattended-upgr to complete..."
+      sleep 5
+    done
+  become: true
+  changed_when: false
+
+- name: Kill any hanging apt processes
+  ansible.builtin.shell: |
+    killall -9 apt-get || true
+    killall -9 apt || true
+    killall -9 dpkg || true
+  become: true
+  ignore_errors: true
+  changed_when: false
+
+- name: Remove apt locks
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  become: true
+  loop:
+    - /var/lib/dpkg/lock
+    - /var/lib/dpkg/lock-frontend
+    - /var/cache/apt/archives/lock
+  ignore_errors: true
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+  become: true
+  retries: 3
+  delay: 10
+
 - name: Ensure snapd is installed
   ansible.builtin.package:
     name: snapd
     state: present
   become: true
+  retries: 3
+  delay: 10
 
 - name: Ensure git is installed
   ansible.builtin.package:
     name: git
     state: present
   become: true
+  retries: 3
+  delay: 10
 
 - name: Ensure curl is installed
   ansible.builtin.package:
     name: curl
     state: present
   become: true
+  retries: 3
+  delay: 10
 
 - name: Ensure python3-pip is installed
   ansible.builtin.package:
     name: python3-pip
     state: present
   become: true
+  retries: 3
+  delay: 10
 
 - name: Ensure python3-venv is installed
   ansible.builtin.package:
     name: python3-venv
     state: present
   become: true
+  retries: 3
+  delay: 10

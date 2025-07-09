@@ -1,12 +1,11 @@
 ---
 # Build and deploy Flask application to MicroK8s
 - name: Build Flask Docker image
-  community.docker.docker_image:
-    build:
-      path: "{{ playbook_dir }}/../../app"
-    name: flask-k8s-app
-    tag: latest
-    push: false
+  ansible.builtin.command: docker build -t flask-k8s-app:latest .
+  args:
+    chdir: "{{ playbook_dir }}/../../app"
+  register: docker_build
+  changed_when: docker_build.rc == 0
 
 - name: Tag Flask image for local registry
   ansible.builtin.command: docker tag flask-k8s-app:latest localhost:32000/flask-k8s-app:latest
