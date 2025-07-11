@@ -1,4 +1,10 @@
-# 🚀 Flask K8s DevSecOps - Complete CI/CD Security Pipeline
+# 🚀 Flask K8s - [🔒 Sécurité](#-sécurité)
+- [🛡️ SIEM](#️-siem)
+- [📊 Monitoring](#-monitoring)
+- [🤖 Automation avec Ansible](#-automation-avec-ansible)
+- [☁️ Infrastructure Terraform (Azure)](#️-infrastructure-terraform-azure)
+- [🛠️ Développement](#️-développement)
+- [🔧 Troubleshooting](#-troubleshooting)Ops - Complete CI/CD Security Pipeline
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/Docker-20.10%2B-blue)](https://www.docker.com/)
@@ -15,8 +21,9 @@ Une solution complète de déploiement sécurisé d'applications Flask sur Kuber
 - [🧩 Composants](#-composants)
 - [🔒 Sécurité](#-sécurité)
 - [📊 Monitoring](#-monitoring)
+- [� Automation avec Ansible](#-automation-avec-ansible)
+- [☁️ Infrastructure Terraform (Azure)](#️-infrastructure-terraform-azure)
 - [🛠️ Développement](#️-développement)
-- [☁️ Déploiement Cloud](#️-déploiement-cloud)
 - [🔧 Troubleshooting](#-troubleshooting)
 
 ## 🎯 Vue d'ensemble
@@ -29,7 +36,8 @@ Une solution complète de déploiement sécurisé d'applications Flask sur Kuber
 | **🔄 Pipeline DevSecOps** | CI/CD automatisé avec scans sécurisés | Jenkins, SonarQube, Trivy |
 | **📦 Orchestration K8s** | Déploiement, scaling et gestion automatique | MicroK8s, Helm Charts |
 | **📊 Monitoring Complet** | Logs centralisés et dashboards temps réel | Loki, Grafana, Alloy |
-| **🔐 Sécurité Intégrée** | Scans vulnérabilités et qualité code | Trivy, SonarQube |
+| **�️ SIEM Intégré** | Surveillance sécurité et événements système | SIEM Dashboard, Audit logs |
+| **�🔐 Sécurité Intégrée** | Scans vulnérabilités et qualité code | Trivy, SonarQube |
 | **☁️ Cloud Ready** | Support Azure avec accès externe | LoadBalancer, Ingress |
 
 ### 🎪 Nouveautés de cette version
@@ -52,23 +60,35 @@ graph TB
         B --> D[Trivy Security Scan]
         B --> E[Docker Build & Push]
         E --> F[K8s Deployment]
+        A --> |Webhook| W[Webhook Receiver]
     end
     
     subgraph "Kubernetes Cluster"
         F --> G[Flask Application]
         G --> H[Service Mesh]
         H --> I[Ingress Controller]
+        W --> |Code Changes| S[SIEM Stack]
     end
     
-    subgraph "Monitoring Stack"
+    subgraph "Monitoring & SIEM"
         G --> J[Alloy Collector]
         J --> K[Loki Storage]
         K --> L[Grafana Dashboards]
+        OS[System Logs] --> J
+        AU[Audit Logs] --> J
+        S --> J
+        B --> |CI/CD Events| J
     end
     
     subgraph "External Access"
         I --> M[Local DNS]
         I --> N[Azure LoadBalancer]
+    end
+    
+    subgraph "Security Monitoring"
+        L --> P[Security Dashboard]
+        L --> Q[SIEM Dashboard] 
+        L --> R[Application Dashboard]
     end
 ```
 
@@ -83,6 +103,8 @@ graph TB
 | **CI/CD** | Jenkins | 2.452+ | Pipeline automatisé |
 | **Security** | SonarQube + Trivy | Latest | Analyse code + vulnérabilités |
 | **Monitoring** | Loki + Grafana + Alloy | 3.0+ | Logs + visualisation |
+| **SIEM** | Auditd + Webhook Receiver | Latest | Surveillance sécurité |
+| **IaC** | Terraform + Ansible | Latest | Infrastructure + Automation |
 | **Cloud** | Azure LoadBalancer | - | Accès externe |
 
 ## ⚡ Installation Rapide
@@ -206,8 +228,43 @@ GET  /logs                # Interface logs temps réel
 
 - 📈 **Application Metrics** - Performance temps réel
 - 🔒 **Security Dashboard** - Événements sécurité
-- 📋 **Infrastructure** - État cluster K8s
+- �️ **SIEM Dashboard** - Surveillance sécurité avancée
+- �📋 **Infrastructure** - État cluster K8s
 - 🚨 **Alerts** - Notifications automatiques
+
+### 🛡️ SIEM (Security Information and Event Management)
+
+**Capacités de surveillance :**
+
+| Composant | Source | Type d'événement | Dashboard |
+|-----------|--------|-------------------|-----------|
+| **Auth Logs** | `/var/log/auth.log` | Connexions, échecs auth | SIEM Dashboard |
+| **System Logs** | `/var/log/syslog` | Événements système | SIEM Dashboard |
+| **Package Mgmt** | `/var/log/dpkg.log` | Installations logiciels | SIEM Dashboard |
+| **Kernel Events** | `/var/log/kern.log` | Événements noyau | SIEM Dashboard |
+| **Git Webhooks** | Webhook receiver | Changements code | SIEM Dashboard |
+| **CI/CD Logs** | Jenkins | Builds, déploiements | SIEM Dashboard |
+| **Audit Events** | `/var/log/audit/audit.log` | Accès fichiers critiques | SIEM Dashboard |
+
+**Fonctionnalités SIEM :**
+
+- 🔍 **Détection des intrusions** - Surveillez les tentatives de connexion suspectes
+- 📊 **Analyse comportementale** - Identifiez les patterns anormaux
+- 🌍 **Géolocalisation IP** - Analysez la provenance des connexions
+- 📈 **Timeline des événements** - Corrélation temporelle des incidents
+- 🚨 **Alertes en temps réel** - Notifications automatiques sur les threats
+- 📋 **Rapports de conformité** - Audit trails pour la sécurité
+
+**Configuration webhook Git :**
+```bash
+# URL pour votre dépôt GitHub
+http://webhook.VOTRE_IP.nip.io/webhook
+
+# Testez l'intégration
+curl -X POST http://webhook.VOTRE_IP.nip.io/webhook \
+  -H "Content-Type: application/json" \
+  -d '{"test": "webhook"}'
+```
 
 ## 🔒 Sécurité
 
@@ -254,7 +311,84 @@ Métriques surveillées :
 - 🔍 Patterns d'attaque détectés
 - 📈 Anomalies trafic réseau
 
-## 📊 Monitoring
+## �️ SIEM
+
+### 🎯 Security Information and Event Management
+
+Le système SIEM intégré offre une surveillance complète des événements de sécurité :
+
+**🔍 Événements Surveillés :**
+
+| Type d'Événement | Source | Description |
+|------------------|--------|-------------|
+| **Authentification** | `/var/log/auth.log` | Connexions SSH, sudo, échecs |
+| **Changements Système** | `/var/log/dpkg.log` | Installations/suppression packages |
+| **Événements Kernel** | `/var/log/kern.log` | Événements système critiques |
+| **Changements Code** | Git Webhooks | Push, commits, branches |
+| **Pipeline CI/CD** | Jenkins logs | Builds, déploiements, tests |
+| **Applications** | Container logs | Erreurs, warnings, métriques |
+
+### 📊 Dashboard SIEM
+
+**Importation du Dashboard :**
+
+```bash
+# Dashboard disponible dans monitoring/grafana/dashboards/siem-dashboard.json
+# Importer via Grafana UI :
+# 1. Accéder à Grafana (http://grafana.local)
+# 2. Navigation → Dashboards → Import
+# 3. Télécharger siem-dashboard.json
+# 4. Configurer data source : Loki
+```
+
+**Métriques SIEM :**
+
+- 🔐 **Authentification** : Succès/échecs, utilisateurs, IPs sources
+- 🔄 **Changements Code** : Commits, auteurs, repositories
+- 🏗️ **CI/CD** : Builds, déploiements, statuts
+- 📦 **Système** : Installations, mises à jour, configurations
+- ⚠️ **Alertes** : Événements suspicieux, anomalies
+
+### 🔗 Configuration Webhook Git
+
+**Setup Automatique :**
+
+```bash
+# Utiliser le script de configuration
+./configure-webhook.sh
+
+# Ou configurer manuellement :
+# URL: http://webhook.YOUR_IP.nip.io/webhook
+# Content-Type: application/json
+# Events: Push events (ou tous pour surveillance complète)
+```
+
+**Test du Webhook :**
+
+```bash
+# Test manuel
+curl -X POST http://webhook.YOUR_IP.nip.io/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repository": {"full_name": "test/repo"},
+    "pusher": {"name": "testuser"},
+    "head_commit": {
+      "id": "abc123",
+      "message": "Test commit"
+    }
+  }'
+```
+
+### 🚨 Alertes et Notifications
+
+**Seuils d'Alerte :**
+
+- **Échecs connexion** : > 5 tentatives/minute
+- **Erreurs application** : > 10 erreurs/minute  
+- **Changements système** : Installations non autorisées
+- **Activité anormale** : Patterns d'accès suspects
+
+## �📊 Monitoring
 
 ### 🎯 Métriques Application
 
@@ -306,7 +440,128 @@ flask_errors_total{error_type="validation"}
     summary: "Taux d'erreur élevé détecté"
 ```
 
-## 🛠️ Développement
+## � Automation avec Ansible
+
+### 📋 Playbooks Disponibles
+
+Le projet inclut des playbooks Ansible pour l'automatisation complète :
+
+| Playbook | Description | Usage |
+|----------|-------------|-------|
+| `main.yml` | Setup complet DevSecOps | `ansible-playbook playbooks/main.yml` |
+| `development.yml` | Environnement Docker Compose | `ansible-playbook playbooks/development.yml` |
+| `core_services.yml` | Jenkins + SonarQube uniquement | `ansible-playbook playbooks/core_services.yml` |
+| `monitoring.yml` | Stack monitoring uniquement | `ansible-playbook playbooks/monitoring.yml` |
+| `siem.yml` | Stack SIEM uniquement | `ansible-playbook playbooks/siem.yml` |
+| `flask_app.yml` | Application Flask uniquement | `ansible-playbook playbooks/flask_app.yml` |
+| `cleanup.yml` | Nettoyage complet | `ansible-playbook playbooks/cleanup.yml` |
+
+### 🎭 Rôles Ansible
+
+| Rôle | Fonction |
+|------|----------|
+| `prerequisites` | Installation paquets requis |
+| `docker` | Installation et configuration Docker |
+| `microk8s` | Setup cluster Kubernetes |
+| `jenkins_image` | Build image Jenkins personnalisée |
+| `core_services` | Déploiement Jenkins/SonarQube |
+| `monitoring_stack` | Déploiement Loki/Grafana/Alloy |
+| `siem_stack` | **Configuration SIEM et audit** |
+| `flask_app` | Déploiement application Flask |
+| `azure_access` | Configuration accès externe |
+| `access_info` | Affichage informations d'accès |
+
+### 🚀 Exécution Ansible
+
+```bash
+# Setup complet automatisé
+cd ansible/
+ansible-playbook playbooks/main.yml --ask-become-pass
+
+# Configuration SIEM uniquement
+ansible-playbook playbooks/siem.yml --ask-become-pass
+
+# Mode développement
+ansible-playbook playbooks/development.yml --ask-become-pass
+
+# Nettoyage
+ansible-playbook playbooks/cleanup.yml --ask-become-pass
+```
+
+## ☁️ Infrastructure Terraform (Azure)
+
+### 🏗️ Architecture Cloud
+
+Le répertoire `terraform/` contient l'infrastructure as code pour Azure :
+
+**Composants déployés :**
+
+| Ressource | Type | Description |
+|-----------|------|-------------|
+| `azurerm_linux_virtual_machine` | Spot VM | Machine virtuelle optimisée coût |
+| `azurerm_network_security_group` | Sécurité | Règles firewall DevSecOps |
+| `azurerm_log_analytics_workspace` | Monitoring | Collecte logs Azure |
+| `azurerm_application_insights` | APM | Monitoring applicatif |
+| `azurerm_storage_account` | Stockage | Backups et artifacts |
+| `azurerm_recovery_services_vault` | Sauvegarde | Backup automatisé VM |
+
+### 💰 Optimisation des Coûts
+
+```hcl
+# Configuration Spot Instance (jusqu'à 90% d'économies)
+priority     = "Spot"
+max_bid_price = 0.10  # $0.10/heure maximum
+
+# Auto-shutdown programmé
+auto_shutdown_enabled = true
+auto_shutdown_time = "2300"  # 23h00 UTC
+```
+
+### 🚀 Déploiement Terraform
+
+```bash
+cd terraform/
+
+# 1. Configuration
+cp terraform.tfvars.example terraform.tfvars
+# Éditez terraform.tfvars avec vos valeurs
+
+# 2. Authentification Azure
+az login
+az account set --subscription "your-subscription-id"
+
+# 3. Déploiement
+terraform init
+terraform plan
+terraform apply
+
+# 4. Connexion à la VM
+ssh -i devsecops-key.pem azureuser@PUBLIC_IP
+
+# 5. Nettoyage
+terraform destroy
+```
+
+### 🔗 URLs d'accès Cloud
+
+Après déploiement Terraform, accédez aux services via :
+
+```bash
+# URLs nip.io (recommandé)
+Jenkins:   http://jenkins.VOTRE_IP.nip.io
+SonarQube: http://sonarqube.VOTRE_IP.nip.io
+Grafana:   http://grafana.VOTRE_IP.nip.io
+Flask App: http://app.VOTRE_IP.nip.io
+SIEM Webhook: http://webhook.VOTRE_IP.nip.io/webhook
+
+# Ou directement par IP
+http://VOTRE_IP:8080  # Jenkins
+http://VOTRE_IP:9000  # SonarQube
+http://VOTRE_IP:3000  # Grafana
+http://VOTRE_IP:5000  # Flask App
+```
+
+## �🛠️ Développement
 
 ### 🧪 Mode Développement Local
 
@@ -547,7 +802,16 @@ sudo snap remove microk8s
 - ✅ Respect des conventions de nommage
 - ✅ Scans sécurité passants
 
-## 📜 Licence
+## � Documentation Complète
+
+- 📖 [**Documentation Projet**](PROJECT_DOCUMENTATION.md) - Guide technique détaillé
+- 🛡️ [**Documentation SIEM**](SIEM_DOCUMENTATION.md) - Guide complet de surveillance sécurité
+- 🔧 [**Documentation Ansible**](ansible/README.md) - Automatisation et déploiement
+- ☁️ [**Documentation Terraform**](terraform/README.md) - Infrastructure Azure
+- 🚀 [**Setup Script**](setup.sh) - Script d'installation interactif
+- 🔗 [**Configuration Webhook**](configure-webhook.sh) - Integration Git SIEM
+
+## �📜 Licence
 
 Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
@@ -561,6 +825,6 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
 [![Forks](https://img.shields.io/github/forks/Jev1337/Sample-DevSecOps?style=social)](https://github.com/Jev1337/Sample-DevSecOps)
 [![Issues](https://img.shields.io/github/issues/Jev1337/Sample-DevSecOps)](https://github.com/username/Jev1337/Sample-DevSecOps)
 
-[🐛 Reporter un Bug](https://github.com/Jev1337/repo/issues) • [💡 Demander une Fonctionnalité](https://github.com/Jev1337/Sample-DevSecOps/issues) • [📖 Documentation](PROJECT_DOCUMENTATION.md)
+[🐛 Reporter un Bug](https://github.com/Jev1337/repo/issues) • [💡 Demander une Fonctionnalité](https://github.com/Jev1337/Sample-DevSecOps/issues) • [📖 Documentation](PROJECT_DOCUMENTATION.md) • [🛡️ SIEM Guide](SIEM_DOCUMENTATION.md)
 
 </div>

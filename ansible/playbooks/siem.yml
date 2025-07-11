@@ -1,0 +1,209 @@
+---
+# SIEM Playbook for DevSecOps Environment
+# Deploys Security Information and Event Management capabilities
+
+- hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+  
+  tasks:
+    - name: Check if MicroK8s is installed
+      command: microk8s status --wait-ready --timeout=30
+      register: microk8s_status
+      failed_when: false
+      changed_when: false
+      
+    - name: Fail if MicroK8s is not ready
+      fail:
+        msg: "MicroK8s is not installed or not ready. Please run setup first."
+      when: microk8s_status.rc != 0
+      
+    - name: Include SIEM stack role
+      include_role:
+        name: siem_stack
+        
+    - name: Update Alloy configuration with SIEM capabilities
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: alloy
+            namespace: monitoring
+          data:
+            config.alloy: |
+              // Kubernetes pod discovery for application logs
+              discovery.kubernetes "pods" {
+                role = "pod"
+              }
+
+              discovery.relabel "kubernetes_pods" {
+                targets = discovery.kubernetes.pods.targets
+                rule {
+                  source_labels = ["__meta_kubernetes_pod_phase"]
+                  regex = "Pending|Succeeded|Failed|Completed"
+                  action = "drop"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+                  regex = "false"
+                  action = "drop"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_pod_container_name"]
+                  regex = ""
+                  action = "drop"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_pod_name"]
+                  target_label = "pod"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_namespace"]
+                  target_label = "namespace"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_pod_container_name"]
+                  target_label = "container"
+                }
+              }
+
+              // Kubernetes application logs
+              loki.source.kubernetes "pods" {
+                targets    = discovery.relabel.kubernetes_pods.output
+                forward_to = [loki.process.kubernetes_logs.receiver]
+              }
+
+              // SIEM: System log collection from host
+              loki.source.file "system_logs" {
+                targets = [
+                  {__path__ = "/var/log/auth.log", job = "auth", log_type = "security"},
+                  {__path__ = "/var/log/syslog", job = "system", log_type = "system"},
+                  {__path__ = "/var/log/dpkg.log", job = "packages", log_type = "system_changes"},
+                  {__path__ = "/var/log/kern.log", job = "kernel", log_type = "security"},
+                  {__path__ = "/var/log/audit/audit.log", job = "audit", log_type = "security"},
+                ]
+                forward_to = [loki.process.system_logs.receiver]
+              }
+
+              // SIEM: Webhook logs for code changes tracking
+              loki.source.file "webhook_logs" {
+                targets = [
+                  {__path__ = "/tmp/webhooks/webhook-*.log", job = "webhook", log_type = "code_changes"},
+                ]
+                forward_to = [loki.process.webhook_logs.receiver]
+              }
+
+              // Process Kubernetes logs with enhanced labeling
+              loki.process "kubernetes_logs" {
+                stage.json {
+                  expressions = {
+                    level = "level",
+                    msg = "msg",
+                    timestamp = "timestamp",
+                  }
+                }
+                
+                stage.labels {
+                  values = {
+                    level = "",
+                    log_type = "application",
+                  }
+                }
+
+                forward_to = [loki.write.default.receiver]
+              }
+
+              // Process system logs for SIEM analysis
+              loki.process "system_logs" {
+                stage.regex {
+                  expression = "(?P<timestamp>\\w+\\s+\\d+\\s+\\d+:\\d+:\\d+)\\s+(?P<hostname>\\S+)\\s+(?P<service>\\w+)(?:\\[(?P<pid>\\d+)\\])?:\\s*(?P<message>.*)"
+                }
+                
+                stage.labels {
+                  values = {
+                    hostname = "",
+                    service = "",
+                    log_type = "",
+                  }
+                }
+
+                // Extract security events
+                stage.match {
+                  selector = "{job=\"auth\"}"
+                  stage.regex {
+                    expression = "(?P<auth_type>Accepted|Failed|Invalid).*?for (?P<user>\\w+).*?from (?P<ip>[\\d\\.]+)"
+                  }
+                  stage.labels {
+                    values = {
+                      auth_type = "",
+                      user = "",
+                      source_ip = "",
+                    }
+                  }
+                }
+
+                // Extract package installation events
+                stage.match {
+                  selector = "{job=\"packages\"}"
+                  stage.regex {
+                    expression = "(?P<action>install|remove|upgrade|configure)\\s+(?P<package>\\S+)"
+                  }
+                  stage.labels {
+                    values = {
+                      action = "",
+                      package = "",
+                    }
+                  }
+                }
+
+                forward_to = [loki.write.default.receiver]
+              }
+
+              // Process webhook logs for code change tracking
+              loki.process "webhook_logs" {
+                stage.json {
+                  expressions = {
+                    repository = "repository.full_name",
+                    branch = "ref",
+                    commits = "commits",
+                    pusher = "pusher.name",
+                    commit_id = "head_commit.id",
+                    commit_message = "head_commit.message",
+                  }
+                }
+                
+                stage.labels {
+                  values = {
+                    repository = "",
+                    branch = "",
+                    pusher = "",
+                    log_type = "code_changes",
+                  }
+                }
+
+                forward_to = [loki.write.default.receiver]
+              }
+
+              loki.write "default" {
+                endpoint {
+                  url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+                }
+              }
+      
+    - name: Restart Alloy DaemonSet to apply new configuration
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: DaemonSet
+          metadata:
+            name: alloy
+            namespace: monitoring
+          spec:
+            template:
+              metadata:
+                annotations:
+                  kubectl.kubernetes.io/restartedAt: "{{ ansible_date_time.iso8601 }}"

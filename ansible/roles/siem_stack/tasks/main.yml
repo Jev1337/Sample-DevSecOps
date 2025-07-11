@@ -1,0 +1,259 @@
+---
+# SIEM Stack Configuration for Enhanced Security Monitoring
+
+- name: Create SIEM namespace
+  kubernetes.core.k8s:
+    name: siem
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Configure audit logging on host
+  lineinfile:
+    path: /etc/audit/rules.d/audit.rules
+    line: "{{ item }}"
+    create: yes
+  become: yes
+  loop:
+    - "-w /etc/passwd -p wa -k identity"
+    - "-w /etc/group -p wa -k identity"
+    - "-w /etc/shadow -p wa -k identity"
+    - "-w /etc/sudoers -p wa -k identity"
+    - "-w /var/log/auth.log -p wa -k authentication"
+    - "-w /var/log/syslog -p wa -k system"
+    - "-w /etc/ssh/sshd_config -p wa -k sshd"
+    - "-w /bin/su -p x -k privileged"
+    - "-w /usr/bin/sudo -p x -k privileged"
+    - "-w /usr/bin/passwd -p x -k passwd_modification"
+
+- name: Restart auditd service
+  systemd:
+    name: auditd
+    state: restarted
+    enabled: yes
+  become: yes
+
+- name: Create webhook log directory
+  file:
+    path: /tmp/webhooks
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Deploy webhook receiver service
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: webhook-receiver
+        namespace: siem
+        labels:
+          app: webhook-receiver
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: webhook-receiver
+        template:
+          metadata:
+            labels:
+              app: webhook-receiver
+          spec:
+            containers:
+            - name: webhook-receiver
+              image: nginx:alpine
+              ports:
+              - containerPort: 80
+              volumeMounts:
+              - name: webhook-config
+                mountPath: /etc/nginx/conf.d/default.conf
+                subPath: default.conf
+              - name: webhook-logs
+                mountPath: /tmp/webhook-logs
+            volumes:
+            - name: webhook-config
+              configMap:
+                name: webhook-nginx-config
+            - name: webhook-logs
+              hostPath:
+                path: /tmp/webhooks
+                type: DirectoryOrCreate
+
+- name: Create webhook nginx config
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: webhook-nginx-config
+        namespace: siem
+      data:
+        default.conf: |
+          server {
+              listen 80;
+              server_name _;
+              
+              location /webhook {
+                  access_log /tmp/webhook-logs/webhook-access.log;
+                  error_log /tmp/webhook-logs/webhook-error.log;
+                  
+                  # Log webhook payload
+                  lua_need_request_body on;
+                  access_by_lua_block {
+                      local cjson = require "cjson"
+                      local file = io.open("/tmp/webhook-logs/webhook-" .. os.date("%Y%m%d") .. ".log", "a")
+                      if file then
+                          file:write(os.date("%Y-%m-%d %H:%M:%S") .. " " .. (ngx.var.request_body or "") .. "\n")
+                          file:close()
+                      end
+                  }
+                  
+                  return 200 '{"status":"received"}';
+                  add_header Content-Type application/json;
+              }
+              
+              location /health {
+                  return 200 '{"status":"ok"}';
+                  add_header Content-Type application/json;
+              }
+          }
+
+- name: Expose webhook receiver service
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: webhook-receiver-service
+        namespace: siem
+      spec:
+        selector:
+          app: webhook-receiver
+        ports:
+        - protocol: TCP
+          port: 80
+          targetPort: 80
+        type: ClusterIP
+
+- name: Create webhook ingress for external access
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: webhook-ingress
+        namespace: siem
+        annotations:
+          nginx.ingress.kubernetes.io/rewrite-target: /
+      spec:
+        ingressClassName: public
+        rules:
+        - host: "webhook.{{ ansible_default_ipv4.address }}.nip.io"
+          http:
+            paths:
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: webhook-receiver-service
+                  port:
+                    number: 80
+
+- name: Deploy security event collector as DaemonSet
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: DaemonSet
+      metadata:
+        name: security-collector
+        namespace: siem
+        labels:
+          app: security-collector
+      spec:
+        selector:
+          matchLabels:
+            app: security-collector
+        template:
+          metadata:
+            labels:
+              app: security-collector
+          spec:
+            hostNetwork: true
+            hostPID: true
+            containers:
+            - name: security-collector
+              image: busybox:latest
+              command: ["/bin/sh"]
+              args: ["-c", "while true; do tail -f /host/var/log/auth.log /host/var/log/syslog /host/var/log/kern.log 2>/dev/null | while read line; do echo \"$(date -Iseconds) [$(hostname)] $line\"; done; sleep 10; done"]
+              volumeMounts:
+              - name: varlog
+                mountPath: /host/var/log
+                readOnly: true
+              - name: proc
+                mountPath: /host/proc
+                readOnly: true
+              - name: sys
+                mountPath: /host/sys
+                readOnly: true
+              securityContext:
+                privileged: true
+            volumes:
+            - name: varlog
+              hostPath:
+                path: /var/log
+            - name: proc
+              hostPath:
+                path: /proc
+            - name: sys
+              hostPath:
+                path: /sys
+            tolerations:
+            - operator: Exists
+
+- name: Configure rsyslog to enhance logging
+  lineinfile:
+    path: /etc/rsyslog.conf
+    line: "{{ item }}"
+    create: yes
+  become: yes
+  loop:
+    - "# Enhanced logging for SIEM"
+    - "$ModLoad imfile"
+    - "$InputFileName /var/log/auth.log"
+    - "$InputFileTag auth:"
+    - "$InputFileStateFile stat-auth"
+    - "$InputFileSeverity info"
+    - "$InputFileFacility local7"
+    - "$InputRunFileMonitor"
+
+- name: Restart rsyslog service
+  systemd:
+    name: rsyslog
+    state: restarted
+  become: yes
+
+- name: Display SIEM stack information
+  debug:
+    msg:
+      - "🛡️ SIEM Stack Deployed Successfully!"
+      - "======================================="
+      - "📊 Enhanced monitoring capabilities:"
+      - "  - System authentication logs"
+      - "  - Package installation tracking"
+      - "  - Git webhook integration"
+      - "  - CI/CD pipeline monitoring"
+      - "  - Kernel and system events"
+      - ""
+      - "🔗 Webhook endpoint:"
+      - "  External: http://webhook.{{ ansible_default_ipv4.address }}.nip.io/webhook"
+      - "  Internal: http://webhook-receiver-service.siem.svc.cluster.local/webhook"
+      - ""
+      - "📈 Grafana dashboards:"
+      - "  - Import siem-dashboard.json from monitoring/grafana/dashboards/"
+      - "  - View real-time security events and analytics"
+      - ""
+      - "⚙️ Configuration:"
+      - "  - Audit logging enabled for critical files"
+      - "  - Enhanced system log collection"
+      - "  - Security event correlation"

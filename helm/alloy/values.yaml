@@ -2,6 +2,7 @@ alloy:
   configMap:
     create: true
     content: |
+      // Kubernetes pod discovery for application logs
       discovery.kubernetes "pods" {
         role = "pod"
       }
@@ -37,8 +38,159 @@ alloy:
         }
       }
 
+      // Kubernetes application logs
       loki.source.kubernetes "pods" {
         targets    = discovery.relabel.kubernetes_pods.output
+        forward_to = [loki.process.kubernetes_logs.receiver]
+      }
+
+      // SIEM: System log collection from host
+      loki.source.file "system_logs" {
+        targets = [
+          {__path__ = "/var/log/auth.log", job = "auth", log_type = "security"},
+          {__path__ = "/var/log/syslog", job = "system", log_type = "system"},
+          {__path__ = "/var/log/dpkg.log", job = "packages", log_type = "system_changes"},
+          {__path__ = "/var/log/kern.log", job = "kernel", log_type = "security"},
+          {__path__ = "/var/log/audit/audit.log", job = "audit", log_type = "security"},
+        ]
+        forward_to = [loki.process.system_logs.receiver]
+      }
+
+      // SIEM: Jenkins logs for code changes tracking
+      loki.source.file "jenkins_logs" {
+        targets = [
+          {__path__ = "/var/jenkins_home/logs/**/*.log", job = "jenkins", log_type = "cicd"},
+        ]
+        forward_to = [loki.process.jenkins_logs.receiver]
+      }
+
+      // SIEM: Git webhook logs (for code change tracking)
+      loki.source.file "webhook_logs" {
+        targets = [
+          {__path__ = "/tmp/webhook-*.log", job = "webhook", log_type = "code_changes"},
+        ]
+        forward_to = [loki.process.webhook_logs.receiver]
+      }
+
+      // Process Kubernetes logs with enhanced labeling
+      loki.process "kubernetes_logs" {
+        stage.json {
+          expressions = {
+            level = "level",
+            msg = "msg",
+            timestamp = "timestamp",
+          }
+        }
+        
+        stage.labels {
+          values = {
+            level = "",
+            log_type = "application",
+          }
+        }
+
+        forward_to = [loki.write.default.receiver]
+      }
+
+      // Process system logs for SIEM analysis
+      loki.process "system_logs" {
+        stage.regex {
+          expression = "(?P<timestamp>\\w+\\s+\\d+\\s+\\d+:\\d+:\\d+)\\s+(?P<hostname>\\S+)\\s+(?P<service>\\w+)(?:\\[(?P<pid>\\d+)\\])?:\\s*(?P<message>.*)"
+        }
+        
+        stage.labels {
+          values = {
+            hostname = "",
+            service = "",
+            log_type = "",
+          }
+        }
+
+        // Extract security events
+        stage.match {
+          selector = "{job=\"auth\"}"
+          stage.regex {
+            expression = "(?P<auth_type>Accepted|Failed|Invalid).*?for (?P<user>\\w+).*?from (?P<ip>[\\d\\.]+)"
+          }
+          stage.labels {
+            values = {
+              auth_type = "",
+              user = "",
+              source_ip = "",
+            }
+          }
+        }
+
+        // Extract package installation events
+        stage.match {
+          selector = "{job=\"packages\"}"
+          stage.regex {
+            expression = "(?P<action>install|remove|upgrade|configure)\\s+(?P<package>\\S+)"
+          }
+          stage.labels {
+            values = {
+              action = "",
+              package = "",
+            }
+          }
+        }
+
+        forward_to = [loki.write.default.receiver]
+      }
+
+      // Process Jenkins logs for CI/CD tracking
+      loki.process "jenkins_logs" {
+        stage.regex {
+          expression = "(?P<timestamp>\\d{4}-\\d{2}-\\d{2}\\s+\\d{2}:\\d{2}:\\d{2}).*?(?P<level>INFO|WARN|ERROR|DEBUG).*?(?P<message>.*)"
+        }
+        
+        stage.labels {
+          values = {
+            level = "",
+            log_type = "cicd",
+          }
+        }
+
+        // Extract build information
+        stage.match {
+          selector = "{job=\"jenkins\"}"
+          stage.regex {
+            expression = "(?P<build_action>Started|Finished)\\s+build.*?(?P<job_name>\\S+).*?#(?P<build_number>\\d+)"
+          }
+          stage.labels {
+            values = {
+              build_action = "",
+              job_name = "",
+              build_number = "",
+            }
+          }
+        }
+
+        forward_to = [loki.write.default.receiver]
+      }
+
+      // Process webhook logs for code change tracking
+      loki.process "webhook_logs" {
+        stage.json {
+          expressions = {
+            repository = "repository.full_name",
+            branch = "ref",
+            commits = "commits",
+            pusher = "pusher.name",
+            commit_id = "head_commit.id",
+            commit_message = "head_commit.message",
+          }
+        }
+        
+        stage.labels {
+          values = {
+            repository = "",
+            branch = "",
+            pusher = "",
+            log_type = "code_changes",
+          }
+        }
+
         forward_to = [loki.write.default.receiver]
       }
 
