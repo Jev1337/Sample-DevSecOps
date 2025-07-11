@@ -1,0 +1,130 @@
+#cloud-config
+# Cloud-init configuration for DevSecOps VM setup
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - git
+  - curl
+  - wget
+  - unzip
+  - jq
+  - htop
+  - tree
+  - vim
+  - build-essential
+  - python3-pip
+
+# Create user and setup directories
+users:
+  - name: ${admin_username}
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+
+# Write files
+write_files:
+  - path: /home/${admin_username}/terraform-setup.log
+    content: |
+      DevSecOps VM Setup Started: $(date)
+      Terraform deployment initiated
+    owner: ${admin_username}:${admin_username}
+    permissions: '0644'
+
+  - path: /home/${admin_username}/setup-devsecops.sh
+    content: ${setup_script}
+    owner: ${admin_username}:${admin_username}
+    permissions: '0755'
+    encoding: base64
+
+  - path: /etc/systemd/system/devsecops-setup.service
+    content: |
+      [Unit]
+      Description=DevSecOps Environment Setup
+      After=network.target
+      
+      [Service]
+      Type=oneshot
+      User=${admin_username}
+      WorkingDirectory=/home/${admin_username}/Sample-DevSecOps
+      ExecStart=/home/${admin_username}/Sample-DevSecOps/setup.sh
+      StandardOutput=journal
+      StandardError=journal
+      
+      [Install]
+      WantedBy=multi-user.target
+    owner: root:root
+    permissions: '0644'
+
+# Run commands
+runcmd:
+  - echo "Starting DevSecOps VM setup..." | tee -a /home/${admin_username}/terraform-setup.log
+  
+  # Update system
+  - apt-get update && apt-get upgrade -y
+  
+  # Install Docker
+  - curl -fsSL https://get.docker.com -o get-docker.sh
+  - sh get-docker.sh
+  - usermod -aG docker ${admin_username}
+  
+  # Install Docker Compose
+  - curl -L "https://github.com/docker/compose/releases/download/v2.21.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+  - chmod +x /usr/local/bin/docker-compose
+  - ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+  
+  # Install kubectl
+  - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+  - install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+  
+  # Install Helm
+  - curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  
+  # Install Ansible
+  - pip3 install ansible
+  
+  # Clone the DevSecOps repository
+  - cd /home/${admin_username}
+  - git clone https://github.com/your-repo/Sample-DevSecOps.git || echo "Repository clone failed - will use uploaded setup script"
+  
+  # If repository doesn't exist, create directory structure
+  - mkdir -p /home/${admin_username}/Sample-DevSecOps
+  - cp /home/${admin_username}/setup-devsecops.sh /home/${admin_username}/Sample-DevSecOps/setup.sh
+  - chmod +x /home/${admin_username}/Sample-DevSecOps/setup.sh
+  
+  # Set ownership
+  - chown -R ${admin_username}:${admin_username} /home/${admin_username}/Sample-DevSecOps
+  
+  # Enable and start Docker
+  - systemctl enable docker
+  - systemctl start docker
+  
+  # Configure Docker daemon for insecure registry
+  - mkdir -p /etc/docker
+  - echo '{"insecure-registries":["localhost:32000"]}' > /etc/docker/daemon.json
+  - systemctl restart docker
+  
+  # Enable systemd service for DevSecOps setup
+  - systemctl enable devsecops-setup.service
+  
+  # Log completion
+  - echo "DevSecOps VM setup completed: $(date)" | tee -a /home/${admin_username}/terraform-setup.log
+  - echo "VM is ready for DevSecOps deployment" | tee -a /home/${admin_username}/terraform-setup.log
+
+# Final message
+final_message: |
+  DevSecOps VM has been successfully provisioned!
+  
+  Next steps:
+  1. SSH to the VM: ssh -i devsecops-key.pem ${admin_username}@<PUBLIC_IP>
+  2. Check setup status: sudo systemctl status devsecops-setup.service
+  3. Run the setup script: cd Sample-DevSecOps && ./setup.sh
+  
+  The VM is configured with:
+  - Docker and Docker Compose
+  - kubectl and Helm
+  - Ansible
+  - All necessary DevSecOps tools
+  
+  Setup completed at: $(date)

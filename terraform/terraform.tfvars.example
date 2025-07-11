@@ -1,0 +1,52 @@
+# DevSecOps Terraform Environment Configuration
+
+# Copy this file to terraform.tfvars and modify as needed
+# terraform.tfvars is ignored by git for security
+
+# Azure Configuration
+location = "East US"
+# Available regions: East US, West US 2, West Europe, Southeast Asia, etc.
+
+# Environment Settings
+environment = "dev"
+# Options: dev, staging, prod
+
+owner = "DevSecOps-Team"
+
+# VM Configuration
+vm_size = "Standard_D2s_v3"
+# Recommended sizes:
+# - Standard_B2s (2 vCPUs, 4GB RAM) - Budget
+# - Standard_D2s_v3 (2 vCPUs, 8GB RAM) - Standard
+# - Standard_D4s_v3 (4 vCPUs, 16GB RAM) - Performance
+
+admin_username = "azureuser"
+
+# Security - Replace with your actual IP for better security
+admin_ip_cidr = "0.0.0.0/0"
+# Get your IP: curl ifconfig.me
+# Example: "203.0.113.0/32"
+
+# Spot Instance Configuration
+max_bid_price = 0.10
+# Set to -1 for pay-as-you-go pricing (no eviction)
+# Check current prices: az vm list-skus --location "East US" --size Standard_D2s_v3
+
+# Storage Configuration
+disk_size_gb = 64
+# Minimum 30GB, recommended 64GB for DevSecOps tools
+
+# Cost Management
+auto_shutdown_enabled = true
+auto_shutdown_time = "2300"  # 11:00 PM
+auto_shutdown_timezone = "UTC"
+
+# Monitoring
+enable_monitoring = true
+
+# Additional Tags
+tags = {
+  CostCenter = "DevSecOps"
+  CreatedBy  = "Terraform"
+  Purpose    = "CI-CD-Pipeline"
+}
