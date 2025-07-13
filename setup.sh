@@ -1605,36 +1605,6 @@ deploy_all_dashboard_files() {
     log "✅ All dashboard files auto-discovered and deployed!" "$GREEN"
 }
 
-# Function to fix and redeploy Alloy
-fix_alloy_deployment() {
-    log "Fixing and redeploying Alloy..." "$YELLOW"
-    
-    # Check current Alloy status
-    log "Checking current Alloy status..." "$CYAN"
-    microk8s kubectl get pods -n monitoring | grep alloy
-    
-    # Upgrade Alloy with fixed configuration
-    log "Upgrading Alloy with corrected configuration..." "$YELLOW"
-    microk8s helm3 upgrade alloy grafana/alloy -n monitoring -f helm/alloy/values.yaml
-    
-    # Wait for rollout to complete
-    log "Waiting for Alloy rollout to complete..." "$YELLOW"
-    microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=120s
-    
-    # Check final status
-    log "Checking final Alloy status..." "$CYAN"
-    microk8s kubectl get pods -n monitoring | grep alloy
-    
-    # Check logs for any remaining issues
-    ALLOY_POD=$(microk8s kubectl get pods -n monitoring -l app.kubernetes.io/name=alloy -o jsonpath='{.items[0].metadata.name}')
-    if [ ! -z "$ALLOY_POD" ]; then
-        log "Checking Alloy logs for errors..." "$CYAN"
-        microk8s kubectl logs -n monitoring pod/$ALLOY_POD --tail=10
-    fi
-    
-    log "✅ Alloy fix deployment completed!" "$GREEN"
-}
-
 # Start the script
 log "🎬 Starting DevSecOps Setup Script..." "$PURPLE"
 log "Log file: $LOG_FILE" "$CYAN"
