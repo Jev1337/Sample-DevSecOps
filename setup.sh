@@ -621,29 +621,22 @@ run_cleanup() {
 
 # Function to setup SIEM monitoring
 setup_siem_monitoring() {
-    log "🛡️ Setting up SIEM Host Monitoring..." "$BLUE"
+    log "🛡️ Setting up SIEM Monitoring..." "$BLUE"
     
-    log "📋 SIEM Host Setup Instructions:" "$YELLOW"
-    log "   To configure SIEM monitoring on the host system:" "$YELLOW"
-    log "   1. Navigate to ansible directory: cd ansible/" "$YELLOW"
-    log "   2. Run the SIEM playbook: ansible-playbook -i inventory playbooks/siem.yml --ask-become-pass" "$YELLOW"
-    log "   3. This will configure:" "$YELLOW"
-    log "      - System log collection" "$YELLOW"
-    log "      - SSH monitoring with fail2ban" "$YELLOW"
-    log "      - Audit logging setup" "$YELLOW"
-    log "      - Log rotation policies" "$YELLOW"
-    echo ""
+    # Check if Ansible is installed
+    if ! command -v ansible-playbook &> /dev/null; then
+        log "Installing Ansible..." "$YELLOW"
+        sudo apt-get update
+        sudo apt-get install -y ansible
+    fi
     
-    log "🔗 After Ansible setup, your SIEM monitoring will include:" "$CYAN"
-    log "   - SSH login monitoring (/var/log/auth.log)" "$CYAN"
-    log "   - System event logging (/var/log/syslog)" "$CYAN"
-    log "   - Security audit logs (/var/log/audit/audit.log)" "$CYAN"
-    log "   - Automated fail2ban protection" "$CYAN"
-    log "   - Git webhook monitoring (already configured)" "$CYAN"
-    echo ""
+    # Run SIEM Ansible playbook
+    log "Running SIEM configuration playbook..." "$YELLOW"
+    cd "$SCRIPT_DIR/ansible"
+    ansible-playbook -i inventory playbooks/siem.yml --ask-become-pass
     
-    log "✅ SIEM monitoring instructions provided!" "$GREEN"
-    log "ℹ️  Run the Ansible playbook manually when ready." "$BLUE"
+    cd "$SCRIPT_DIR"
+    log "✅ SIEM monitoring setup completed!" "$GREEN"
 }
 
 # Function to display access information
