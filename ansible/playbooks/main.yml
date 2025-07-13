@@ -1,19 +1,17 @@
 ---
-# Main playbook to orchestrate all setup steps for DevSecOps environment with SIEM
-- name: DevSecOps Environment Setup with SIEM (MicroK8s Single Node)
+# Main playbook to orchestrate all setup steps for DevSecOps environment
+- name: DevSecOps Environment Setup (MicroK8s Single Node)
   hosts: localhost
   become: false
   vars_files:
     - ../vars/main.yml
-  vars:
-    external_ip: "{{ ansible_default_ipv4.address }}"
   roles:
     - ../roles/prerequisites
     - ../roles/docker
     - ../roles/microk8s
     - ../roles/jenkins_image
     - ../roles/core_services
-    - ../roles/monitoring_stack  # Now includes SIEM setup
+    - ../roles/monitoring_stack
     - ../roles/flask_app
     - ../roles/azure_access
     - ../roles/access_info

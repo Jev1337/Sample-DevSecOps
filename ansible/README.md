@@ -1,34 +1,12 @@
-# DevSecOps Ansible Playbooks with SIEM
+# DevSecOps Ansible Playbooks
 
-This directory contains Ansible playbooks and roles for setting up a complete DevSecOps environment with **enhanced SIEM (Security Information and Event Management)** capabilities on a single MicroK8s node.
-
-## 🔒 SIEM Features
-
-### Security Event Monitoring
-- **SSH Authentication Monitoring**: Failed and successful login attempts
-- **Git Webhook Processing**: Repository events with security analysis
-- **Kubernetes Audit Logging**: API server security events
-- **Container Security Monitoring**: Application-level security events
-- **System Log Analysis**: OS-level security events and anomalies
-
-### Security Tools Integrated
-- **fail2ban**: SSH brute-force protection with IP banning
-- **chkrootkit**: Rootkit detection and scanning
-- **rkhunter**: Additional security vulnerability scanning
-- **Real-time Monitoring**: Automated security checks every 5 minutes
-
-### SIEM Dashboard
-- Comprehensive Grafana dashboard for security event visualization
-- Real-time security metrics and alerts
-- Log correlation and threat detection
-- Webhook event analysis and commit security scanning
+This directory contains Ansible playbooks and roles for setting up a complete DevSecOps environment on a single MicroK8s node.
 
 ## Prerequisites
 
 - Ubuntu 20.04 or later
 - Python 3.8 or later
 - Ansible 2.15 or later
-- sudo privileges for security tool installation
 
 ## Installation
 
@@ -45,16 +23,10 @@ This directory contains Ansible playbooks and roles for setting up a complete De
 
 ## Playbooks
 
-### Full Production Setup with SIEM
-Complete DevSecOps environment with all services and SIEM monitoring:
+### Full Production Setup
+Complete DevSecOps environment with all services:
 ```bash
 ansible-playbook playbooks/main.yml --ask-become-pass
-```
-
-### SIEM-Only Deployment
-Deploy SIEM capabilities on existing monitoring stack:
-```bash
-ansible-playbook playbooks/siem.yml --ask-become-pass
 ```
 
 ### Development Mode

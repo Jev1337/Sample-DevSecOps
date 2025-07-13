@@ -1,5 +1,5 @@
 ---
-# Deploy Loki, Grafana, and Alloy using Helm with SIEM capabilities
+# Deploy Loki, Grafana, and Alloy using Helm
 - name: Create monitoring namespace
   ansible.builtin.shell: microk8s kubectl get ns monitoring || microk8s kubectl create ns monitoring
   args:
@@ -10,10 +10,6 @@
     microk8s helm3 repo list | grep -q "grafana" || (microk8s helm3 repo add grafana https://grafana.github.io/helm-charts && microk8s helm3 repo update)
   args:
     executable: /bin/bash
-
-- name: Include SIEM setup tasks
-  include_role:
-    name: siem_setup
 
 - name: Deploy Loki via Helm
   ansible.builtin.shell: |
@@ -27,7 +23,7 @@
   args:
     executable: /bin/bash
 
-- name: Deploy Alloy with SIEM configuration via Helm
+- name: Deploy Alloy via Helm
   ansible.builtin.shell: |
     microk8s helm3 status alloy -n monitoring || microk8s helm3 install alloy grafana/alloy -n monitoring -f {{ playbook_dir }}/../../helm/alloy/values.yaml
   args:
@@ -47,13 +43,3 @@
   ansible.builtin.shell: microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=5m
   args:
     executable: /bin/bash
-
-- name: Deploy SIEM webhook ingress
-  template:
-    src: siem-webhook-ingress.yaml.j2
-    dest: /tmp/siem-webhook-ingress.yaml
-
-- name: Apply SIEM webhook ingress
-  kubernetes.core.k8s:
-    state: present
-    src: /tmp/siem-webhook-ingress.yaml
