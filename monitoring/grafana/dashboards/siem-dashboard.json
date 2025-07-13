@@ -42,13 +42,16 @@
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 5
+              },
+              {
                 "color": "red",
-                "value": 1
+                "value": 10
               }
             ]
           }
-        },
-        "overrides": []
+        }
       },
       "gridPos": {
         "h": 8,
@@ -65,26 +68,21 @@
         "reduceOptions": {
           "values": false,
           "calcs": [
-            "sum"
+            "lastNotNull"
           ],
           "fields": ""
-        },
-        "textMode": "auto"
+        }
       },
-      "pluginVersion": "10.4.0",
+      "pluginVersion": "8.5.0",
       "targets": [
         {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "editorMode": "code",
-          "expr": "sum(count_over_time({namespace=\"flask-app\"} | json | __error__=\"\" | status_code=\"401\" [$__interval]))",
+          "expr": "sum(count_over_time({job=\"auth_logs\", event_type=\"ssh_failed_login\"} [24h]))",
+          "legendFormat": "Failed SSH Logins (24h)",
           "queryType": "",
           "refId": "A"
         }
       ],
-      "title": "Authentication Failures",
+      "title": "Failed SSH Logins (24h)",
       "type": "stat"
     },
     {
@@ -106,17 +104,12 @@
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 10
-              },
-              {
-                "color": "red",
-                "value": 50
+                "color": "blue",
+                "value": 1
               }
             ]
           }
-        },
-        "overrides": []
+        }
       },
       "gridPos": {
         "h": 8,
@@ -133,26 +126,21 @@
         "reduceOptions": {
           "values": false,
           "calcs": [
-            "sum"
+            "lastNotNull"
           ],
           "fields": ""
-        },
-        "textMode": "auto"
+        }
       },
-      "pluginVersion": "10.4.0",
+      "pluginVersion": "8.5.0",
       "targets": [
         {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "editorMode": "code",
-          "expr": "sum(count_over_time({namespace=\"flask-app\"} | json | __error__=\"\" | status_code>=400 [$__interval]))",
+          "expr": "sum(count_over_time({job=\"auth_logs\", event_type=\"ssh_successful_login\"} [24h]))",
+          "legendFormat": "Successful SSH Logins (24h)",
           "queryType": "",
           "refId": "A"
         }
       ],
-      "title": "HTTP Errors",
+      "title": "Successful SSH Logins (24h)",
       "type": "stat"
     },
     {
@@ -174,13 +162,12 @@
                 "value": null
               },
               {
-                "color": "red",
+                "color": "orange",
                 "value": 1
               }
             ]
           }
-        },
-        "overrides": []
+        }
       },
       "gridPos": {
         "h": 8,
@@ -197,26 +184,21 @@
         "reduceOptions": {
           "values": false,
           "calcs": [
-            "sum"
+            "lastNotNull"
           ],
           "fields": ""
-        },
-        "textMode": "auto"
+        }
       },
-      "pluginVersion": "10.4.0",
+      "pluginVersion": "8.5.0",
       "targets": [
         {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "editorMode": "code",
-          "expr": "sum(count_over_time({namespace=\"flask-app\"} | json | __error__=\"\" | level=\"ERROR\" or message=~\".*(?i)(error|exception|fail).*\" [$__interval]))",
+          "expr": "sum(count_over_time({namespace=\"monitoring\", pod=~\"siem-webhook.*\"} [24h]))",
+          "legendFormat": "Webhook Events (24h)",
           "queryType": "",
           "refId": "A"
         }
       ],
-      "title": "Application Errors",
+      "title": "Webhook Events (24h)",
       "type": "stat"
     },
     {
@@ -229,18 +211,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "green",
-                  "index": 0,
-                  "text": "Secure"
-                }
-              },
-              "type": "value"
-            }
-          ],
+          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -254,8 +225,7 @@
               }
             ]
           }
-        },
-        "overrides": []
+        }
       },
       "gridPos": {
         "h": 8,
@@ -272,27 +242,114 @@
         "reduceOptions": {
           "values": false,
           "calcs": [
-            "sum"
+            "lastNotNull"
           ],
           "fields": ""
-        },
-        "textMode": "auto"
+        }
       },
-      "pluginVersion": "10.4.0",
+      "pluginVersion": "8.5.0",
       "targets": [
         {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "editorMode": "code",
-          "expr": "sum(count_over_time({namespace=\"flask-app\"} | json | __error__=\"\" | message=~\".*(?i)(attack|injection|xss|csrf).*\" [$__interval]))",
+          "expr": "sum(count_over_time({job=\"security_logs\", severity=\"high\"} [24h]))",
+          "legendFormat": "High Severity Events (24h)",
           "queryType": "",
           "refId": "A"
         }
       ],
-      "title": "Security Threats",
+      "title": "High Severity Events (24h)",
       "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 5,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "8.5.0",
+      "targets": [
+        {
+          "expr": "{job=\"auth_logs\", event_type=~\"ssh_.*\"} | json | line_format \"{{.timestamp}} | {{.event_type}} | {{.user}} | {{.source_ip}}\"",
+          "legendFormat": "",
+          "queryType": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Recent SSH Events",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 6,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "8.5.0",
+      "targets": [
+        {
+          "expr": "{namespace=\"monitoring\", pod=~\"siem-webhook.*\"} | json | line_format \"{{.timestamp}} | {{.event_type}} | {{.severity}} | {{.source_ip}}\"",
+          "legendFormat": "",
+          "queryType": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Webhook Security Events",
+      "type": "table"
     },
     {
       "datasource": {
@@ -305,13 +362,11 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 10,
+            "fillOpacity": 0,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -324,7 +379,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -341,30 +396,24 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
-          },
-          "unit": "short"
+          }
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 10,
+        "w": 24,
         "x": 0,
-        "y": 8
+        "y": 18
       },
-      "id": 5,
+      "id": 7,
       "options": {
         "legend": {
           "calcs": [],
           "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "single",
@@ -373,13 +422,8 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate({namespace=\"flask-app\"} | json | __error__=\"\" | status_code>=400 [$__interval])) by (status_code)",
-          "legendFormat": "{{status_code}}",
+          "expr": "sum by (event_type) (count_over_time({job=~\"auth_logs|security_logs\"} [5m]))",
+          "legendFormat": "{{event_type}}",
           "queryType": "",
           "refId": "A"
         }
@@ -394,61 +438,90 @@
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
           "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            }
+            "align": "auto",
+            "displayMode": "auto"
           },
-          "mappings": []
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 10,
         "w": 12,
-        "x": 12,
-        "y": 8
+        "x": 0,
+        "y": 28
       },
-      "id": 6,
+      "id": 8,
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "pieType": "pie",
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
+        "showHeader": true
       },
+      "pluginVersion": "8.5.0",
       "targets": [
         {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "editorMode": "code",
-          "expr": "topk(10, sum(count_over_time({namespace=\"flask-app\"} | json | __error__=\"\" | user_agent!=\"\" [$__interval])) by (user_agent))",
-          "legendFormat": "{{user_agent}}",
+          "expr": "{job=\"audit_logs\", audit_event=\"k8s_audit\"} | json | line_format \"{{.timestamp}} | {{.verb}} | {{.user}} | {{.namespace}}/{{.resource}}\"",
+          "legendFormat": "",
           "queryType": "",
           "refId": "A"
         }
       ],
-      "title": "Top User Agents",
-      "type": "piechart"
+      "title": "Kubernetes Audit Events",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "id": 9,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "8.5.0",
+      "targets": [
+        {
+          "expr": "{security_monitored=\"true\", severity=\"high\"} | json | line_format \"{{.timestamp}} | {{.namespace}} | {{.container}} | {{.alert_type}}\"",
+          "legendFormat": "",
+          "queryType": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Application Security Alerts",
+      "type": "table"
     },
     {
       "datasource": {
@@ -459,9 +532,9 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 38
       },
-      "id": 7,
+      "id": 10,
       "options": {
         "dedupStrategy": "none",
         "enableLogDetails": true,
@@ -472,41 +545,37 @@
         "sortOrder": "Descending",
         "wrapLogMessage": false
       },
+      "pluginVersion": "8.5.0",
       "targets": [
         {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "editorMode": "code",
-          "expr": "{namespace=\"flask-app\"} | json | __error__=\"\" | level=~\"ERROR|WARNING\" or status_code>=400",
+          "expr": "{job=~\"auth_logs|security_logs|audit_logs\"} |= \"ERROR\" or |= \"CRITICAL\" or |= \"HIGH\" or |= \"Failed\" or |= \"Denied\"",
+          "legendFormat": "",
           "queryType": "",
           "refId": "A"
         }
       ],
-      "title": "Security and Error Logs",
+      "title": "Security Event Logs",
       "type": "logs"
     }
   ],
   "refresh": "30s",
-  "schemaVersion": 38,
+  "schemaVersion": 27,
   "style": "dark",
   "tags": [
+    "siem",
     "security",
-    "devsecops",
-    "flask"
+    "monitoring"
   ],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-6h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Security Dashboard",
-  "uid": "security-dashboard",
-  "version": 1,
-  "weekStart": ""
+  "title": "SIEM Security Dashboard",
+  "uid": "siem-security",
+  "version": 1
 }

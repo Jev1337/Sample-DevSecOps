@@ -1,5 +1,5 @@
 ---
-# Default variables for DevSecOps Ansible setup
+# Default variables for DevSecOps Ansible setup with SIEM
 
 # MicroK8s configuration
 microk8s_channel: "1.30/stable"
@@ -32,6 +32,18 @@ flask_app_namespace: "flask-app"
 # Default credentials (change for production)
 grafana_admin_password: "admin123"
 sonarqube_admin_password: "admin"
+
+# SIEM Configuration
+siem_enabled: true
+siem_webhook_enabled: true
+fail2ban_enabled: true
+audit_logging_enabled: true
+security_monitoring_interval: "*/5"  # Cron expression for security checks
+
+# Security monitoring configuration
+ssh_failed_login_threshold: 5
+disk_usage_warning_threshold: 85
+security_log_retention_days: 7
 
 # Paths
 project_root: "{{ playbook_dir }}/../.."

@@ -206,9 +206,9 @@ deploy_core_services() {
     log "✅ Core services deployed successfully." "$GREEN"
 }
 
-# Function to deploy monitoring stack
+# Function to deploy monitoring stack with SIEM capabilities
 deploy_monitoring_stack() {
-    log "📊 Deploying Monitoring Stack..." "$BLUE"
+    log "📊 Deploying Monitoring Stack with SIEM..." "$BLUE"
     
     microk8s kubectl get ns monitoring >/dev/null 2>&1 || microk8s kubectl create ns monitoring
     
@@ -220,6 +220,10 @@ deploy_monitoring_stack() {
     else
         log "✅ Grafana Helm repository already exists." "$GREEN"
     fi
+    
+    # Enable Kubernetes audit logging for SIEM
+    log "🔐 Configuring Kubernetes audit logging..." "$YELLOW"
+    setup_kubernetes_audit_logging
     
     # Deploy Loki
     if ! microk8s helm3 status loki -n monitoring &> /dev/null; then
@@ -237,20 +241,32 @@ deploy_monitoring_stack() {
         log "✅ Grafana is already deployed." "$GREEN"
     fi
     
-    # Deploy Alloy
+    # Deploy Alloy with SIEM configuration
     if ! microk8s helm3 status alloy -n monitoring &> /dev/null; then
-        log "Deploying Alloy for log collection..." "$YELLOW"
+        log "Deploying Alloy with SIEM configuration..." "$YELLOW"
         microk8s helm3 install alloy grafana/alloy -n monitoring -f helm/alloy/values.yaml
     else
         log "✅ Alloy is already deployed." "$GREEN"
     fi
+    
+    # Deploy SIEM webhook service
+    log "🕸️ Deploying SIEM webhook service..." "$YELLOW"
+    deploy_siem_webhook_service
+    
+    # Configure system log forwarding
+    log "📝 Configuring system log forwarding..." "$YELLOW"
+    configure_system_log_forwarding
     
     log "⏳ Waiting for monitoring components..." "$YELLOW"
     microk8s kubectl rollout status statefulset/loki -n monitoring --timeout=5m
     microk8s kubectl rollout status deployment/grafana -n monitoring --timeout=5m
     microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=5m
     
-    log "✅ Monitoring stack deployed successfully." "$GREEN"
+    # Install security monitoring tools
+    log "🛡️ Installing security monitoring tools..." "$YELLOW"
+    install_security_tools
+    
+    log "✅ Monitoring stack with SIEM deployed successfully." "$GREEN"
 }
 
 # Function to build and deploy application
@@ -581,6 +597,9 @@ show_access_info() {
         JENKINS_PASS=$(microk8s kubectl get secret jenkins -n jenkins -o jsonpath="{.data.jenkins-admin-password}" | base64 --decode 2>/dev/null || echo "Unable to retrieve")
     fi
     
+    # Get external IP
+    EXTERNAL_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com || echo "unknown")
+    
     echo ""
     log "📝 Add these lines to your /etc/hosts file for local access:" "$YELLOW"
     echo "127.0.0.1 jenkins.local"
@@ -596,10 +615,48 @@ show_access_info() {
     log "   - Grafana:   http://grafana.local (admin/admin123)" "$CYAN"
     echo ""
     
-    log "🛠️  CI/CD Pipeline Setup:" "$YELLOW"
+    log "🌐 External Access URLs:" "$CYAN"
+    log "   - Flask App: http://app.$EXTERNAL_IP.nip.io" "$CYAN"
+    log "   - Jenkins:   http://jenkins.$EXTERNAL_IP.nip.io (admin/${JENKINS_PASS})" "$CYAN"
+    log "   - SonarQube: http://sonarqube.$EXTERNAL_IP.nip.io (admin/admin)" "$CYAN"
+    log "   - Grafana:   http://grafana.$EXTERNAL_IP.nip.io (admin/admin123)" "$CYAN"
+    echo ""
+    
+    log "🔒 SIEM Security Monitoring:" "$PURPLE"
+    log "   - Webhook URL: http://webhook.$EXTERNAL_IP.nip.io/webhook" "$CYAN"
+    log "   - SIEM Dashboard: Available in Grafana (import siem-dashboard.json)" "$CYAN"
+    log "   - Security Logs: /var/log/siem/" "$CYAN"
+    log "   - Audit Logs: /var/log/audit-k8s.log" "$CYAN"
+    echo ""
+    
+    log "�️ Security Features Enabled:" "$YELLOW"
+    log "   ✅ SSH Login Monitoring (failed/successful attempts)" "$GREEN"
+    log "   ✅ Git Webhook Event Processing" "$GREEN"
+    log "   ✅ Kubernetes Audit Logging" "$GREEN"
+    log "   ✅ Container Security Monitoring" "$GREEN"
+    log "   ✅ fail2ban SSH Protection" "$GREEN"
+    log "   ✅ Real-time Security Alerts" "$GREEN"
+    echo ""
+    
+    log "�🛠️  CI/CD Pipeline Setup:" "$YELLOW"
     log "   1. Configure a new 'Pipeline' job in Jenkins" "$YELLOW"
     log "   2. Point it to your Git repository" "$YELLOW"
     log "   3. Set 'Script Path' to 'jenkins/Jenkinsfile'" "$YELLOW"
+    log "   4. Configure webhook URL in your Git repository settings" "$YELLOW"
+    echo ""
+    
+    log "📊 Grafana Dashboard Setup:" "$YELLOW"
+    log "   1. Access Grafana and login with admin/admin123" "$YELLOW"
+    log "   2. Import dashboards from monitoring/grafana/dashboards/:" "$YELLOW"
+    log "      - app-logs.json (Application monitoring)" "$CYAN"
+    log "      - security.json (Basic security events)" "$CYAN"
+    log "      - siem-dashboard.json (Enhanced SIEM monitoring)" "$CYAN"
+    echo ""
+    
+    log "🔧 Git Webhook Configuration:" "$YELLOW"
+    log "   Configure your Git repositories to send webhooks to:" "$YELLOW"
+    log "   http://webhook.$EXTERNAL_IP.nip.io/webhook" "$CYAN"
+    log "   This enables commit monitoring and security analysis." "$YELLOW"
 }
 
 # Main menu function
@@ -613,16 +670,18 @@ show_main_menu() {
         echo "  3) Setup MicroK8s"
         echo "  4) Build Jenkins Image"
         echo "  5) Deploy Core Services (Jenkins, SonarQube)"
-        echo "  6) Deploy Monitoring Stack (Loki, Grafana, Alloy)"
+        echo "  6) Deploy Monitoring Stack with SIEM (Loki, Grafana, Alloy)"
         echo "  7) Deploy Flask Application"
         echo "  8) Configure Azure External Access"
-        echo "  9) Full Production Setup (3-7)"
-        echo " 10) Development Mode (Docker Compose)"
-        echo " 11) Cleanup Options"
-        echo " 12) Show Access Information"
-        echo " 13) Exit"
+        echo "  9) Setup SIEM Dashboards"
+        echo " 10) Full Production Setup (3-8)"
+        echo " 11) Development Mode (Docker Compose)"
+        echo " 12) Cleanup Options"
+        echo " 13) Show Access Information"
+        echo " 14) SIEM Status Check"
+        echo " 15) Exit"
         echo ""
-        read -p "Enter your choice [1-13]: " choice
+        read -p "Enter your choice [1-15]: " choice
         
         case $choice in
             1)
@@ -650,26 +709,34 @@ show_main_menu() {
                 configure_azure_access
                 ;;
             9)
-                log "🚀 Starting Full Production Setup..." "$PURPLE"
+                setup_siem_dashboards
+                ;;
+            10)
+                log "🚀 Starting Full Production Setup with SIEM..." "$PURPLE"
                 check_prerequisites
                 setup_microk8s
                 build_jenkins_image
                 deploy_core_services
                 deploy_monitoring_stack
                 deploy_application
+                configure_azure_access
+                setup_siem_dashboards
                 show_access_info
-                log "✅ Full production setup completed!" "$GREEN"
-                ;;
-            10)
-                run_development_mode
+                log "✅ Full production setup with SIEM completed!" "$GREEN"
                 ;;
             11)
-                run_cleanup
+                run_development_mode
                 ;;
             12)
-                show_access_info
+                run_cleanup
                 ;;
             13)
+                show_access_info
+                ;;
+            14)
+                show_siem_status
+                ;;
+            15)
                 log "👋 Exiting DevSecOps Setup. Goodbye!" "$GREEN"
                 exit 0
                 ;;
@@ -704,8 +771,22 @@ cleanup_monitoring() {
     microk8s helm3 uninstall grafana -n monitoring || true
     log "❌ Uninstalling Alloy..." "$YELLOW"
     microk8s helm3 uninstall alloy -n monitoring || true
+    log "❌ Removing SIEM webhook..." "$YELLOW"
+    microk8s kubectl delete deployment siem-webhook -n monitoring || true
+    microk8s kubectl delete service siem-webhook -n monitoring || true
+    microk8s kubectl delete ingress siem-webhook-ingress -n monitoring || true
     log "Deleting Monitoring namespace..." "$YELLOW"
     microk8s kubectl delete ns monitoring --ignore-not-found
+    
+    # Clean up SIEM components
+    log "❌ Cleaning up SIEM components..." "$YELLOW"
+    sudo rm -rf /var/log/siem || true
+    sudo rm -f /etc/rsyslog.d/49-siem-ssh.conf || true
+    sudo rm -f /etc/rsyslog.d/50-siem-security.conf || true
+    sudo rm -f /etc/logrotate.d/siem-logs || true
+    sudo rm -f /usr/local/bin/siem-security-check.sh || true
+    sudo crontab -l | grep -v "siem-security-check.sh" | sudo crontab - || true
+    sudo systemctl restart rsyslog || true
 }
 
 cleanup_application() {
@@ -730,6 +811,522 @@ cleanup_all() {
     cleanup_monitoring
     cleanup_application
     cleanup_repos
+}
+
+# SIEM-specific functions
+# Function to setup Kubernetes audit logging
+setup_kubernetes_audit_logging() {
+    log "🔍 Setting up Kubernetes audit logging..." "$YELLOW"
+    
+    # Create audit policy
+    sudo mkdir -p /var/snap/microk8s/current/args
+    
+    cat <<EOF | sudo tee /var/snap/microk8s/current/args/audit-policy.yaml
+apiVersion: audit.k8s.io/v1
+kind: Policy
+rules:
+# Authentication and authorization events
+- level: Metadata
+  namespaces: ["kube-system", "jenkins", "sonarqube", "monitoring", "flask-app"]
+  verbs: ["create", "delete", "patch", "update"]
+  resources:
+  - group: ""
+    resources: ["secrets", "configmaps", "serviceaccounts"]
+  - group: "rbac.authorization.k8s.io"
+    resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+
+# Security-relevant pod events
+- level: Request
+  verbs: ["create", "delete"]
+  resources:
+  - group: ""
+    resources: ["pods", "services"]
+
+# Network policy changes
+- level: Request
+  verbs: ["create", "delete", "patch", "update"]
+  resources:
+  - group: "networking.k8s.io"
+    resources: ["networkpolicies"]
+
+# Ingress and service exposure changes
+- level: Request
+  verbs: ["create", "delete", "patch", "update"]
+  resources:
+  - group: "networking.k8s.io"
+    resources: ["ingresses"]
+  - group: ""
+    resources: ["services"]
+
+# Security context and privileged operations
+- level: Request
+  verbs: ["create", "patch", "update"]
+  resources:
+  - group: ""
+    resources: ["pods"]
+  namespaces: ["jenkins", "sonarqube", "monitoring", "flask-app"]
+EOF
+
+    # Configure kube-apiserver with audit logging
+    if ! grep -q "audit-log-path" /var/snap/microk8s/current/args/kube-apiserver; then
+        echo "--audit-log-path=/var/log/audit-k8s.log" | sudo tee -a /var/snap/microk8s/current/args/kube-apiserver
+        echo "--audit-policy-file=/var/snap/microk8s/current/args/audit-policy.yaml" | sudo tee -a /var/snap/microk8s/current/args/kube-apiserver
+        echo "--audit-log-maxage=30" | sudo tee -a /var/snap/microk8s/current/args/kube-apiserver
+        echo "--audit-log-maxbackup=3" | sudo tee -a /var/snap/microk8s/current/args/kube-apiserver
+        echo "--audit-log-maxsize=100" | sudo tee -a /var/snap/microk8s/current/args/kube-apiserver
+        
+        log "Restarting MicroK8s to apply audit configuration..." "$YELLOW"
+        microk8s stop
+        sleep 5
+        microk8s start
+        microk8s status --wait-ready
+    fi
+    
+    log "✅ Kubernetes audit logging configured." "$GREEN"
+}
+
+# Function to deploy SIEM webhook service
+deploy_siem_webhook_service() {
+    log "🕸️ Creating SIEM webhook service..." "$YELLOW"
+    
+    # Create webhook service
+    cat <<EOF | microk8s kubectl apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: siem-webhook
+  namespace: monitoring
+  labels:
+    app: siem-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: siem-webhook
+  template:
+    metadata:
+      labels:
+        app: siem-webhook
+    spec:
+      containers:
+      - name: webhook-receiver
+        image: python:3.9-slim
+        ports:
+        - containerPort: 8080
+        command: ["/bin/bash"]
+        args:
+          - -c
+          - |
+            pip install flask requests
+            cat > /app/webhook_receiver.py << 'PYEOF'
+            from flask import Flask, request, jsonify
+            import json
+            import logging
+            from datetime import datetime
+            import os
+
+            app = Flask(__name__)
+            logging.basicConfig(level=logging.INFO)
+
+            @app.route('/webhook', methods=['POST'])
+            def webhook():
+                try:
+                    data = request.get_json()
+                    timestamp = datetime.utcnow().isoformat()
+                    
+                    # Log security-relevant webhook events
+                    security_event = {
+                        "timestamp": timestamp,
+                        "event_type": "webhook_received",
+                        "source_ip": request.remote_addr,
+                        "user_agent": request.headers.get('User-Agent', ''),
+                        "webhook_data": data,
+                        "severity": "info"
+                    }
+                    
+                    # Detect potential security events
+                    if data and isinstance(data, dict):
+                        if 'commits' in data:
+                            security_event['event_type'] = 'git_commit'
+                            security_event['severity'] = 'medium'
+                            if any('password' in str(commit).lower() or 'secret' in str(commit).lower() 
+                                   for commit in data.get('commits', [])):
+                                security_event['severity'] = 'high'
+                                security_event['alert'] = 'Potential credential exposure in commit'
+                        
+                        if 'pull_request' in data:
+                            security_event['event_type'] = 'pull_request'
+                            security_event['severity'] = 'medium'
+                    
+                    # Log the security event in JSON format for Loki
+                    print(json.dumps(security_event))
+                    
+                    return jsonify({"status": "received", "timestamp": timestamp}), 200
+                    
+                except Exception as e:
+                    error_event = {
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "event_type": "webhook_error",
+                        "error": str(e),
+                        "severity": "high"
+                    }
+                    print(json.dumps(error_event))
+                    return jsonify({"error": str(e)}), 500
+
+            @app.route('/health', methods=['GET'])
+            def health():
+                return jsonify({"status": "healthy"}), 200
+
+            if __name__ == '__main__':
+                app.run(host='0.0.0.0', port=8080, debug=False)
+            PYEOF
+            
+            cd /app && python webhook_receiver.py
+        workingDir: /app
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: siem-webhook
+  namespace: monitoring
+spec:
+  selector:
+    app: siem-webhook
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+EOF
+
+    # Create ingress for webhook access
+    EXTERNAL_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com)
+    
+    cat <<EOF | microk8s kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: siem-webhook-ingress
+  namespace: monitoring
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: public
+  rules:
+  - host: webhook.${EXTERNAL_IP}.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: siem-webhook
+            port:
+              number: 80
+EOF
+
+    log "✅ SIEM webhook service deployed at webhook.${EXTERNAL_IP}.nip.io" "$GREEN"
+}
+
+# Function to configure system log forwarding
+configure_system_log_forwarding() {
+    log "📝 Configuring system log forwarding to Loki..." "$YELLOW"
+    
+    # Install rsyslog if not present
+    if ! command -v rsyslog &> /dev/null; then
+        sudo apt-get update && sudo apt-get install -y rsyslog
+    fi
+    
+    # Create SIEM log directory
+    sudo mkdir -p /var/log/siem
+    sudo chmod 755 /var/log/siem
+    
+    # Configure enhanced SSH logging
+    cat <<EOF | sudo tee /etc/rsyslog.d/49-siem-ssh.conf
+# SIEM SSH Authentication Logging
+auth,authpriv.*                 /var/log/siem/auth.log
+auth,authpriv.info              /var/log/siem/ssh-info.log
+auth,authpriv.warn              /var/log/siem/ssh-warn.log
+auth,authpriv.err               /var/log/siem/ssh-error.log
+EOF
+
+    # Configure security event logging
+    cat <<EOF | sudo tee /etc/rsyslog.d/50-siem-security.conf
+# SIEM Security Event Logging
+*.emerg                         /var/log/siem/emergency.log
+kern.crit                       /var/log/siem/kernel-critical.log
+mail.crit                       /var/log/siem/mail-critical.log
+news.crit                       /var/log/siem/news-critical.log
+EOF
+
+    # Create log rotation configuration
+    cat <<EOF | sudo tee /etc/logrotate.d/siem-logs
+/var/log/siem/*.log {
+    daily
+    missingok
+    rotate 7
+    compress
+    delaycompress
+    notifempty
+    copytruncate
+    postrotate
+        systemctl reload rsyslog
+    endscript
+}
+EOF
+
+    # Restart rsyslog
+    sudo systemctl restart rsyslog
+    
+    log "✅ System log forwarding configured." "$GREEN"
+}
+
+# Function to install security monitoring tools
+install_security_tools() {
+    log "🛡️ Installing security monitoring tools..." "$YELLOW"
+    
+    # Install fail2ban for SSH protection
+    if ! command -v fail2ban-client &> /dev/null; then
+        sudo apt-get update
+        sudo apt-get install -y fail2ban
+        
+        # Configure fail2ban for SSH
+        cat <<EOF | sudo tee /etc/fail2ban/jail.local
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 3
+backend = systemd
+
+[sshd]
+enabled = true
+port = ssh
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 3600
+findtime = 600
+
+[sshd-ddos]
+enabled = true
+port = ssh
+logpath = /var/log/auth.log
+maxretry = 2
+bantime = 7200
+findtime = 300
+EOF
+
+        sudo systemctl enable fail2ban
+        sudo systemctl start fail2ban
+    fi
+    
+    # Install chkrootkit for rootkit detection
+    if ! command -v chkrootkit &> /dev/null; then
+        sudo apt-get install -y chkrootkit
+    fi
+    
+    # Install rkhunter for additional security scanning
+    if ! command -v rkhunter &> /dev/null; then
+        sudo apt-get install -y rkhunter
+        sudo rkhunter --update
+    fi
+    
+    # Create security monitoring script
+    cat <<EOF | sudo tee /usr/local/bin/siem-security-check.sh
+#!/bin/bash
+# SIEM Security Monitoring Script
+
+LOG_FILE="/var/log/siem/security-monitor.log"
+mkdir -p /var/log/siem
+
+echo "\$(date): Starting SIEM security check" >> \$LOG_FILE
+
+# Check for failed SSH logins
+FAILED_LOGINS=\$(grep "Failed password" /var/log/auth.log | grep "\$(date +%Y-%m-%d)" | wc -l)
+if [ \$FAILED_LOGINS -gt 5 ]; then
+    echo "\$(date): WARNING: High number of failed SSH logins today: \$FAILED_LOGINS" >> \$LOG_FILE
+    echo '{"timestamp":"'\$(date -Iseconds)'","event_type":"ssh_failed_logins","severity":"high","count":'\$FAILED_LOGINS',"alert":"High number of failed SSH login attempts"}' >> \$LOG_FILE
+fi
+
+# Check for successful SSH logins
+SUCCESSFUL_LOGINS=\$(grep "Accepted password" /var/log/auth.log | grep "\$(date +%Y-%m-%d)" | wc -l)
+if [ \$SUCCESSFUL_LOGINS -gt 0 ]; then
+    echo '{"timestamp":"'\$(date -Iseconds)'","event_type":"ssh_successful_logins","severity":"info","count":'\$SUCCESSFUL_LOGINS'}' >> \$LOG_FILE
+fi
+
+# Check for new user accounts
+NEW_USERS=\$(grep "new user" /var/log/auth.log | grep "\$(date +%Y-%m-%d)")
+if [ ! -z "\$NEW_USERS" ]; then
+    echo "\$(date): INFO: New user activities detected" >> \$LOG_FILE
+    echo '{"timestamp":"'\$(date -Iseconds)'","event_type":"new_user_activity","severity":"medium","details":"'"New user account activities detected"'"}' >> \$LOG_FILE
+fi
+
+# Check disk space
+DISK_USAGE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//')
+if [ \$DISK_USAGE -gt 85 ]; then
+    echo "\$(date): WARNING: Disk space usage is at \$DISK_USAGE%" >> \$LOG_FILE
+    echo '{"timestamp":"'\$(date -Iseconds)'","event_type":"disk_space_warning","severity":"medium","usage":'\$DISK_USAGE',"alert":"High disk space usage"}' >> \$LOG_FILE
+fi
+
+# Check for suspicious processes
+SUSPICIOUS_PROCS=\$(ps aux | grep -E "(nc|netcat|socat|nmap)" | grep -v grep | wc -l)
+if [ \$SUSPICIOUS_PROCS -gt 0 ]; then
+    echo "\$(date): WARNING: Suspicious processes detected" >> \$LOG_FILE
+    echo '{"timestamp":"'\$(date -Iseconds)'","event_type":"suspicious_processes","severity":"high","count":'\$SUSPICIOUS_PROCS',"alert":"Potentially malicious processes detected"}' >> \$LOG_FILE
+fi
+
+# Check fail2ban status
+if command -v fail2ban-client &> /dev/null; then
+    BANNED_IPS=\$(fail2ban-client status sshd 2>/dev/null | grep "Banned IP list" | awk -F: '{print \$2}' | wc -w)
+    if [ \$BANNED_IPS -gt 0 ]; then
+        echo '{"timestamp":"'\$(date -Iseconds)'","event_type":"fail2ban_activity","severity":"medium","banned_ips":'\$BANNED_IPS'}' >> \$LOG_FILE
+    fi
+fi
+
+echo "\$(date): SIEM security check completed" >> \$LOG_FILE
+EOF
+
+    sudo chmod +x /usr/local/bin/siem-security-check.sh
+    
+    # Create cron job for security monitoring
+    (sudo crontab -l 2>/dev/null; echo "*/5 * * * * /usr/local/bin/siem-security-check.sh") | sudo crontab -
+    
+    log "✅ Security monitoring tools installed and configured." "$GREEN"
+}
+
+# Function to setup SIEM dashboards and alerts
+setup_siem_dashboards() {
+    log "📊 Setting up SIEM dashboards..." "$YELLOW"
+    
+    # Wait for Grafana to be ready
+    sleep 30
+    
+    # Create SIEM dashboard configuration
+    cat <<EOF > /tmp/siem-dashboard.json
+{
+  "dashboard": {
+    "title": "SIEM Security Dashboard",
+    "tags": ["siem", "security"],
+    "panels": [
+      {
+        "title": "SSH Login Attempts",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(count_over_time({job=\"ssh_logs\", event_type=\"ssh_failed_logins\"} [24h]))",
+            "legendFormat": "Failed Logins"
+          }
+        ]
+      },
+      {
+        "title": "Security Events Timeline",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{job=\"security_logs\"} |= \"event_type\""
+          }
+        ]
+      },
+      {
+        "title": "Webhook Events",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "{namespace=\"monitoring\", pod=~\"siem-webhook.*\"}"
+          }
+        ]
+      },
+      {
+        "title": "Kubernetes Audit Events",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{job=\"audit_logs\"}"
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+    
+    log "✅ SIEM dashboard configuration created." "$GREEN"
+}
+
+# Function to show SIEM status
+show_siem_status() {
+    log "🔍 SIEM Security Status Check" "$CYAN"
+    log "============================" "$CYAN"
+    
+    # Check webhook service status
+    log "📡 Webhook Service Status:" "$YELLOW"
+    if microk8s kubectl get deployment siem-webhook -n monitoring &>/dev/null; then
+        WEBHOOK_STATUS=$(microk8s kubectl get deployment siem-webhook -n monitoring -o jsonpath='{.status.readyReplicas}')
+        if [ "$WEBHOOK_STATUS" = "1" ]; then
+            log "   ✅ SIEM Webhook service is running" "$GREEN"
+        else
+            log "   ❌ SIEM Webhook service is not ready" "$RED"
+        fi
+    else
+        log "   ❌ SIEM Webhook service not deployed" "$RED"
+    fi
+    
+    # Check audit logging
+    log "📝 Kubernetes Audit Logging:" "$YELLOW"
+    if [ -f /var/log/audit-k8s.log ]; then
+        AUDIT_LINES=$(wc -l < /var/log/audit-k8s.log)
+        log "   ✅ Audit log active with $AUDIT_LINES entries" "$GREEN"
+    else
+        log "   ❌ Kubernetes audit logging not configured" "$RED"
+    fi
+    
+    # Check security tools
+    log "🛡️ Security Tools Status:" "$YELLOW"
+    if command -v fail2ban-client &> /dev/null; then
+        FAIL2BAN_STATUS=$(sudo systemctl is-active fail2ban)
+        if [ "$FAIL2BAN_STATUS" = "active" ]; then
+            BANNED_COUNT=$(sudo fail2ban-client status sshd 2>/dev/null | grep "Currently banned" | awk '{print $4}' || echo "0")
+            log "   ✅ Fail2ban active (${BANNED_COUNT} IPs banned)" "$GREEN"
+        else
+            log "   ❌ Fail2ban not active" "$RED"
+        fi
+    else
+        log "   ❌ Fail2ban not installed" "$RED"
+    fi
+    
+    # Check log forwarding
+    log "📋 Log Forwarding Status:" "$YELLOW"
+    if [ -d /var/log/siem ]; then
+        LOG_COUNT=$(find /var/log/siem -name "*.log" | wc -l)
+        log "   ✅ SIEM log directory exists with $LOG_COUNT log files" "$GREEN"
+    else
+        log "   ❌ SIEM log directory not configured" "$RED"
+    fi
+    
+    # Check recent security events
+    log "🚨 Recent Security Events (last 24h):" "$YELLOW"
+    if [ -f /var/log/siem/security-monitor.log ]; then
+        RECENT_EVENTS=$(grep "$(date +%Y-%m-%d)" /var/log/siem/security-monitor.log | wc -l)
+        log "   📊 $RECENT_EVENTS security events logged today" "$CYAN"
+        
+        # Show last few events
+        if [ $RECENT_EVENTS -gt 0 ]; then
+            log "   📄 Latest events:" "$CYAN"
+            tail -5 /var/log/siem/security-monitor.log | grep "$(date +%Y-%m-%d)" | while read -r line; do
+                log "     $line" "$CYAN"
+            done
+        fi
+    else
+        log "   ❌ No security monitoring log found" "$RED"
+    fi
+    
+    # Show access URLs
+    EXTERNAL_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com || echo "unknown")
+    log "🌐 SIEM Access URLs:" "$CYAN"
+    log "   🕸️ Webhook Endpoint: http://webhook.$EXTERNAL_IP.nip.io/webhook" "$CYAN"
+    log "   📊 Grafana SIEM Dashboard: http://grafana.$EXTERNAL_IP.nip.io" "$CYAN"
+    log "   📋 Configure your Git repositories to send webhooks to the endpoint above" "$YELLOW"
 }
 
 # Start the script

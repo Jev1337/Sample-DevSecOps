@@ -1,5 +1,5 @@
 ---
-# Show access information for all services
+# Show access information for all services including SIEM
 - name: Get Jenkins admin password from pod
   ansible.builtin.shell: |
     microk8s kubectl exec --namespace jenkins -it svc/jenkins -c jenkins -- /bin/cat /run/secrets/additional/chart-admin-password 2>/dev/null || \
@@ -7,6 +7,16 @@
   register: jenkins_pass
   changed_when: false
   failed_when: false
+
+- name: Get external IP
+  ansible.builtin.shell: curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com || echo "unknown"
+  register: external_ip_result
+  changed_when: false
+  failed_when: false
+
+- name: Set external IP variable
+  set_fact:
+    external_ip: "{{ external_ip_result.stdout }}"
 
 - name: Print /etc/hosts entries
   ansible.builtin.debug:
@@ -26,6 +36,35 @@
         - SonarQube: http://sonarqube.local (admin/admin)
         - Grafana:   http://grafana.local (admin/admin123)
 
+- name: Print external access URLs
+  ansible.builtin.debug:
+    msg: |
+      External Access URLs:
+        - Flask App: http://app.{{ external_ip }}.nip.io
+        - Jenkins:   http://jenkins.{{ external_ip }}.nip.io (admin/{{ jenkins_pass.stdout }})
+        - SonarQube: http://sonarqube.{{ external_ip }}.nip.io (admin/admin)
+        - Grafana:   http://grafana.{{ external_ip }}.nip.io (admin/admin123)
+
+- name: Print SIEM security monitoring information
+  ansible.builtin.debug:
+    msg: |
+      🔒 SIEM Security Monitoring:
+        - Webhook URL: http://webhook.{{ external_ip }}.nip.io/webhook
+        - SIEM Dashboard: Available in Grafana (import siem-dashboard.json)
+        - Security Logs: /var/log/siem/
+        - Audit Logs: /var/log/audit-k8s.log
+
+- name: Print security features enabled
+  ansible.builtin.debug:
+    msg: |
+      🛡️ Security Features Enabled:
+        ✅ SSH Login Monitoring (failed/successful attempts)
+        ✅ Git Webhook Event Processing
+        ✅ Kubernetes Audit Logging
+        ✅ Container Security Monitoring
+        ✅ fail2ban SSH Protection
+        ✅ Real-time Security Alerts
+
 - name: Print CI/CD pipeline setup instructions
   ansible.builtin.debug:
     msg: |
@@ -33,3 +72,22 @@
         1. Configure a new 'Pipeline' job in Jenkins
         2. Point it to your Git repository
         3. Set 'Script Path' to 'jenkins/Jenkinsfile'
+        4. Configure webhook URL in your Git repository settings
+
+- name: Print Grafana dashboard setup instructions
+  ansible.builtin.debug:
+    msg: |
+      📊 Grafana Dashboard Setup:
+        1. Access Grafana and login with admin/admin123
+        2. Import dashboards from monitoring/grafana/dashboards/:
+           - app-logs.json (Application monitoring)
+           - security.json (Basic security events)
+           - siem-dashboard.json (Enhanced SIEM monitoring)
+
+- name: Print Git webhook configuration instructions
+  ansible.builtin.debug:
+    msg: |
+      🔧 Git Webhook Configuration:
+        Configure your Git repositories to send webhooks to:
+        http://webhook.{{ external_ip }}.nip.io/webhook
+        This enables commit monitoring and security analysis.

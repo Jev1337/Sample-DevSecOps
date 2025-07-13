@@ -2,6 +2,7 @@ alloy:
   configMap:
     create: true
     content: |
+      // Kubernetes pod discovery
       discovery.kubernetes "pods" {
         role = "pod"
       }
@@ -35,10 +36,185 @@ alloy:
           source_labels = ["__meta_kubernetes_pod_container_name"]
           target_label = "container"
         }
+        // Add SIEM security labels
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          regex = "(jenkins|sonarqube|monitoring|flask-app)"
+          target_label = "security_zone"
+          replacement = "monitored"
+        }
       }
 
+      // SIEM: System log collection
+      loki.source.file "system_auth_logs" {
+        targets = [
+          {__path__ = "/var/log/auth.log", job = "auth_logs", host = "localhost"},
+          {__path__ = "/var/log/secure", job = "auth_logs", host = "localhost"},
+          {__path__ = "/var/log/siem/*.log", job = "security_logs", host = "localhost"},
+        ]
+        forward_to = [loki.process.security_parser.receiver]
+      }
+
+      // SIEM: Kubernetes audit log collection
+      loki.source.file "k8s_audit_logs" {
+        targets = [
+          {__path__ = "/var/log/audit-k8s.log", job = "audit_logs", host = "localhost"},
+        ]
+        forward_to = [loki.process.audit_parser.receiver]
+      }
+
+      // SIEM: SSH log parsing and enhancement
+      loki.process "security_parser" {
+        stage.regex {
+          expression = "(?P<timestamp>\\w{3}\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2})\\s+(?P<hostname>\\S+)\\s+(?P<service>\\S+)(?:\\[(?P<pid>\\d+)\\])?:\\s*(?P<message>.*)"
+        }
+        
+        stage.labels {
+          values = {
+            hostname = "",
+            service = "",
+            severity = "",
+          }
+        }
+        
+        // Detect failed SSH logins
+        stage.match {
+          selector = "{job=\"auth_logs\"}"
+          stage.regex {
+            expression = "Failed password for (?P<user>\\S+) from (?P<source_ip>\\S+)"
+          }
+          stage.labels {
+            values = {
+              event_type = "ssh_failed_login",
+              severity = "high",
+              user = "",
+              source_ip = "",
+            }
+          }
+        }
+        
+        // Detect successful SSH logins
+        stage.match {
+          selector = "{job=\"auth_logs\"}"
+          stage.regex {
+            expression = "Accepted password for (?P<user>\\S+) from (?P<source_ip>\\S+)"
+          }
+          stage.labels {
+            values = {
+              event_type = "ssh_successful_login", 
+              severity = "medium",
+              user = "",
+              source_ip = "",
+            }
+          }
+        }
+        
+        // Detect sudo usage
+        stage.match {
+          selector = "{job=\"auth_logs\"}"
+          stage.regex {
+            expression = "sudo.*USER=(?P<target_user>\\S+).*COMMAND=(?P<command>.*)"
+          }
+          stage.labels {
+            values = {
+              event_type = "sudo_usage",
+              severity = "medium",
+              target_user = "",
+              command = "",
+            }
+          }
+        }
+        
+        forward_to = [loki.write.default.receiver]
+      }
+
+      // SIEM: Kubernetes audit log parsing
+      loki.process "audit_parser" {
+        stage.json {
+          expressions = {
+            level = "level",
+            verb = "verb",
+            user = "user.username", 
+            namespace = "objectRef.namespace",
+            resource = "objectRef.resource",
+            name = "objectRef.name",
+          }
+        }
+        
+        stage.labels {
+          values = {
+            level = "",
+            verb = "",
+            user = "",
+            namespace = "",
+            resource = "",
+            audit_event = "k8s_audit",
+          }
+        }
+        
+        // Mark security-sensitive operations
+        stage.match {
+          selector = "{audit_event=\"k8s_audit\"}"
+          stage.regex {
+            expression = "(?i)(secret|password|token|key|credential)"
+          }
+          stage.labels {
+            values = {
+              severity = "high",
+              security_sensitive = "true",
+            }
+          }
+        }
+        
+        forward_to = [loki.write.default.receiver]
+      }
+
+      // Regular Kubernetes pod logs
       loki.source.kubernetes "pods" {
         targets    = discovery.relabel.kubernetes_pods.output
+        forward_to = [loki.process.pod_parser.receiver]
+      }
+      
+      // Pod log processing with security context
+      loki.process "pod_parser" {
+        // Add security context for monitored namespaces
+        stage.match {
+          selector = "{namespace=~\"jenkins|sonarqube|monitoring|flask-app\"}"
+          stage.labels {
+            values = {
+              security_monitored = "true",
+            }
+          }
+        }
+        
+        // Detect error patterns in application logs
+        stage.match {
+          selector = "{container=~\".*\"}"
+          stage.regex {
+            expression = "(?i)(error|exception|fail|panic|fatal)"
+          }
+          stage.labels {
+            values = {
+              severity = "high",
+              alert_type = "application_error",
+            }
+          }
+        }
+        
+        // Detect potential security events in logs
+        stage.match {
+          selector = "{container=~\".*\"}"
+          stage.regex {
+            expression = "(?i)(unauthorized|forbidden|authentication|denied|blocked|suspicious)"
+          }
+          stage.labels {
+            values = {
+              severity = "medium",
+              security_event = "potential_threat",
+            }
+          }
+        }
+        
         forward_to = [loki.write.default.receiver]
       }
 
@@ -47,3 +223,28 @@ alloy:
           url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
         }
       }
+
+# Mount host paths for system log access
+extraVolumes:
+  - name: varlog
+    hostPath:
+      path: /var/log
+      type: Directory
+  - name: varlibdockercontainers
+    hostPath:
+      path: /var/lib/docker/containers
+      type: DirectoryOrCreate
+
+extraVolumeMounts:
+  - name: varlog
+    mountPath: /var/log
+    readOnly: true
+  - name: varlibdockercontainers
+    mountPath: /var/lib/docker/containers
+    readOnly: true
+
+# Run as privileged to access system logs
+controller:
+  securityContext:
+    privileged: true
+    runAsUser: 0
