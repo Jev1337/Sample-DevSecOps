@@ -85,7 +85,6 @@
         enabled: yes
         state: started
       ignore_errors: yes
-        state: started
       
     - name: Install additional security monitoring tools
       package:
