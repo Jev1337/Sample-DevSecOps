@@ -218,23 +218,133 @@ deploy_siem_stack() {
     
     # Deploy webhook receiver for Git change tracking
     log "Deploying webhook receiver for Git integration..." "$YELLOW"
+    cat <<EOF | microk8s kubectl apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-receiver
+  namespace: siem
+  labels:
+    app: webhook-receiver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webhook-receiver
+  template:
+    metadata:
+      labels:
+        app: webhook-receiver
+    spec:
+      containers:
+      - name: webhook-receiver
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: webhook-logs
+          mountPath: /tmp/webhook-logs
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: default.conf
+      volumes:
+      - name: webhook-logs
+        hostPath:
+          path: /tmp/webhooks
+          type: DirectoryOrCreate
+      - name: nginx-config
+        configMap:
+          name: webhook-nginx-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webhook-nginx-config
+  namespace: siem
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+        
+        location /webhook {
+            access_log /tmp/webhook-logs/webhook-access.log;
+            error_log /tmp/webhook-logs/webhook-error.log;
+            
+            # Simple webhook logging
+            if (\$request_method = POST) {
+                access_log /tmp/webhook-logs/webhook-payload.log;
+            }
+            
+            return 200 '{"status":"received","timestamp":"'"\$(date -Iseconds)"'"}';
+            add_header Content-Type application/json;
+        }
+        
+        location /health {
+            return 200 '{"status":"ok"}';
+            add_header Content-Type application/json;
+        }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-receiver-service
+  namespace: siem
+spec:
+  selector:
+    app: webhook-receiver
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+EOF
     
-    # Get external IP for ingress configuration
+    # Create webhook external access
     EXTERNAL_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com)
-    
-    # Deploy webhook configmap
-    microk8s kubectl apply -f k8s/webhook-configmap.yaml
-    
-    # Deploy webhook deployment and service
-    microk8s kubectl apply -f k8s/webhook-deployment.yaml
-    
-    # Create and deploy webhook ingress with external IP
-    sed "s/EXTERNAL_IP/${EXTERNAL_IP}/g" k8s/webhook-ingress.yaml | microk8s kubectl apply -f -
+    cat <<EOF | microk8s kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: webhook-ingress
+  namespace: siem
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: public
+  rules:
+  - host: webhook.${EXTERNAL_IP}.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: webhook-receiver-service
+            port:
+              number: 80
+EOF
     
     # Configure system audit logging
     log "Configuring system audit rules..." "$YELLOW"
     sudo mkdir -p /etc/audit/rules.d
-    sudo cp security/audit-rules/siem.rules /etc/audit/rules.d/siem.rules
+    cat <<EOF | sudo tee /etc/audit/rules.d/siem.rules > /dev/null
+# SIEM Audit Rules for Security Monitoring
+-w /etc/passwd -p wa -k identity
+-w /etc/group -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/sudoers -p wa -k identity
+-w /var/log/auth.log -p wa -k authentication
+-w /var/log/syslog -p wa -k system
+-w /etc/ssh/sshd_config -p wa -k sshd
+-w /bin/su -p x -k privileged
+-w /usr/bin/sudo -p x -k privileged
+-w /usr/bin/passwd -p x -k passwd_modification
+-w /usr/bin/apt -p x -k package_management
+-w /usr/bin/apt-get -p x -k package_management
+-w /usr/bin/dpkg -p x -k package_management
+EOF
     
     sudo systemctl enable auditd
     sudo systemctl restart auditd || log "⚠️ Auditd restart may require reboot to take full effect" "$YELLOW"
