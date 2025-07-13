@@ -107,7 +107,7 @@ alloy:
 
         // SSH login detection
         stage.match {
-          selector = '{job="auth"} |~ "sshd.*Accepted|sshd.*Failed"'
+          selector = "{job=\"auth\"} |~ \"sshd.*Accepted|sshd.*Failed\""
           stage.regex {
             expression = "sshd.*?(?P<auth_status>Accepted|Failed)\\s+(?P<auth_method>\\w+)\\s+for\\s+(?P<username>\\w+)\\s+from\\s+(?P<source_ip>[\\d\\.]+)"
           }
@@ -124,7 +124,7 @@ alloy:
 
         // Sudo usage detection
         stage.match {
-          selector = '{job="sudo"} |~ "sudo.*COMMAND"'
+          selector = "{job=\"sudo\"} |~ \"sudo.*COMMAND\""
           stage.regex {
             expression = "sudo.*?USER=(?P<sudo_user>\\w+).*?COMMAND=(?P<command>.*)"
           }
@@ -139,7 +139,7 @@ alloy:
 
         // Package installation detection
         stage.match {
-          selector = '{job="syslog"} |~ "apt|dpkg|yum|rpm"'
+          selector = "{job=\"syslog\"} |~ \"apt|dpkg|yum|rpm\""
           stage.regex {
             expression = "(?P<package_manager>apt|dpkg|yum|rpm).*?(?P<package_action>install|remove|upgrade).*?(?P<package_name>\\S+)"
           }
@@ -155,7 +155,7 @@ alloy:
 
         // User account changes
         stage.match {
-          selector = '{job="auth"} |~ "useradd|userdel|usermod|passwd"'
+          selector = "{job=\"auth\"} |~ \"useradd|userdel|usermod|passwd\""
           stage.regex {
             expression = "(?P<user_action>useradd|userdel|usermod|passwd).*?(?P<target_user>\\w+)"
           }
@@ -170,7 +170,7 @@ alloy:
 
         // Git webhook events
         stage.match {
-          selector = '{job="git_webhook"}'
+          selector = "{job=\"git_webhook\"}"
           stage.regex {
             expression = ".*?(?P<http_method>GET|POST|PUT|DELETE)\\s+(?P<webhook_path>/webhook).*?(?P<response_code>\\d{3})"
           }
@@ -186,7 +186,7 @@ alloy:
 
         // Network connection monitoring
         stage.match {
-          selector = '{job="syslog"} |~ "kernel.*TCP|kernel.*UDP"'
+          selector = "{job=\"syslog\"} |~ \"kernel.*TCP|kernel.*UDP\""
           stage.regex {
             expression = "kernel.*?(?P<protocol>TCP|UDP).*?(?P<source_ip>[\\d\\.]+):(?P<source_port>\\d+).*?(?P<dest_ip>[\\d\\.]+):(?P<dest_port>\\d+)"
           }
