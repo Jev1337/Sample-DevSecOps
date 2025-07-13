@@ -1,0 +1,14 @@
+# SIEM Audit Rules for Security Monitoring
+-w /etc/passwd -p wa -k identity
+-w /etc/group -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/sudoers -p wa -k identity
+-w /var/log/auth.log -p wa -k authentication
+-w /var/log/syslog -p wa -k system
+-w /etc/ssh/sshd_config -p wa -k sshd
+-w /bin/su -p x -k privileged
+-w /usr/bin/sudo -p x -k privileged
+-w /usr/bin/passwd -p x -k passwd_modification
+-w /usr/bin/apt -p x -k package_management
+-w /usr/bin/apt-get -p x -k package_management
+-w /usr/bin/dpkg -p x -k package_management

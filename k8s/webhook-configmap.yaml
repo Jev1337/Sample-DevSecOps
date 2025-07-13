@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webhook-nginx-config
+  namespace: siem
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+        
+        access_log /var/log/nginx/access.log;
+        error_log /var/log/nginx/error.log;
+        
+        location /webhook {
+            # Log all webhook requests with full details
+            access_log /tmp/webhook-logs/webhook-access.log combined;
+            
+            # Simple webhook handler that logs and responds
+            if ($request_method = POST) {
+                access_log /tmp/webhook-logs/webhook-payload.log combined;
+            }
+            
+            return 200 '{"status":"received","timestamp":"$time_iso8601"}';
+            add_header Content-Type application/json;
+        }
+        
+        location /health {
+            return 200 '{"status":"ok"}';
+            add_header Content-Type application/json;
+        }
+    }
