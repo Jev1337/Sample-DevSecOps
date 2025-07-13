@@ -223,3 +223,39 @@ alloy:
           url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
         }
       }
+
+# Additional configuration for systemd journal access
+controller:
+  type: "daemonset"  # Ensure we run on each node
+  
+alloy:
+  securityContext:
+    privileged: false
+    runAsUser: 0  # Run as root to access journal
+    runAsGroup: 0
+    capabilities:
+      add:
+        - DAC_READ_SEARCH  # Needed to read journal files
+  
+  extraVolumes:
+    - name: var-log
+      hostPath:
+        path: /var/log
+    - name: run-log
+      hostPath:
+        path: /run/log
+    - name: machine-id
+      hostPath:
+        path: /etc/machine-id
+        type: File
+  
+  extraVolumeMounts:
+    - name: var-log
+      mountPath: /var/log
+      readOnly: true
+    - name: run-log
+      mountPath: /run/log
+      readOnly: true
+    - name: machine-id
+      mountPath: /etc/machine-id
+      readOnly: true
