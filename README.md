@@ -1,52 +1,54 @@
-# 🚀 Flask DevSecOps - Complete CI/CD Security Pipeline with SIEM
+# 🚀 Flask K8s - [🔒 Sécurité](#-sécurité)
+- [🛡️ SIEM](#️-siem)
+- [📊 Monitoring](#-monitoring)
+- [🤖 Automation avec Ansible](#-automation-avec-ansible)
+- [☁️ Infrastructure Terraform (Azure)](#️-infrastructure-terraform-azure)
+- [🛠️ Développement](#️-développement)
+- [🔧 Troubleshooting](#-troubleshooting)Ops - Complete CI/CD Security Pipeline
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/Docker-20.10%2B-blue)](https://www.docker.com/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.30%2B-326ce5)](https://kubernetes.io/)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-green)](https://www.python.org/)
-[![Ansible](https://img.shields.io/badge/Ansible-2.9%2B-red)](https://www.ansible.com/)
 
-A complete secure Flask application deployment solution on Kubernetes with integrated DevSecOps pipeline, advanced monitoring, and **SIEM (Security Information and Event Management)** capabilities.
+Une solution complète de déploiement sécurisé d'applications Flask sur Kubernetes avec pipeline DevSecOps intégré, monitoring avancé et centralisation des logs.
 
-## 📋 Table of Contents
+## 📋 Table des Matières
 
-- [🎯 Overview](#-overview)
+- [🎯 Vue d'ensemble](#-vue-densemble)
 - [🏗️ Architecture](#️-architecture)
-- [⚡ Quick Installation](#-quick-installation)
-- [🧩 Components](#-components)
-- [🛡️ SIEM](#️-siem)
+- [⚡ Installation Rapide](#-installation-rapide)
+- [🧩 Composants](#-composants)
+- [🔒 Sécurité](#-sécurité)
 - [📊 Monitoring](#-monitoring)
-- [🤖 Automation with Ansible](#-automation-with-ansible)
-- [🔒 Security](#-security)
+- [� Automation avec Ansible](#-automation-avec-ansible)
 - [☁️ Infrastructure Terraform (Azure)](#️-infrastructure-terraform-azure)
-- [🛠️ Development](#️-development)
-- [🗑️ Cleanup](#️-cleanup)
+- [🛠️ Développement](#️-développement)
 - [🔧 Troubleshooting](#-troubleshooting)
 
-## 🎯 Overview
+## 🎯 Vue d'ensemble
 
-### ✨ Key Features
+### ✨ Fonctionnalités principales
 
-| Component | Description | Technology |
+| Composant | Description | Technologie |
 |-----------|-------------|-------------|
-| **🐍 Flask Application** | REST API with metrics and structured logs | Python 3.9+, Prometheus |
-| **🔄 DevSecOps Pipeline** | Automated CI/CD with security scans | Jenkins, SonarQube, Trivy |
-| **📦 K8s Orchestration** | Automated deployment, scaling and management | MicroK8s, Helm Charts |
-| **📊 Complete Monitoring** | Centralized logs and real-time dashboards | Loki, Grafana, Alloy |
-| **🛡️ Integrated SIEM** | Security monitoring and system events | SIEM Dashboard, Audit logs |
-| **🔐 Built-in Security** | Vulnerability scans and code quality | Trivy, SonarQube |
-| **☁️ Cloud Ready** | Azure support with external access | LoadBalancer, Ingress |
+| **🐍 Application Flask** | API REST avec métriques et logs structurés | Python 3.9+, Prometheus |
+| **🔄 Pipeline DevSecOps** | CI/CD automatisé avec scans sécurisés | Jenkins, SonarQube, Trivy |
+| **📦 Orchestration K8s** | Déploiement, scaling et gestion automatique | MicroK8s, Helm Charts |
+| **📊 Monitoring Complet** | Logs centralisés et dashboards temps réel | Loki, Grafana, Alloy |
+| **�️ SIEM Intégré** | Surveillance sécurité et événements système | SIEM Dashboard, Audit logs |
+| **�🔐 Sécurité Intégrée** | Scans vulnérabilités et qualité code | Trivy, SonarQube |
+| **☁️ Cloud Ready** | Support Azure avec accès externe | LoadBalancer, Ingress |
 
-### 🎪 Latest Features
+### 🎪 Nouveautés de cette version
 
-- ✅ **Ansible-based automation** for consistent deployments
-- ✅ **SIEM integration** with SSH monitoring and webhook events
-- ✅ **Automated Docker installation** 
-- ✅ **Azure support** with external access
-- ✅ **Development mode** with Docker Compose standalone
-- ✅ **Intelligent cleanup** by components
-- ✅ **Colored logs** and complete traceability
-- ✅ **Multi-environment** support (dev, staging, prod)
+- ✅ **Setup interactif** avec menu complet
+- ✅ **Installation Docker** automatisée
+- ✅ **Support Azure** intégré avec accès externe
+- ✅ **Mode développement** Docker Compose standalone
+- ✅ **Cleanup intelligent** par composants
+- ✅ **Logs colorés** et traçabilité complète
+- ✅ **Multi-environnements** (dev, staging, prod)
 
 ## 🏗️ Architecture
 
@@ -74,7 +76,6 @@ graph TB
         K --> L[Grafana Dashboards]
         OS[System Logs] --> J
         AU[Audit Logs] --> J
-        SSH[SSH Logs] --> J
         S --> J
         B --> |CI/CD Events| J
     end
@@ -91,780 +92,860 @@ graph TB
     end
 ```
 
-### 🔧 Technology Stack
+### � Stack Technologique
 
-| Layer | Technology | Version | Role |
+| Couche | Technologie | Version | Rôle |
 |--------|-------------|---------|------|
-| **App** | Flask + Gunicorn | 2.3.3 | REST API, metrics |
-| **Container** | Docker + BuildKit | 24.0+ | Containerization |
-| **Orchestration** | MicroK8s | 1.30+ | Kubernetes Cluster |
-| **Package Manager** | Helm | 3.8+ | Application deployment |
-| **CI/CD** | Jenkins | 2.452+ | Automated pipeline |
-| **Security** | SonarQube + Trivy | Latest | Code analysis + vulnerabilities |
-| **Monitoring** | Loki + Grafana + Alloy | 3.0+ | Logs + visualization |
-| **SIEM** | Auditd + Webhook Receiver | Latest | Security monitoring |
+| **App** | Flask + Gunicorn | 2.3.3 | API REST, métriques |
+| **Container** | Docker + BuildKit | 24.0+ | Containerisation |
+| **Orchestration** | MicroK8s | 1.30+ | Cluster Kubernetes |
+| **Package Manager** | Helm | 3.8+ | Déploiement applications |
+| **CI/CD** | Jenkins | 2.452+ | Pipeline automatisé |
+| **Security** | SonarQube + Trivy | Latest | Analyse code + vulnérabilités |
+| **Monitoring** | Loki + Grafana + Alloy | 3.0+ | Logs + visualisation |
+| **SIEM** | Auditd + Webhook Receiver | Latest | Surveillance sécurité |
 | **IaC** | Terraform + Ansible | Latest | Infrastructure + Automation |
-| **Cloud** | Azure LoadBalancer | - | External access |
+| **Cloud** | Azure LoadBalancer | - | Accès externe |
 
-## ⚡ Quick Installation
+## ⚡ Installation Rapide
 
-### 🚀 Ansible-Based Setup (Recommended)
-
-This project uses **Ansible** for consistent, reproducible deployments. All infrastructure is managed through playbooks.
-
-#### Prerequisites
+### 🚀 Setup Automatisé (Recommandé)
 
 ```bash
-# Install Ansible (Ubuntu/Debian)
-sudo apt update
-sudo apt install -y ansible python3-pip
-pip3 install kubernetes
-
-# OR install Ansible (RHEL/CentOS)
-sudo yum install -y ansible python3-pip
-pip3 install kubernetes
-
-# Clone the project
+# 1. Cloner le projet
 git clone <repository-url>
 cd Sample-DevSecOps
+
+# 2. Rendre le script exécutable
+chmod +x setup.sh
+
+# 3. Lancer le menu interactif
+./setup.sh
 ```
 
-#### Complete Infrastructure Deployment
+Le menu vous propose les options suivantes :
+
+```
+🚀 DevSecOps Setup Menu
+======================
+  1) Install Docker                    # Installation Docker automatisée
+  2) Check Prerequisites              # Vérification prérequis
+  3) Setup MicroK8s                   # Configuration cluster K8s
+  4) Build Jenkins Image              # Image Jenkins personnalisée
+  5) Deploy Core Services             # Jenkins + SonarQube
+  6) Deploy Monitoring Stack with SIEM # Loki + Grafana + Alloy + SIEM
+  7) Deploy Flask Application         # Application principale
+  8) Configure Azure External Access  # Accès cloud
+  9) Setup SIEM Host Monitoring       # Instructions for SIEM setup
+ 10) Full Production Setup            # Installation complète (3-8)
+ 11) Development Mode                 # Docker Compose local
+ 12) Cleanup Options                  # Nettoyage par composants
+ 13) Show Access Information          # URLs et credentials
+ 14) Exit
+```
+
+### ⚡ Installation Express (Production)
 
 ```bash
-# Deploy the complete DevSecOps infrastructure
-ansible-playbook -i ansible/inventory ansible/playbooks/main.yml --ask-become-pass
+./setup.sh
+# Choisir option 9 pour l'installation complète
 ```
 
-This single command will:
-- ✅ Install Docker and prerequisites
-- ✅ Setup MicroK8s Kubernetes cluster
-- ✅ Deploy Jenkins with custom DevSecOps image
-- ✅ Install SonarQube with PostgreSQL
-- ✅ Setup monitoring stack (Loki, Grafana, Alloy)
-- ✅ Deploy Flask application with auto-scaling
-- ✅ Configure external access (Azure LoadBalancer)
-- ✅ Setup SIEM webhook endpoints
-
-#### SIEM Host Monitoring Setup
+### 🧪 Mode Développement Local
 
 ```bash
-# Setup host-level SIEM monitoring
-ansible-playbook -i ansible/inventory ansible/playbooks/siem.yml --ask-become-pass
+./setup.sh
+# Choisir option 10 pour Docker Compose
 ```
 
-This will install:
-- 🛡️ fail2ban for intrusion prevention
-- 📋 auditd for system call monitoring
-- 📊 logwatch for log analysis
-- 🔍 chkrootkit for rootkit detection
+### 📋 Prérequis Système
 
-#### Development Mode
-
-```bash
-# Quick development setup with Docker Compose
-ansible-playbook -i ansible/inventory ansible/playbooks/development.yml
-```
-
-### 📋 System Requirements
-
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
+| Composant | Version Minimum | Recommandé |
+|-----------|----------------|------------|
 | **OS** | Ubuntu 20.04+ | Ubuntu 22.04 LTS |
 | **CPU** | 2 cores | 4+ cores |
 | **RAM** | 4GB | 8GB+ |
-| **Storage** | 10GB free | 20GB+ |
+| **Stockage** | 10GB libre | 20GB+ |
 | **Docker** | 20.10+ | 24.0+ |
 | **Git** | 2.25+ | Latest |
-| **Ansible** | 2.9+ | Latest |
 
-## 🧩 Components
+## 🧩 Composants
 
-### 🐍 Flask Application
+### 🐍 Application Flask
 
-**Available Endpoints:**
+**Endpoints disponibles :**
 
 ```bash
-GET  /                    # Homepage with status
-GET  /health              # Health check for K8s
-GET  /api/users           # List users (JSON)
-POST /api/users           # Create user
-PUT  /api/users/{id}      # Update user
-DELETE /api/users/{id}    # Delete user
-GET  /metrics             # Prometheus metrics
-GET  /logs                # Real-time logs interface
+GET  /                    # Page d'accueil avec statut
+GET  /health              # Health check pour K8s
+GET  /api/users           # Liste des utilisateurs (JSON)
+POST /api/users           # Créer utilisateur
+PUT  /api/users/{id}      # Modifier utilisateur
+DELETE /api/users/{id}    # Supprimer utilisateur
+GET  /metrics             # Métriques Prometheus
+GET  /logs                # Interface logs temps réel
 ```
 
-**Features:**
+**Fonctionnalités :**
 
-- ✅ Structured JSON logs
-- ✅ Integrated Prometheus metrics
-- ✅ Kubernetes health checks
-- ✅ Centralized error handling
+- ✅ Logs structurés JSON
+- ✅ Métriques Prometheus intégrées
+- ✅ Health checks Kubernetes
+- ✅ Gestion d'erreurs centralisée
 - ✅ Rate limiting
-- ✅ CORS configured
+- ✅ CORS configuré
 
-### 🔄 DevSecOps Pipeline
+### 🔄 Pipeline DevSecOps
 
-**Jenkins Pipeline Stages:**
+**Étapes du pipeline Jenkins :**
 
-1. **🔍 Code Checkout** - Git repository clone
-2. **🧪 Unit Tests** - Automated testing with coverage
-3. **🔒 Security Scan** - Trivy vulnerability analysis
-4. **📊 Quality Gate** - SonarQube code analysis
-5. **🐳 Docker Build** - Multi-stage optimized build
-6. **📦 Image Push** - Secure registry push
-7. **🚀 K8s Deploy** - Rolling deployment with health checks
-8. **✅ Smoke Tests** - Post-deployment validation
+1. **📥 Checkout SCM** - Récupération code source
+2. **📦 Install Dependencies** - Installation packages Python
+3. **🧪 Run Tests** - Tests unitaires avec coverage
+4. **📊 SonarQube Analysis** - Analyse qualité code
+5. **🔍 Trivy FS Scan** - Scan filesystem vulnérabilités
+6. **🐳 Build & Push Image** - Construction image Docker
+7. **🛡️ Trivy Image Scan** - Scan image vulnérabilités
+8. **🚀 Deploy to K8s** - Déploiement Kubernetes
 
-**Automated Security Checks:**
+**Configuration automatique :**
 
-- 🛡️ **Trivy** - Container vulnerability scanning
-- 📊 **SonarQube** - Static code analysis and security hotspots
-- 🔐 **OWASP** - Security best practices validation
-- 🐳 **Docker** - Image security scanning
+- Intégration SonarQube avec tokens
+- Registry Docker local MicroK8s
+- Déploiement Rolling Update
+- Tests automatisés avec rapports
 
-## 🛡️ SIEM (Security Information and Event Management)
+### 📊 Stack Monitoring
 
-Our integrated SIEM solution provides comprehensive security monitoring across the entire infrastructure:
+**Composants :**
 
-### 🔧 SIEM Components
+| Service | Port | Rôle | Configuration |
+|---------|------|------|---------------|
+| **Loki** | 3100 | Stockage logs | SingleBinary mode |
+| **Grafana** | 3000 | Visualisation | Dashboards pré-configurés |
+| **Alloy** | - | Collecteur logs | Auto-discovery K8s |
 
-| Component | Function | Data Sources |
-|-----------|----------|-------------|
-| **Alloy Collector** | Log aggregation and processing | System logs, SSH logs, application logs |
-| **Webhook Receiver** | Git event monitoring | Code commits, pushes, branch changes |
-| **Loki Storage** | Centralized log storage | All security events and logs |
-| **Grafana SIEM Dashboard** | Security visualization | Real-time security metrics |
+**Dashboards inclus :**
 
-### 🎯 Monitored Security Events
+- 📈 **Application Metrics** - Performance temps réel
+- 🔒 **Security Dashboard** - Événements sécurité
+- �️ **SIEM Dashboard** - Surveillance sécurité avancée
+- �📋 **Infrastructure** - État cluster K8s
+- 🚨 **Alerts** - Notifications automatiques
 
-**SSH and Authentication:**
-- ✅ SSH login attempts (successful/failed)
-- ✅ Root access attempts
-- ✅ Failed authentication patterns
-- ✅ Suspicious login times and locations
+### 🛡️ SIEM (Security Information and Event Management)
 
-**Code Security:**
-- ✅ Git commits and pushes
-- ✅ Branch creation/deletion
-- ✅ Merge requests
-- ✅ CI/CD pipeline security events
+**Capacités de surveillance :**
 
-**System Security:**
-- ✅ System calls audit (auditd)
-- ✅ File access monitoring
-- ✅ Process execution tracking
-- ✅ Network connection monitoring
+| Composant | Source | Type d'événement | Dashboard |
+|-----------|--------|-------------------|-----------|
+| **Auth Logs** | `/var/log/auth.log` | Connexions, échecs auth | SIEM Dashboard |
+| **System Logs** | `/var/log/syslog` | Événements système | SIEM Dashboard |
+| **Package Mgmt** | `/var/log/dpkg.log` | Installations logiciels | SIEM Dashboard |
+| **Kernel Events** | `/var/log/kern.log` | Événements noyau | SIEM Dashboard |
+| **Git Webhooks** | Webhook receiver | Changements code | SIEM Dashboard |
+| **CI/CD Logs** | Jenkins | Builds, déploiements | SIEM Dashboard |
+| **Audit Events** | `/var/log/audit/audit.log` | Accès fichiers critiques | SIEM Dashboard |
 
-**Application Security:**
-- ✅ API endpoint access
-- ✅ Error patterns and exceptions
-- ✅ Performance anomalies
-- ✅ Rate limiting violations
+**Fonctionnalités SIEM :**
 
-### 🚨 Security Alerts
+- 🔍 **Détection des intrusions** - Surveillez les tentatives de connexion suspectes
+- 📊 **Analyse comportementale** - Identifiez les patterns anormaux
+- 🌍 **Géolocalisation IP** - Analysez la provenance des connexions
+- 📈 **Timeline des événements** - Corrélation temporelle des incidents
+- 🚨 **Alertes en temps réel** - Notifications automatiques sur les threats
+- 📋 **Rapports de conformité** - Audit trails pour la sécurité
 
-The SIEM dashboard categorizes events by severity:
+**Configuration webhook Git :**
+```bash
+# URL pour votre dépôt GitHub
+http://webhook.VOTRE_IP.nip.io/webhook
 
-- 🔴 **Critical** - Immediate security threats
-- 🟠 **High** - Significant security events
-- 🟡 **Medium** - Notable security activities
-- 🟢 **Low** - Information security events
+# Testez l'intégration
+curl -X POST http://webhook.VOTRE_IP.nip.io/webhook \
+  -H "Content-Type: application/json" \
+  -d '{"test": "webhook"}'
+```
 
-### 📊 SIEM Dashboard Features
+## 🔒 Sécurité
 
-**Real-time Monitoring:**
-- SSH events timeline
-- Failed login attempts map
-- Security event distribution
-- Top attacked IPs and users
+### 🛡️ Scans Automatisés
 
-**Historical Analysis:**
-- Security trends over time
-- Attack pattern analysis
-- User behavior analytics
-- System health correlation
-
-### 🛠️ SIEM Configuration
-
-The SIEM system is configured through:
+**SonarQube Analysis :**
 
 ```bash
-# SIEM configuration files
-siem/
-├── alloy-siem-config.alloy       # Alloy collector configuration
-├── grafana-siem-dashboard.json   # Security dashboard
-└── webhook-receiver.yaml         # Git webhook endpoint
-
-# Host monitoring setup
-ansible/playbooks/siem.yml         # SIEM host configuration
+# Configuration dans security/sonarqube/sonar-project.properties
+sonar.projectKey=flask-k8s-devsecops
+sonar.sources=app/
+sonar.language=py
+sonar.python.coverage.reportPaths=coverage.xml
 ```
 
-**Host-level Monitoring Tools:**
-
-- **fail2ban** - Intrusion prevention system
-- **auditd** - Linux audit framework
-- **logwatch** - Log analysis and reporting
-- **chkrootkit** - Rootkit detection
-
-## 📊 Monitoring
-
-### 🔍 Log Processing Flow
-
-```mermaid
-graph LR
-    A[Application Logs] --> B[Alloy]
-    C[System Logs] --> B
-    D[SSH Logs] --> B
-    E[Git Webhooks] --> B
-    B --> F[Loki]
-    F --> G[Grafana]
-    
-    subgraph "Dashboards"
-        G --> H[Application Metrics]
-        G --> I[Security Events]
-        G --> J[SIEM Dashboard]
-    end
-```
-
-### 📈 Available Dashboards
-
-1. **🎯 Application Dashboard**
-   - Request rates and response times
-   - Error rates and status codes
-   - Database performance metrics
-   - Custom business metrics
-
-2. **🛡️ Security Dashboard**
-   - Authentication events
-   - Failed login attempts
-   - API security metrics
-   - Rate limiting violations
-
-3. **🚨 SIEM Dashboard**
-   - SSH monitoring and intrusion attempts
-   - Code change tracking via webhooks
-   - System-level security events
-   - Threat intelligence and alerts
-
-### 🎛️ Metrics Collection
-
-**Application Metrics:**
-- HTTP request metrics (Prometheus format)
-- Custom business logic metrics
-- Database query performance
-- Error tracking and alerting
-
-**Infrastructure Metrics:**
-- Container resource usage
-- Kubernetes cluster health
-- Network traffic analysis
-- Storage utilization
-
-**Security Metrics:**
-- Authentication success/failure rates
-- API endpoint access patterns
-- Security scan results
-- Vulnerability trends
-
-### 🎯 Access Information
-
-After deployment, access your services:
+**Trivy Security Scans :**
 
 ```bash
-# Get access information
-ansible-playbook -i ansible/inventory ansible/playbooks/main.yml --tags=access_info
+# Scan filesystem
+trivy fs ./app --format table --severity HIGH,CRITICAL
 
-# Manual access URLs (replace with your external IP)
-Jenkins:    http://<EXTERNAL_IP>:32000  (admin/admin123)
-SonarQube:  http://<EXTERNAL_IP>:32001  (admin/admin123)
-Grafana:    http://<EXTERNAL_IP>:32002  (admin/admin123)
-Flask App:  http://<EXTERNAL_IP>:32003
+# Scan Docker image
+trivy image localhost:32000/flask-k8s-app:latest
 ```
 
-**Default Credentials:**
-- Jenkins: `admin/admin123`
-- SonarQube: `admin/admin123`
-- Grafana: `admin/admin123`
+### 🔐 Sécurité Implémentée
 
-⚠️ **Security Note:** Change default passwords in production!
+| Aspect | Implémentation | Outil |
+|--------|----------------|-------|
+| **Container Security** | Images non-root, minimal base | Docker |
+| **Code Quality** | Analyse statique continue | SonarQube |
+| **Vulnerability Scan** | Scan images + filesystem | Trivy |
+| **Secrets Management** | Kubernetes secrets chiffrés | K8s |
+| **Network Policies** | Isolation réseau pods | K8s NetworkPolicy |
+| **RBAC** | Contrôle accès granulaire | K8s RBAC |
+| **TLS/SSL** | Chiffrement en transit | Ingress TLS |
 
-## 🤖 Automation with Ansible
+### 📊 Dashboard Sécurité
 
-This project has transitioned to a **full Ansible-based automation approach** for consistent, reproducible deployments across environments.
+Métriques surveillées :
 
-### 📁 Ansible Structure
+- 🚫 Tentatives authentification échouées
+- ⚠️ Erreurs HTTP suspectes (4xx/5xx)
+- 🔍 Patterns d'attaque détectés
+- 📈 Anomalies trafic réseau
 
-```
-ansible/
-├── ansible.cfg                 # Ansible configuration
-├── inventory                   # Hosts inventory
-├── requirements.yml           # Ansible dependencies
-├── playbooks/
-│   ├── main.yml              # Complete infrastructure deployment
-│   ├── siem.yml              # SIEM host monitoring setup
-│   ├── development.yml       # Development environment
-│   └── cleanup.yml           # Infrastructure cleanup
-├── roles/                    # Reusable roles (if needed)
-└── vars/
-    └── main.yml              # Global variables
-```
+## 🛡️ SIEM
 
-### 🚀 Available Playbooks
+### 🎯 Security Information and Event Management
 
-#### 1. **Complete Infrastructure** (`main.yml`)
+Le système SIEM intégré offre une surveillance complète des événements de sécurité avec Grafana Alloy comme collecteur centralisé :
 
-Deploys the entire DevSecOps infrastructure:
+**🔍 Sources de Données Surveillées :**
+
+| Type d'Événement | Source | Description | Dashboard |
+|------------------|--------|-------------|-----------|
+| **SSH Authentication** | `/var/log/auth.log` | Connexions réussies/échouées, tentatives invalides | SIEM Security Dashboard |
+| **System Events** | `/var/log/syslog` | Événements système critiques | SIEM Security Dashboard |
+| **Audit Logs** | `/var/log/audit/audit.log` | Accès fichiers, changements privilèges | SIEM Security Dashboard |
+| **Kernel Events** | `/var/log/kern.log` | Événements noyau, erreurs hardware | SIEM Security Dashboard |
+| **Git Webhooks** | Webhook receiver (port 9999) | Push, commits, changements code | SIEM Security Dashboard |
+| **Container Logs** | Kubernetes pods | Logs applications, erreurs services | App Logs Dashboard |
+| **Web Access** | Nginx logs | Requêtes HTTP, codes d'erreur | SIEM Security Dashboard |
+
+**Fonctionnalités SIEM Avancées :**
+
+- 🔒 **Détection d'Intrusion** : Analyse des tentatives SSH échouées
+- 🚨 **Alertes Temps Réel** : Événements critiques avec seuils configurables  
+- 📊 **Corrélation d'Événements** : Liens entre différentes sources de logs
+- 🔍 **Analyse Comportementale** : Détection d'anomalies dans les patterns d'accès
+- 📈 **Métriques de Sécurité** : KPIs sécurité avec historique
+- 🌐 **Monitoring Git** : Surveillance des changements de code via webhooks
+
+### 📊 Dashboard SIEM
+
+**Accès au Dashboard :**
 
 ```bash
-ansible-playbook -i inventory playbooks/main.yml --ask-become-pass
+# Dashboard SIEM disponible après déploiement
+# URL: http://grafana.YOUR_IP.nip.io
+# Dashboard: "SIEM Security Dashboard"
+# Credentials par défaut: admin/admin123
 ```
 
-**What it deploys:**
-- ✅ Docker installation and configuration
-- ✅ MicroK8s cluster with required addons
-- ✅ Jenkins with custom DevSecOps image
-- ✅ SonarQube with PostgreSQL backend
-- ✅ Monitoring stack (Loki, Grafana, Alloy)
-- ✅ Flask application with auto-scaling
-- ✅ SIEM webhook endpoints
-- ✅ External access configuration
-- ✅ DNS and service discovery
+**Panneaux Disponibles :**
 
-#### 2. **SIEM Host Monitoring** (`siem.yml`)
+- 🔐 **SSH Events Distribution** : Répartition des événements d'authentification
+- � **Authentication Timeline** : Évolution temporelle des connexions
+- 🚨 **Top Failed Sources** : Sources IP avec le plus d'échecs
+- ⚠️ **Security Events by Severity** : Classification par niveau de gravité
+- � **Git Activity** : Monitoring des webhooks et commits
+- 📋 **Critical Events Log** : Logs des événements critiques en temps réel
 
-Configures host-level security monitoring:
+### 🔗 Configuration Webhook Git
+
+**Déploiement Automatique :**
 
 ```bash
+# Le webhook est automatiquement déployé lors du setup monitoring
+./setup.sh
+# Option 6: Deploy Monitoring Stack with SIEM
+
+# URL du webhook sera affichée :
+# 🔗 SIEM Webhook URL: http://webhook.YOUR_IP.nip.io/webhook
+```
+
+**Configuration Git Repository :**
+
+```bash
+# Dans votre repository Git, configurer le webhook :
+# Settings → Webhooks → Add webhook
+# Payload URL: http://webhook.YOUR_IP.nip.io/webhook
+# Content-Type: application/json
+# Events: Push events, Pull requests (recommandé)
+# SSL verification: Disable (pour tests locaux)
+```
+
+**Test du Webhook :**
+
+```bash
+# Test manuel avec curl
+curl -X POST http://webhook.YOUR_IP.nip.io/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repository": {"name": "test-repo"},
+    "pusher": {"name": "test-user"},
+    "ref": "refs/heads/main",
+    "commits": [
+      {
+        "id": "abc123",
+        "message": "Test commit",
+        "author": {"name": "Test User"}
+      }
+    ]
+  }'
+
+# Vérifier dans Grafana → Explore → Loki :
+# {event_type="git_push"}
+```
+
+### 🛡️ Setup SIEM Host Monitoring
+
+**Méthode 1 - Script Automatique (Recommandé) :**
+
+```bash
+# Rendre le script exécutable
+chmod +x setup-siem.sh
+
+# Lancer la configuration SIEM
+./setup-siem.sh
+```
+
+**Méthode 2 - Ansible Manuel :**
+
+```bash
+# Installer Ansible si nécessaire
+sudo apt-get update && sudo apt-get install -y ansible
+
+# Naviguer vers le répertoire ansible
+cd ansible
+
+# Exécuter le playbook SIEM
 ansible-playbook -i inventory playbooks/siem.yml --ask-become-pass
 ```
 
-**What it configures:**
-- 🛡️ fail2ban intrusion prevention
-- 📋 auditd system call monitoring
-- 📊 logwatch log analysis
-- 🔍 chkrootkit rootkit detection
-- 📝 Custom security monitoring scripts
-- ⏰ Automated security reporting
+**Configuration Incluse :**
 
-#### 3. **Development Environment** (`development.yml`)
+- **fail2ban** : Protection contre les attaques par force brute SSH
+- **auditd** : Audit avancé des accès système
+- **logwatch** : Analyses quotidiennes des logs
+- **chkrootkit** : Détection de rootkits
+- **Rotation des logs** : Gestion automatique des fichiers de logs
+- **Monitoring SSH** : Surveillance des connexions et tentatives
 
-Quick development setup with Docker Compose:
+### 🔐 Intégration avec Alloy
 
-```bash
-ansible-playbook -i inventory playbooks/development.yml
+**Configuration Alloy pour SIEM :**
+
+Le collecteur Alloy est configuré avec plusieurs sources :
+
+```alloy
+// Collecte logs système de l'hôte
+local.file_match "system_logs" {
+  path_targets = [
+    {"__path__" = "/host/var/log/auth.log*", "log_type" = "authentication"},
+    {"__path__" = "/host/var/log/syslog*", "log_type" = "system"},
+    {"__path__" = "/host/var/log/audit/audit.log*", "log_type" = "audit"}
+  ]
+}
+
+// Réception webhooks Git
+loki.source.webhook "git_webhooks" {
+  http {
+    listen_port = 9999
+  }
+  webhook_config {
+    path = "/webhook"
+  }
+}
+
+// Réception syslog distant
+loki.source.syslog "siem_syslog" {
+  listener {
+    address = "0.0.0.0:51400"
+    protocol = "tcp"
+  }
+}
 ```
 
-**Development features:**
-- 🐳 Docker Compose stack
-- 🔄 Hot reload for development
-- 📊 Local monitoring stack
-- 🧪 Testing environment
+### 📈 Alerting et Notifications
 
-#### 4. **Infrastructure Cleanup** (`cleanup.yml`)
-
-Interactive cleanup with selective removal:
+**Configuration des Alertes :**
 
 ```bash
-ansible-playbook -i inventory playbooks/cleanup.yml --ask-become-pass
+# Alertes configurées automatiquement :
+# - Plus de 5 échecs SSH en 5 minutes
+# - Connexions depuis nouvelles IPs
+# - Erreurs critiques dans les applications
+# - Activité Git suspecte (commits massifs)
+
+# Personnalisation via Grafana :
+# Alerting → Alert Rules → Create Rule
+```
+  -H "Content-Type: application/json" \
+  -d '{
+    "repository": {"full_name": "test/repo"},
+    "pusher": {"name": "testuser"},
+    "head_commit": {
+      "id": "abc123",
+      "message": "Test commit"
+    }
+  }'
 ```
 
-**Cleanup options:**
-- ⚠️ Interactive confirmation prompts
-- 🗑️ Selective component removal
-- 🐳 Optional Docker image cleanup
-- 🛡️ Optional SIEM tools removal
-- 🔧 Optional MicroK8s removal
+### 🚨 Alertes et Notifications
 
-### ⚙️ Ansible Variables
+**Seuils d'Alerte :**
 
-Configure your deployment through `vars/main.yml`:
+- **Échecs connexion** : > 5 tentatives/minute
+- **Erreurs application** : > 10 erreurs/minute  
+- **Changements système** : Installations non autorisées
+- **Activité anormale** : Patterns d'accès suspects
+
+## �📊 Monitoring
+
+### 🎯 Métriques Application
+
+**Prometheus Metrics :**
+
+```python
+# Compteurs requêtes
+flask_requests_total{method="GET", endpoint="/api/users", status="200"}
+
+# Latence requêtes
+flask_request_duration_seconds{method="POST", endpoint="/api/users"}
+
+# Métriques business
+flask_users_created_total
+flask_errors_total{error_type="validation"}
+```
+
+### 📋 Dashboards Grafana
+
+**1. Application Dashboard :**
+
+- 📊 Taux de requêtes par endpoint
+- ⏱️ Latence P95/P99
+- 📈 Codes de statut HTTP
+- 💾 Utilisation ressources
+
+**2. Security Dashboard :**
+
+- 🔒 Échecs authentification
+- 🚨 Alertes sécurité
+- 📊 Top user agents suspects
+- 🌐 Géolocalisation connexions
+
+**3. Infrastructure Dashboard :**
+
+- 🖥️ Métriques nodes K8s
+- 📦 État des pods
+- 💾 Utilisation stockage
+- 🌐 Trafic réseau
+
+### 🚨 Alertes Configurées
 
 ```yaml
-# Cluster configuration
-cluster_name: "devsecops-cluster"
-external_access: true
-
-# Application settings
-app_name: "flask-k8s-app"
-app_namespace: "flask-app"
-app_replicas: 2
-
-# Monitoring settings
-monitoring_namespace: "monitoring"
-grafana_admin_password: "admin123"
-
-# Security settings
-enable_siem: true
-siem_webhook_port: 3100
-fail2ban_enabled: true
-
-# External access
-azure_loadbalancer: true
-external_domain: "your-domain.com"
+# Exemple d'alerte Grafana
+- alert: HighErrorRate
+  expr: rate(flask_requests_total{status=~"5.."}[5m]) > 0.1
+  for: 2m
+  annotations:
+    summary: "Taux d'erreur élevé détecté"
 ```
 
-### 🔧 Ansible Configuration
+## � Automation avec Ansible
 
-Key configuration in `ansible.cfg`:
+### 📋 Playbooks Disponibles
 
-```ini
-[defaults]
-inventory = inventory
-host_key_checking = False
-pipelining = True
-callback_whitelist = profile_tasks, timer
+Le projet inclut des playbooks Ansible pour l'automatisation complète :
 
-[privilege_escalation]
-become = True
-become_method = sudo
-become_user = root
-become_ask_pass = True
-```
+| Playbook | Description | Usage |
+|----------|-------------|-------|
+| `main.yml` | Setup complet DevSecOps | `ansible-playbook playbooks/main.yml` |
+| `development.yml` | Environnement Docker Compose | `ansible-playbook playbooks/development.yml` |
+| `core_services.yml` | Jenkins + SonarQube uniquement | `ansible-playbook playbooks/core_services.yml` |
+| `monitoring.yml` | Stack monitoring uniquement | `ansible-playbook playbooks/monitoring.yml` |
+| `siem.yml` | Stack SIEM uniquement | `ansible-playbook playbooks/siem.yml` |
+| `flask_app.yml` | Application Flask uniquement | `ansible-playbook playbooks/flask_app.yml` |
+| `cleanup.yml` | Nettoyage complet | `ansible-playbook playbooks/cleanup.yml` |
 
-### 📦 Dependencies
+### 🎭 Rôles Ansible
 
-Install required Ansible collections:
+| Rôle | Fonction |
+|------|----------|
+| `prerequisites` | Installation paquets requis |
+| `docker` | Installation et configuration Docker |
+| `microk8s` | Setup cluster Kubernetes |
+| `jenkins_image` | Build image Jenkins personnalisée |
+| `core_services` | Déploiement Jenkins/SonarQube |
+| `monitoring_stack` | Déploiement Loki/Grafana/Alloy |
+| `siem_stack` | **Configuration SIEM et audit** |
+| `flask_app` | Déploiement application Flask |
+| `azure_access` | Configuration accès externe |
+| `access_info` | Affichage informations d'accès |
+
+### 🚀 Exécution Ansible
 
 ```bash
-ansible-galaxy install -r requirements.yml
-```
+# Setup complet automatisé
+cd ansible/
+ansible-playbook playbooks/main.yml --ask-become-pass
 
-Dependencies include:
-- `kubernetes.core` - Kubernetes module
-- `community.docker` - Docker management
-- `community.general` - General utilities
+# Configuration SIEM uniquement
+ansible-playbook playbooks/siem.yml --ask-become-pass
 
-### 🎯 Ansible Best Practices
+# Mode développement
+ansible-playbook playbooks/development.yml --ask-become-pass
 
-**Idempotency:**
-- ✅ All tasks are idempotent
-- ✅ Safe to run multiple times
-- ✅ Only changes what's necessary
-
-**Error Handling:**
-- ✅ Comprehensive error handling
-- ✅ Rollback capabilities
-- ✅ Detailed logging and feedback
-
-**Security:**
-- ✅ Secure credential handling
-- ✅ Encrypted variables support
-- ✅ Minimal privilege principles
-
-## 🔒 Security
-
-### 🛡️ Security Layers
-
-| Layer | Implementation | Tools |
-|-------|---------------|-------|
-| **Container Security** | Image scanning and hardening | Trivy, Docker Security |
-| **Code Security** | Static analysis and quality gates | SonarQube, OWASP |
-| **Infrastructure Security** | Network policies and RBAC | K8s Security Policies |
-| **Runtime Security** | Real-time monitoring and SIEM | Alloy, Grafana, fail2ban |
-| **Access Security** | Authentication and authorization | JWT, RBAC, SSH monitoring |
-
-### 🔐 Security Best Practices
-
-**Implemented Security Measures:**
-
-- ✅ **Multi-stage Docker builds** with minimal attack surface
-- ✅ **Non-root container execution** 
-- ✅ **Security contexts** in Kubernetes
-- ✅ **Network policies** for pod-to-pod communication
-- ✅ **RBAC** (Role-Based Access Control)
-- ✅ **TLS encryption** for all communications
-- ✅ **Secret management** with Kubernetes secrets
-- ✅ **Regular security scanning** in CI/CD pipeline
-- ✅ **SIEM monitoring** for threat detection
-- ✅ **Intrusion prevention** with fail2ban
-
-**Security Scanning Integration:**
-
-```bash
-# Trivy security scan results in Jenkins
-- Container vulnerabilities: CRITICAL, HIGH, MEDIUM, LOW
-- License compliance checks
-- Configuration security validation
-- Secrets detection in code
-
-# SonarQube quality gates
-- Security hotspots identification
-- Code smells and technical debt
-- Test coverage requirements
-- Maintainability index validation
+# Nettoyage
+ansible-playbook playbooks/cleanup.yml --ask-become-pass
 ```
 
 ## ☁️ Infrastructure Terraform (Azure)
 
-Deploy to Azure cloud infrastructure:
+### 🏗️ Architecture Cloud
 
-### 🏗️ Terraform Configuration
+Le répertoire `terraform/` contient l'infrastructure as code pour Azure :
+
+**Composants déployés :**
+
+| Ressource | Type | Description |
+|-----------|------|-------------|
+| `azurerm_linux_virtual_machine` | Spot VM | Machine virtuelle optimisée coût |
+| `azurerm_network_security_group` | Sécurité | Règles firewall DevSecOps |
+| `azurerm_log_analytics_workspace` | Monitoring | Collecte logs Azure |
+| `azurerm_application_insights` | APM | Monitoring applicatif |
+| `azurerm_storage_account` | Stockage | Backups et artifacts |
+| `azurerm_recovery_services_vault` | Sauvegarde | Backup automatisé VM |
+
+### 💰 Optimisation des Coûts
+
+```hcl
+# Configuration Spot Instance (jusqu'à 90% d'économies)
+priority     = "Spot"
+max_bid_price = 0.10  # $0.10/heure maximum
+
+# Auto-shutdown programmé
+auto_shutdown_enabled = true
+auto_shutdown_time = "2300"  # 23h00 UTC
+```
+
+### 🚀 Déploiement Terraform
 
 ```bash
 cd terraform/
 
-# Initialize Terraform
+# 1. Configuration
+cp terraform.tfvars.example terraform.tfvars
+# Éditez terraform.tfvars avec vos valeurs
+
+# 2. Authentification Azure
+az login
+az account set --subscription "your-subscription-id"
+
+# 3. Déploiement
 terraform init
+terraform plan
+terraform apply
 
-# Plan deployment
-terraform plan -var-file="terraform.tfvars"
+# 4. Connexion à la VM
+ssh -i devsecops-key.pem azureuser@PUBLIC_IP
 
-# Apply infrastructure
-terraform apply -var-file="terraform.tfvars"
+# 5. Nettoyage
+terraform destroy
 ```
 
-**Azure Resources Created:**
-- 🖥️ Virtual Machine with Ubuntu 22.04
-- 🌐 Virtual Network and Security Groups
-- 💾 Managed Disks for persistent storage
-- 🔒 SSH Key pair management
-- 🌍 Public IP with LoadBalancer
-- 📊 Monitoring and diagnostics
+### 🔗 URLs d'accès Cloud
 
-### 🔐 Azure Integration
-
-After Terraform deployment, run Ansible:
+Après déploiement Terraform, accédez aux services via :
 
 ```bash
-# Update inventory with Azure VM IP
-echo "[azure]" > ansible/inventory
-echo "azure-vm ansible_host=<AZURE_PUBLIC_IP> ansible_user=azureuser" >> ansible/inventory
+# URLs nip.io (recommandé)
+Jenkins:   http://jenkins.VOTRE_IP.nip.io
+SonarQube: http://sonarqube.VOTRE_IP.nip.io
+Grafana:   http://grafana.VOTRE_IP.nip.io
+Flask App: http://app.VOTRE_IP.nip.io
+SIEM Webhook: http://webhook.VOTRE_IP.nip.io/webhook
 
-# Deploy with Azure-specific configuration
-ansible-playbook -i inventory playbooks/main.yml --ask-become-pass -e azure_deployment=true
+# Ou directement par IP
+http://VOTRE_IP:8080  # Jenkins
+http://VOTRE_IP:9000  # SonarQube
+http://VOTRE_IP:3000  # Grafana
+http://VOTRE_IP:5000  # Flask App
 ```
 
-## 🛠️ Development
+## �🛠️ Développement
 
-### 🧪 Local Development
-
-**Quick Start with Docker Compose:**
+### 🧪 Mode Développement Local
 
 ```bash
-# Development setup
-ansible-playbook -i inventory playbooks/development.yml
+# Démarrer avec Docker Compose
+./setup.sh  # Option 10
 
-# OR manual Docker Compose
-docker-compose up -d
+# Ou manuellement
+docker compose up -d
 
-# Access services
-- Flask App: http://localhost:5000
-- Jenkins: http://localhost:8080
-- SonarQube: http://localhost:9000
-- Grafana: http://localhost:3000
+# Vérifier les services
+docker compose ps
 ```
 
-### 🔄 CI/CD Pipeline Development
+**Services développement :**
 
-**Jenkins Pipeline Configuration:**
+| Service | URL | Identifiants |
+|---------|-----|--------------|
+| Flask App | http://localhost:5000 | - |
+| SonarQube | http://localhost:9000 | admin/admin |
+| Grafana | http://localhost:3000 | admin/admin123 |
+| Loki | http://localhost:3100 | - |
 
-```groovy
-pipeline {
-    agent any
-    stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'main', url: 'your-repo-url'
-            }
-        }
-        stage('Security Scan') {
-            steps {
-                sh 'trivy fs .'
-            }
-        }
-        stage('Quality Gate') {
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh './gradlew sonarqube'
-                }
-            }
-        }
-        stage('Build & Deploy') {
-            steps {
-                sh 'ansible-playbook -i inventory playbooks/main.yml'
-            }
-        }
-    }
-}
-```
-
-### 🧪 Testing
-
-**Run Tests:**
+### 🧪 Tests et Qualité
 
 ```bash
-# Unit tests
 cd app/
+
+# Tests unitaires
 python -m pytest tests/ -v
 
-# Integration tests
-kubectl exec -n flask-app deployment/flask-app -- python -m pytest tests/integration/
+# Tests avec couverture
+python -m pytest tests/ --cov=. --cov-report=html
 
-# Security tests
-trivy fs app/
-sonar-scanner -Dsonar.projectKey=flask-k8s-app
+# Linting
+flake8 app.py
+black app.py --check
+
+# Tests de charge
+pip install locust
+locust -f tests/load_test.py --host=http://localhost:5000
 ```
 
-## 🗑️ Cleanup
-
-### 🧹 Selective Cleanup
-
-The cleanup playbook provides interactive options:
+### 🔧 Développement avec Hot Reload
 
 ```bash
-ansible-playbook -i inventory playbooks/cleanup.yml --ask-become-pass
+# Mode développement Flask
+cd app/
+FLASK_ENV=development python app.py
+
+# Avec volume Docker
+docker run -v $(pwd)/app:/app -p 5000:5000 flask-k8s-app:latest
 ```
 
-**Cleanup prompts:**
-1. ⚠️ **Confirmation** - Confirms destructive action
-2. 🐳 **Docker Images** - Remove custom images
-3. 🛡️ **SIEM Tools** - Remove host monitoring
-4. 🔧 **MicroK8s** - Complete cluster removal
-
-### 🚨 Emergency Cleanup
-
-Quick complete removal:
+### 📦 Build et Push Images
 
 ```bash
-# Stop all services
-sudo microk8s stop
+# Build local
+docker build -t flask-k8s-app:latest ./app
 
-# Remove all deployments
-sudo microk8s kubectl delete all --all --all-namespaces
+# Tag pour registry
+docker tag flask-k8s-app:latest localhost:32000/flask-k8s-app:latest
 
-# Remove MicroK8s
-sudo snap remove microk8s
-
-# Clean Docker
-docker system prune -af
+# Push vers MicroK8s registry
+docker push localhost:32000/flask-k8s-app:latest
 ```
 
-## 🔧 Troubleshooting
+## ☁️ Déploiement Cloud
 
-### 🚨 Common Issues
-
-#### Ansible Connection Issues
+### 🌩️ Configuration Azure
 
 ```bash
-# Test connectivity
-ansible -i inventory all -m ping
+# Configurer accès externe Azure
+./setup.sh  # Option 8
 
-# Debug SSH issues
-ansible-playbook -i inventory playbooks/main.yml -vvv
-
-# Fix SSH key issues
-ssh-keygen -R <target_host_ip>
+# Vérifier IP externe
+curl -s ifconfig.me
 ```
 
-#### Kubernetes Issues
+**Services LoadBalancer créés :**
+
+| Service | Port Externe | Port Interne |
+|---------|--------------|--------------|
+| Jenkins | 8080 | 8080 |
+| SonarQube | 9000 | 9000 |
+| Grafana | 3000 | 3000 |
+| Flask App | 80 | 5000 |
+
+### 🔗 URLs Accès Externe
+
+Après configuration Azure :
 
 ```bash
-# Check cluster status
-microk8s status --wait-ready
+# Remplacer <EXTERNAL_IP> par votre IP publique
+http://<EXTERNAL_IP>:8080  # Jenkins
+http://<EXTERNAL_IP>:9000  # SonarQube  
+http://<EXTERNAL_IP>:3000  # Grafana
+http://<EXTERNAL_IP>       # Flask App
+```
 
-# Debug pod issues
-microk8s kubectl get pods --all-namespaces
-microk8s kubectl describe pod <pod-name> -n <namespace>
-microk8s kubectl logs <pod-name> -n <namespace>
+### 🛡️ Sécurité Cloud
 
-# Reset MicroK8s
+**Configuration firewall Azure :**
+
+```bash
+# Ouvrir ports nécessaires
+az network nsg rule create \
+  --resource-group myResourceGroup \
+  --nsg-name myNSG \
+  --name DevSecOps-Ports \
+  --protocol tcp \
+  --priority 1000 \
+  --destination-port-ranges 80 3000 8080 9000 \
+  --access allow
+```
+
+### � Monitoring Cloud
+
+- 📈 **Azure Monitor** - Métriques VM
+- 🔍 **Application Insights** - APM
+- 📋 **Log Analytics** - Centralisation logs
+- 🚨 **Azure Alerts** - Notifications
+
+## �🔧 Troubleshooting
+
+### ❗ Problèmes Courants
+
+**1. Pods en état Pending :**
+
+```bash
+# Vérifier ressources
+kubectl describe pod <pod-name> -n <namespace>
+kubectl top nodes
+microk8s inspect
+
+# Solution : Augmenter ressources ou nettoyer
+./setup.sh  # Option 11 pour cleanup
+```
+
+**2. Images Docker non trouvées :**
+
+```bash
+# Vérifier registry local
+docker images | grep localhost:32000
+
+# Rebuilder si nécessaire
+./setup.sh  # Option 4 puis 7
+```
+
+**3. Services inaccessibles :**
+
+```bash
+# Vérifier ingress
+kubectl get ingress -A
+kubectl describe ingress -n flask-app
+
+# Vérifier /etc/hosts
+grep "\.local" /etc/hosts
+```
+
+**4. Jenkins build failures :**
+
+```bash
+# Vérifier logs Jenkins
+kubectl logs -f deployment/jenkins -n jenkins
+
+# Vérifier Docker dans Jenkins
+kubectl exec -it deployment/jenkins -n jenkins -- docker ps
+```
+
+### 🔍 Commandes Diagnostic
+
+```bash
+# État général cluster
+kubectl get all -A
+microk8s status
+
+# Logs par service
+kubectl logs -f deployment/flask-app -n flask-app
+kubectl logs -f statefulset/loki -n monitoring
+
+# Ressources utilisées
+kubectl top pods -A
+kubectl top nodes
+
+# Événements récents
+kubectl get events --sort-by='.lastTimestamp' -A
+
+# Storage et PVCs
+kubectl get pv,pvc -A
+
+# Network et services
+kubectl get svc,endpoints -A
+```
+
+### 🧹 Nettoyage et Reset
+
+```bash
+# Cleanup par composants
+./setup.sh  # Option 11
+
+# Reset complet
+./setup.sh  # Option 11 -> Option 6
+
+# Reset MicroK8s complet
 microk8s reset
+sudo snap remove microk8s
 ```
 
-#### Docker Issues
+### 📞 Support et Aide
 
-```bash
-# Check Docker status
-sudo systemctl status docker
+| Problème | Solution | Documentation |
+|----------|----------|---------------|
+| **Setup Issues** | Relancer `./setup.sh` option 2 | [Prerequisites](#-installation-rapide) |
+| **Network Problems** | Vérifier firewall et DNS | [Troubleshooting](#-troubleshooting) |
+| **Performance** | Augmenter ressources VM | [Architecture](#️-architecture) |
+| **Security Scans** | Vérifier config SonarQube/Trivy | [Sécurité](#-sécurité) |
 
-# Fix Docker permissions
-sudo usermod -aG docker $USER
-newgrp docker
+## 📚 Documentation Complémentaire
 
-# Clean Docker system
-docker system prune -f
-```
+- 📖 [**Documentation Technique Détaillée**](PROJECT_DOCUMENTATION.md)
+- 🚀 [**Guide Architecture**](comparaison.md)
+- ☁️ [**Azure External Access**](AZURE_EXTERNAL_ACCESS.md)
+- 🛠️ [**Helm Charts Documentation**](helm/)
 
-#### SIEM Issues
+## 🤝 Contribution
 
-```bash
-# Check Alloy logs
-microk8s kubectl logs -n monitoring deployment/alloy
+1. **Fork** le projet
+2. **Créer** une branche feature (`git checkout -b feature/amazing-feature`)
+3. **Commit** les changements (`git commit -m 'Add amazing feature'`)
+4. **Push** la branche (`git push origin feature/amazing-feature`)
+5. **Ouvrir** une Pull Request
 
-# Test webhook endpoint
-curl -X POST http://<external-ip>:3100/webhook \
-  -H "Content-Type: application/json" \
-  -d '{"test": "data"}'
+### 📋 Guidelines
 
-# Check SIEM host services
-sudo systemctl status fail2ban
-sudo systemctl status auditd
-```
+- ✅ Tests unitaires pour nouvelles fonctionnalités
+- ✅ Documentation mise à jour
+- ✅ Respect des conventions de nommage
+- ✅ Scans sécurité passants
 
-### 📊 Monitoring and Logs
+## � Documentation Complète
 
-**Access logs for troubleshooting:**
+- 📖 [**Documentation Projet**](PROJECT_DOCUMENTATION.md) - Guide technique détaillé
+- 🛡️ [**Documentation SIEM**](SIEM_DOCUMENTATION.md) - Guide complet de surveillance sécurité
+- 🔧 [**Documentation Ansible**](ansible/README.md) - Automatisation et déploiement
+- ☁️ [**Documentation Terraform**](terraform/README.md) - Infrastructure Azure
+- 🚀 [**Setup Script**](setup.sh) - Script d'installation interactif
+- 🔗 [**Configuration Webhook**](configure-webhook.sh) - Integration Git SIEM
 
-```bash
-# Application logs
-microk8s kubectl logs -n flask-app deployment/flask-app -f
+## �📜 Licence
 
-# Jenkins logs
-microk8s kubectl logs -n jenkins deployment/jenkins -f
-
-# Grafana logs
-microk8s kubectl logs -n monitoring deployment/grafana -f
-
-# SIEM webhook logs
-microk8s kubectl logs -n monitoring deployment/alloy | grep webhook
-```
-
-### 🆘 Support
-
-**Getting Help:**
-
-1. 📖 Check the logs first
-2. 🔍 Search existing issues
-3. 📝 Create detailed issue reports
-4. 🤝 Include environment details
-5. 📊 Provide relevant logs
-
-**Debug Information Collection:**
-
-```bash
-# Collect system info
-ansible-playbook -i inventory playbooks/main.yml --tags=debug_info
-
-# Generate support bundle
-microk8s kubectl cluster-info dump > cluster-info.txt
-```
+Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
 ---
 
-## 📄 License
+<div align="center">
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+**🚀 Créé avec ❤️ pour mon stage de TeamWill Consulting**
 
-## 🤝 Contributing
+[![Stars](https://img.shields.io/github/stars/Jev1337/Sample-DevSecOps?style=social)](https://github.com/Jev1337/Sample-DevSecOps)
+[![Forks](https://img.shields.io/github/forks/Jev1337/Sample-DevSecOps?style=social)](https://github.com/Jev1337/Sample-DevSecOps)
+[![Issues](https://img.shields.io/github/issues/Jev1337/Sample-DevSecOps)](https://github.com/username/Jev1337/Sample-DevSecOps)
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Update documentation
-6. Submit a pull request
+[🐛 Reporter un Bug](https://github.com/Jev1337/repo/issues) • [💡 Demander une Fonctionnalité](https://github.com/Jev1337/Sample-DevSecOps/issues) • [📖 Documentation](PROJECT_DOCUMENTATION.md) • [🛡️ SIEM Guide](SIEM_DOCUMENTATION.md)
 
-## 🙏 Acknowledgments
-
-- **Flask** team for the excellent web framework
-- **Kubernetes** community for container orchestration
-- **Grafana Labs** for monitoring solutions
-- **Jenkins** team for CI/CD automation
-- **Ansible** community for infrastructure automation
-- **Security tools** developers (Trivy, SonarQube, fail2ban)
-
----
-
-**Happy DevSecOps! 🚀🛡️**
+</div>
