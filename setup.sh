@@ -98,36 +98,13 @@ check_prerequisites() {
         missing_tools+=("git")
     fi
     
-    if ! check_command curl; then
-        missing_tools+=("curl")
-    fi
-    
     if ! check_command docker; then
         log "⚠️  Docker not found. Will offer installation." "$YELLOW"
-    fi
-    
-    # Check for SIEM prerequisites
-    log "📝 Checking SIEM prerequisites..." "$BLUE"
-    if ! check_command systemctl; then
-        missing_tools+=("systemctl")
     fi
     
     if [ ${#missing_tools[@]} -ne 0 ]; then
         log "❌ Missing required tools: ${missing_tools[*]}" "$RED"
         log "Please install missing tools and re-run the script." "$RED"
-        exit 1
-    fi
-    
-    # Check if running as non-root user
-    if [[ $EUID -eq 0 ]]; then
-        log "⚠️  This script should not be run as root for security reasons." "$YELLOW"
-        log "Please run as a regular user with sudo privileges." "$YELLOW"
-        exit 1
-    fi
-    
-    # Check sudo access
-    if ! sudo -v &>/dev/null; then
-        log "❌ Sudo access required for SIEM installation." "$RED"
         exit 1
     fi
     
@@ -252,18 +229,18 @@ deploy_monitoring_stack() {
         log "✅ Loki is already deployed." "$GREEN"
     fi
     
-    # Deploy Grafana with SIEM configuration
+    # Deploy Grafana
     if ! microk8s helm3 status grafana -n monitoring &> /dev/null; then
-        log "Deploying Grafana with SIEM dashboards..." "$YELLOW"
-        microk8s helm3 install grafana grafana/grafana -n monitoring -f helm/grafana/siem-values.yaml
+        log "Deploying Grafana via Helm..." "$YELLOW"
+        microk8s helm3 install grafana grafana/grafana -n monitoring -f helm/grafana/values.yaml
     else
         log "✅ Grafana is already deployed." "$GREEN"
     fi
     
-    # Deploy Alloy with SIEM configuration
+    # Deploy Alloy
     if ! microk8s helm3 status alloy -n monitoring &> /dev/null; then
-        log "Deploying Alloy with SIEM log collection..." "$YELLOW"
-        microk8s helm3 install alloy grafana/alloy -n monitoring -f helm/alloy/siem-values.yaml
+        log "Deploying Alloy for log collection..." "$YELLOW"
+        microk8s helm3 install alloy grafana/alloy -n monitoring -f helm/alloy/values.yaml
     else
         log "✅ Alloy is already deployed." "$GREEN"
     fi
@@ -274,367 +251,6 @@ deploy_monitoring_stack() {
     microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=5m
     
     log "✅ Monitoring stack deployed successfully." "$GREEN"
-}
-
-# Function to deploy SIEM security agents and configuration
-deploy_siem_agents() {
-    log "🛡️ Deploying SIEM Security Agents..." "$BLUE"
-    
-    # Install auditd for system auditing
-    log "Installing auditd for system auditing..." "$YELLOW"
-    sudo apt-get update
-    sudo apt-get install -y auditd audispd-plugins
-    
-    # Configure auditd rules for security monitoring
-    log "Configuring auditd security rules..." "$YELLOW"
-    sudo tee /etc/audit/rules.d/siem-security.rules > /dev/null << 'EOF'
-# SIEM Security Audit Rules
-# Monitor authentication events
--w /etc/passwd -p wa -k user_accounts
--w /etc/group -p wa -k user_accounts
--w /etc/shadow -p wa -k user_accounts
--w /etc/sudoers -p wa -k privilege_escalation
-
-# Monitor SSH configuration and keys
--w /etc/ssh/sshd_config -p wa -k ssh_config
--w /etc/ssh/ -p wa -k ssh_config
--w /root/.ssh/ -p wa -k ssh_keys
--w /home/*/.ssh/ -p wa -k ssh_keys
-
-# Monitor system executables
--w /usr/bin/wget -p x -k network_tools
--w /usr/bin/curl -p x -k network_tools
--w /usr/bin/nc -p x -k network_tools
--w /usr/bin/nmap -p x -k network_tools
-
-# Monitor package management
--w /usr/bin/apt -p x -k package_management
--w /usr/bin/apt-get -p x -k package_management
--w /usr/bin/dpkg -p x -k package_management
--w /usr/bin/yum -p x -k package_management
--w /usr/bin/rpm -p x -k package_management
-
-# Monitor sudo usage
--w /usr/bin/sudo -p x -k privilege_escalation
--w /etc/sudoers -p wa -k privilege_escalation
-
-# Monitor critical system files
--w /etc/crontab -p wa -k system_config
--w /etc/cron.d/ -p wa -k system_config
--w /etc/systemd/ -p wa -k system_config
--w /etc/init.d/ -p wa -k system_config
-
-# Monitor network configuration
--w /etc/hosts -p wa -k network_config
--w /etc/resolv.conf -p wa -k network_config
--w /etc/network/ -p wa -k network_config
-
-# Monitor log files
--w /var/log/auth.log -p wa -k log_tampering
--w /var/log/secure -p wa -k log_tampering
--w /var/log/audit/ -p wa -k log_tampering
-EOF
-    
-    # Enable and restart auditd
-    sudo systemctl enable auditd
-    sudo systemctl restart auditd
-    
-    # Configure rsyslog for centralized logging
-    log "Configuring rsyslog for SIEM..." "$YELLOW"
-    sudo tee /etc/rsyslog.d/50-siem.conf > /dev/null << 'EOF'
-# SIEM Logging Configuration
-# Log authentication events
-auth,authpriv.*          /var/log/auth.log
-
-# Log sudo commands
-local0.*                 /var/log/sudo.log
-
-# Log user account modifications
-user.*                   /var/log/user.log
-
-# Log network events (if available)
-kern.*                   /var/log/kernel.log
-
-# Log package management events
-local1.*                 /var/log/package.log
-EOF
-    
-    sudo systemctl restart rsyslog
-    
-    # Install and configure fail2ban for intrusion prevention
-    log "Installing fail2ban for intrusion prevention..." "$YELLOW"
-    sudo apt-get install -y fail2ban
-    
-    sudo tee /etc/fail2ban/jail.local > /dev/null << 'EOF'
-[DEFAULT]
-bantime = 3600
-findtime = 600
-maxretry = 3
-backend = systemd
-
-[sshd]
-enabled = true
-port = ssh
-logpath = /var/log/auth.log
-maxretry = 3
-bantime = 3600
-
-[sshd-ddos]
-enabled = true
-port = ssh
-logpath = /var/log/auth.log
-maxretry = 6
-bantime = 3600
-
-[sudo]
-enabled = true
-logpath = /var/log/sudo.log
-maxretry = 3
-bantime = 3600
-EOF
-    
-    sudo systemctl enable fail2ban
-    sudo systemctl restart fail2ban
-    
-    # Setup webhook monitoring
-    log "Setting up webhook monitoring..." "$YELLOW"
-    sudo mkdir -p /var/log/webhooks
-    sudo touch /var/log/webhook.log
-    sudo chmod 644 /var/log/webhook.log
-    
-    # Create webhook monitoring script
-    sudo tee /usr/local/bin/webhook-monitor.sh > /dev/null << 'EOF'
-#!/bin/bash
-# Webhook monitoring script for SIEM
-WEBHOOK_URL="http://webhook.4.245.1.92.nip.io/webhook"
-LOG_FILE="/var/log/webhook.log"
-
-# Monitor webhook endpoint
-while true; do
-    TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-    RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "$WEBHOOK_URL" 2>/dev/null)
-    echo "[$TIMESTAMP] Webhook check: $WEBHOOK_URL Response: $RESPONSE" >> "$LOG_FILE"
-    sleep 300  # Check every 5 minutes
-done
-EOF
-    
-    sudo chmod +x /usr/local/bin/webhook-monitor.sh
-    
-    # Create systemd service for webhook monitoring
-    sudo tee /etc/systemd/system/webhook-monitor.service > /dev/null << 'EOF'
-[Unit]
-Description=Webhook Monitoring Service for SIEM
-After=network.target
-
-[Service]
-Type=simple
-User=root
-ExecStart=/usr/local/bin/webhook-monitor.sh
-Restart=always
-RestartSec=30
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    
-    sudo systemctl enable webhook-monitor.service
-    sudo systemctl start webhook-monitor.service
-    
-    # Deploy host-based log collector as DaemonSet
-    log "Deploying host-based log collector DaemonSet..." "$YELLOW"
-    cat <<EOF | microk8s kubectl apply -f -
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: siem-log-collector
-  namespace: monitoring
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: siem-log-collector
-rules:
-- apiGroups: [""]
-  resources: ["nodes", "pods"]
-  verbs: ["get", "list", "watch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: siem-log-collector
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: siem-log-collector
-subjects:
-- kind: ServiceAccount
-  name: siem-log-collector
-  namespace: monitoring
----
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: siem-log-collector
-  namespace: monitoring
-  labels:
-    app: siem-log-collector
-spec:
-  selector:
-    matchLabels:
-      app: siem-log-collector
-  template:
-    metadata:
-      labels:
-        app: siem-log-collector
-    spec:
-      serviceAccountName: siem-log-collector
-      hostNetwork: true
-      hostPID: true
-      containers:
-      - name: log-collector
-        image: grafana/alloy:latest
-        env:
-        - name: HOSTNAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        volumeMounts:
-        - name: var-log
-          mountPath: /var/log
-          readOnly: true
-        - name: var-lib-docker-containers
-          mountPath: /var/lib/docker/containers
-          readOnly: true
-        - name: config
-          mountPath: /etc/alloy
-        securityContext:
-          privileged: true
-        command:
-        - /bin/alloy
-        - run
-        - /etc/alloy/config.alloy
-        - --storage.path=/tmp/alloy
-        - --server.http.listen-addr=0.0.0.0:12345
-      volumes:
-      - name: var-log
-        hostPath:
-          path: /var/log
-      - name: var-lib-docker-containers
-        hostPath:
-          path: /var/lib/docker/containers
-      - name: config
-        configMap:
-          name: siem-host-config
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: siem-host-config
-  namespace: monitoring
-data:
-  config.alloy: |
-    // Host-based SIEM log collection
-    loki.source.file "host_auth_logs" {
-      targets = [
-        {__path__ = "/var/log/auth.log", job = "host_auth", host = env("HOSTNAME")},
-        {__path__ = "/var/log/sudo.log", job = "host_sudo", host = env("HOSTNAME")},
-        {__path__ = "/var/log/audit/audit.log", job = "host_audit", host = env("HOSTNAME")},
-        {__path__ = "/var/log/webhook.log", job = "host_webhook", host = env("HOSTNAME")},
-        {__path__ = "/var/log/fail2ban.log", job = "host_security", host = env("HOSTNAME")},
-      ]
-      forward_to = [loki.process.host_security.receiver]
-    }
-
-    loki.process "host_security" {
-      // SSH login detection
-      stage.match {
-        selector = '{job="host_auth"} |~ "sshd.*Accepted|sshd.*Failed"'
-        stage.regex {
-          expression = "(?P<timestamp>\\w{3}\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2}).*sshd.*?(?P<auth_status>Accepted|Failed)\\s+(?P<auth_method>\\w+)\\s+for\\s+(?P<username>\\w+)\\s+from\\s+(?P<source_ip>[\\d\\.]+)"
-        }
-        stage.labels {
-          values = {
-            event_type = "ssh_auth",
-            auth_status = "",
-            auth_method = "",
-            username = "",
-            source_ip = "",
-          }
-        }
-      }
-
-      // Sudo usage detection
-      stage.match {
-        selector = '{job="host_sudo"}'
-        stage.regex {
-          expression = "(?P<timestamp>\\w{3}\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2}).*?USER=(?P<sudo_user>\\w+).*?COMMAND=(?P<command>.*)"
-        }
-        stage.labels {
-          values = {
-            event_type = "sudo_usage",
-            sudo_user = "",
-            command = "",
-          }
-        }
-      }
-
-      // Audit log processing
-      stage.match {
-        selector = '{job="host_audit"}'
-        stage.regex {
-          expression = "type=(?P<audit_type>\\w+).*?uid=(?P<uid>\\d+).*?exe=\"(?P<executable>[^\"]+)\""
-        }
-        stage.labels {
-          values = {
-            event_type = "audit_event",
-            audit_type = "",
-            uid = "",
-            executable = "",
-          }
-        }
-      }
-
-      // Webhook monitoring
-      stage.match {
-        selector = '{job="host_webhook"}'
-        stage.regex {
-          expression = "\\[(?P<timestamp>[^\\]]+)\\]\\s+Webhook check:\\s+(?P<webhook_url>\\S+)\\s+Response:\\s+(?P<response_code>\\d+)"
-        }
-        stage.labels {
-          values = {
-            event_type = "webhook_check",
-            webhook_url = "",
-            response_code = "",
-          }
-        }
-      }
-
-      // Fail2ban security events
-      stage.match {
-        selector = '{job="host_security"} |~ "fail2ban"'
-        stage.regex {
-          expression = "fail2ban.*?(?P<action>Ban|Unban)\\s+(?P<ip>[\\d\\.]+)"
-        }
-        stage.labels {
-          values = {
-            event_type = "intrusion_prevention",
-            action = "",
-            ip = "",
-          }
-        }
-      }
-
-      forward_to = [loki.write.default.receiver]
-    }
-
-    loki.write "default" {
-      endpoint {
-        url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
-      }
-    }
-EOF
-    
-    log "✅ SIEM security agents deployed successfully." "$GREEN"
 }
 
 # Function to build and deploy application
@@ -863,10 +479,6 @@ EOF
     log "   - Ensure Azure NSG allows inbound traffic on ports 80, 443, 8080, 9000, 3000, 5000" "$YELLOW"
     log "   - Consider setting up SSL/TLS certificates for production use" "$YELLOW"
     log "   - Default credentials provided in access info section" "$YELLOW"
-    log "🔍 SIEM Monitoring Active:" "$CYAN"
-    log "   - All external access attempts are being logged and monitored" "$CYAN"
-    log "   - Failed authentication attempts trigger security alerts" "$CYAN"
-    log "   - Access to Grafana SIEM dashboards: http://grafana.$EXTERNAL_IP.nip.io/d/siem-overview" "$CYAN"
 }
 
 # Function to run development mode with Docker Compose
@@ -923,8 +535,7 @@ run_cleanup() {
                 ;;
             2)
                 cleanup_monitoring
-                cleanup_siem
-                log "✅ Monitoring stack and SIEM cleanup complete." "$GREEN"
+                log "✅ Monitoring stack cleanup complete." "$GREEN"
                 ;;
             3)
                 cleanup_application
@@ -945,7 +556,6 @@ run_cleanup() {
                 ;;
             6)
                 cleanup_all
-                cleanup_siem
                 docker compose down -v || true
                 log "✅ Full cleanup completed!" "$GREEN"
                 ;;
@@ -986,33 +596,10 @@ show_access_info() {
     log "   - Grafana:   http://grafana.local (admin/admin123)" "$CYAN"
     echo ""
     
-    log "�️ SIEM Security Dashboards:" "$YELLOW"
-    log "   - SIEM Overview: http://grafana.local/d/siem-overview" "$CYAN"
-    log "   - SSH Monitoring: http://grafana.local/d/ssh-monitoring" "$CYAN"
-    log "   - Security Events: Navigate to SIEM folder in Grafana" "$CYAN"
-    echo ""
-    
-    log "🔍 SIEM Security Monitoring:" "$YELLOW"
-    log "   - Authentication events: Monitored via auditd and auth.log" "$CYAN"
-    log "   - SSH access: Real-time monitoring with fail2ban protection" "$CYAN"
-    log "   - Sudo usage: All sudo commands logged and tracked" "$CYAN"
-    log "   - Package management: Installation/removal events tracked" "$CYAN"
-    log "   - Git webhook: Monitoring http://webhook.4.245.1.92.nip.io/webhook" "$CYAN"
-    log "   - System files: Critical file modifications monitored" "$CYAN"
-    echo ""
-    
-    log "�🛠️ CI/CD Pipeline Setup:" "$YELLOW"
+    log "🛠️  CI/CD Pipeline Setup:" "$YELLOW"
     log "   1. Configure a new 'Pipeline' job in Jenkins" "$YELLOW"
     log "   2. Point it to your Git repository" "$YELLOW"
     log "   3. Set 'Script Path' to 'jenkins/Jenkinsfile'" "$YELLOW"
-    echo ""
-    
-    log "🚨 Security Alert Sources:" "$YELLOW"
-    log "   - Failed SSH attempts logged to SIEM" "$CYAN"
-    log "   - Privileged command execution tracked" "$CYAN"
-    log "   - User account modifications monitored" "$CYAN"
-    log "   - Network connection anomalies detected" "$CYAN"
-    log "   - Package installations tracked for compliance" "$CYAN"
 }
 
 # Main menu function
@@ -1029,14 +616,13 @@ show_main_menu() {
         echo "  6) Deploy Monitoring Stack (Loki, Grafana, Alloy)"
         echo "  7) Deploy Flask Application"
         echo "  8) Configure Azure External Access"
-        echo "  9) Deploy SIEM Security Agents"
-        echo " 10) Full Production Setup (3-7,9)"
-        echo " 11) Development Mode (Docker Compose)"
-        echo " 12) Cleanup Options"
-        echo " 13) Show Access Information"
-        echo " 14) Exit"
+        echo "  9) Full Production Setup (3-7)"
+        echo " 10) Development Mode (Docker Compose)"
+        echo " 11) Cleanup Options"
+        echo " 12) Show Access Information"
+        echo " 13) Exit"
         echo ""
-        read -p "Enter your choice [1-14]: " choice
+        read -p "Enter your choice [1-13]: " choice
         
         case $choice in
             1)
@@ -1064,30 +650,26 @@ show_main_menu() {
                 configure_azure_access
                 ;;
             9)
-                deploy_siem_agents
-                ;;
-            10)
-                log "🚀 Starting Full Production Setup with SIEM..." "$PURPLE"
+                log "🚀 Starting Full Production Setup..." "$PURPLE"
                 check_prerequisites
                 setup_microk8s
                 build_jenkins_image
                 deploy_core_services
                 deploy_monitoring_stack
-                deploy_siem_agents
                 deploy_application
                 show_access_info
-                log "✅ Full production setup with SIEM completed!" "$GREEN"
+                log "✅ Full production setup completed!" "$GREEN"
                 ;;
-            11)
+            10)
                 run_development_mode
                 ;;
-            12)
+            11)
                 run_cleanup
                 ;;
-            13)
+            12)
                 show_access_info
                 ;;
-            14)
+            13)
                 log "👋 Exiting DevSecOps Setup. Goodbye!" "$GREEN"
                 exit 0
                 ;;
@@ -1148,47 +730,6 @@ cleanup_all() {
     cleanup_monitoring
     cleanup_application
     cleanup_repos
-    cleanup_siem
-}
-
-# SIEM cleanup function
-cleanup_siem() {
-    log "❌ Cleaning up SIEM components..." "$YELLOW"
-    
-    # Stop and disable SIEM services
-    sudo systemctl stop webhook-monitor.service || true
-    sudo systemctl disable webhook-monitor.service || true
-    sudo systemctl stop fail2ban || true
-    sudo systemctl disable fail2ban || true
-    
-    # Remove SIEM service files
-    sudo rm -f /etc/systemd/system/webhook-monitor.service
-    sudo rm -f /usr/local/bin/webhook-monitor.sh
-    
-    # Remove SIEM configurations
-    sudo rm -f /etc/audit/rules.d/siem-security.rules
-    sudo rm -f /etc/rsyslog.d/50-siem.conf
-    sudo rm -f /etc/fail2ban/jail.local
-    
-    # Remove SIEM log files
-    sudo rm -f /var/log/webhook.log
-    sudo rm -f /var/log/sudo.log
-    sudo rm -f /var/log/user.log
-    sudo rm -f /var/log/package.log
-    
-    # Remove SIEM Kubernetes resources
-    microk8s kubectl delete daemonset siem-log-collector -n monitoring || true
-    microk8s kubectl delete configmap siem-host-config -n monitoring || true
-    microk8s kubectl delete serviceaccount siem-log-collector -n monitoring || true
-    microk8s kubectl delete clusterrole siem-log-collector || true
-    microk8s kubectl delete clusterrolebinding siem-log-collector || true
-    
-    # Restart services
-    sudo systemctl restart rsyslog || true
-    sudo systemctl restart auditd || true
-    sudo systemctl daemon-reload
-    
-    log "✅ SIEM cleanup completed." "$GREEN"
 }
 
 # Start the script
