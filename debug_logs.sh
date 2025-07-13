@@ -7,9 +7,21 @@ echo "=== Loki Debug Check ==="
 echo "1. Checking Loki pod status..."
 microk8s kubectl get pods -n monitoring | grep loki
 
-# Check Loki logs
+# Check Loki logs (try both deployment and statefulset)
 echo -e "\n2. Checking Loki logs..."
-microk8s kubectl logs -n monitoring deployment/loki --tail=20
+if microk8s kubectl get deployment loki -n monitoring &>/dev/null; then
+    microk8s kubectl logs -n monitoring deployment/loki --tail=20
+elif microk8s kubectl get statefulset loki -n monitoring &>/dev/null; then
+    microk8s kubectl logs -n monitoring statefulset/loki --tail=20
+else
+    echo "Loki deployment/statefulset not found, trying pod directly..."
+    LOKI_POD=$(microk8s kubectl get pods -n monitoring -l app.kubernetes.io/name=loki -o jsonpath='{.items[0].metadata.name}')
+    if [ ! -z "$LOKI_POD" ]; then
+        microk8s kubectl logs -n monitoring pod/$LOKI_POD --tail=20
+    else
+        echo "No Loki pods found"
+    fi
+fi
 
 # Check if Grafana is running
 echo -e "\n3. Checking Grafana pod status..."
@@ -27,9 +39,24 @@ microk8s kubectl get configmaps -n monitoring | grep dashboard
 echo -e "\n6. Checking Alloy pod status..."
 microk8s kubectl get pods -n monitoring | grep alloy
 
-# Check Alloy logs
+# Check Alloy logs (try different resource types)
 echo -e "\n7. Checking Alloy logs..."
-microk8s kubectl logs -n monitoring deployment/alloy --tail=20
+if microk8s kubectl get deployment alloy -n monitoring &>/dev/null; then
+    microk8s kubectl logs -n monitoring deployment/alloy --tail=20
+elif microk8s kubectl get daemonset alloy -n monitoring &>/dev/null; then
+    microk8s kubectl logs -n monitoring daemonset/alloy --tail=20
+else
+    echo "Alloy deployment/daemonset not found, trying pod directly..."
+    ALLOY_POD=$(microk8s kubectl get pods -n monitoring -l app.kubernetes.io/name=alloy -o jsonpath='{.items[0].metadata.name}')
+    if [ ! -z "$ALLOY_POD" ]; then
+        echo "Checking Alloy pod logs:"
+        microk8s kubectl logs -n monitoring pod/$ALLOY_POD --tail=20
+        echo -e "\nChecking Alloy pod describe for issues:"
+        microk8s kubectl describe pod $ALLOY_POD -n monitoring | tail -20
+    else
+        echo "No Alloy pods found"
+    fi
+fi
 
 # Try to query Loki directly
 echo -e "\n8. Testing Loki query API..."
@@ -49,5 +76,24 @@ if [ ! -z "$LOKI_POD" ]; then
     
     kill $PF_PID
 fi
+
+# Additional diagnostics for Alloy issues
+echo -e "\n9. Detailed Alloy diagnostics..."
+echo "Checking Alloy Helm release status:"
+microk8s helm3 status alloy -n monitoring || echo "Alloy Helm release not found"
+
+echo -e "\nChecking Alloy ConfigMap:"
+microk8s kubectl get configmaps -n monitoring | grep alloy || echo "No Alloy ConfigMaps found"
+
+echo -e "\nChecking Alloy ServiceAccount and RBAC:"
+microk8s kubectl get serviceaccount alloy -n monitoring || echo "Alloy ServiceAccount not found"
+microk8s kubectl get clusterrole alloy || echo "Alloy ClusterRole not found"
+microk8s kubectl get clusterrolebinding alloy || echo "Alloy ClusterRoleBinding not found"
+
+echo -e "\nChecking node resources:"
+microk8s kubectl top nodes 2>/dev/null || echo "Metrics not available"
+
+echo -e "\nChecking events related to Alloy:"
+microk8s kubectl get events -n monitoring --field-selector involvedObject.kind=Pod | grep alloy || echo "No Alloy events found"
 
 echo -e "\n=== Debug Check Complete ==="
