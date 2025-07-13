@@ -6,9 +6,69 @@
     external_ip: "{{ ansible_default_ipv4.address }}"
   
   tasks:
-    - name: Include SIEM setup role
-      include_role:
-        name: siem_setup
+    - name: Create SIEM directory
+      file:
+        path: /opt/siem
+        state: directory
+        mode: '0755'
+
+    - name: Copy SIEM Alloy configuration
+      copy:
+        src: "{{ playbook_dir }}/../../siem/alloy-siem-config.alloy"
+        dest: /opt/siem/alloy-siem-config.alloy
+        mode: '0644'
+
+    - name: Configure host log directories to be accessible by Alloy
+      file:
+        path: /var/log
+        mode: '0755'
+        recurse: yes
+
+    - name: Create log rotation configuration for security logs
+      copy:
+        dest: /etc/logrotate.d/siem-security
+        content: |
+          /var/log/auth.log
+          /var/log/secure
+          /var/log/syslog {
+              daily
+              missingok
+              rotate 30
+              compress
+              delaycompress
+              notifempty
+              postrotate
+                  /bin/kill -HUP `cat /var/run/rsyslogd.pid 2> /dev/null` 2> /dev/null || true
+              endscript
+          }
+
+    - name: Ensure rsyslog is running for system logging
+      systemd:
+        name: rsyslog
+        enabled: yes
+        state: started
+
+    - name: Configure SSH logging for better SIEM integration
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?LogLevel'
+        line: 'LogLevel VERBOSE'
+        backup: yes
+      notify: restart sshd
+
+    - name: Configure audit logging
+      lineinfile:
+        path: /etc/audit/auditd.conf
+        regexp: '^log_file'
+        line: 'log_file = /var/log/audit/audit.log'
+        backup: yes
+      notify: restart auditd
+
+    - name: Enable and start auditd service
+      systemd:
+        name: auditd
+        enabled: yes
+        state: started
       
     - name: Install additional security monitoring tools
       package:
@@ -103,6 +163,16 @@
           Access the SIEM dashboard in Grafana to view security events.
 
   handlers:
+    - name: restart sshd
+      systemd:
+        name: sshd
+        state: restarted
+
+    - name: restart auditd
+      systemd:
+        name: auditd
+        state: restarted
+
     - name: restart fail2ban
       systemd:
         name: fail2ban

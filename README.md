@@ -136,7 +136,7 @@ Le menu vous propose les options suivantes :
   6) Deploy Monitoring Stack with SIEM # Loki + Grafana + Alloy + SIEM
   7) Deploy Flask Application         # Application principale
   8) Configure Azure External Access  # Accès cloud
-  9) Setup SIEM Host Monitoring       # Configuration SIEM avancée
+  9) Setup SIEM Host Monitoring       # Instructions for SIEM setup
  10) Full Production Setup            # Installation complète (3-8)
  11) Development Mode                 # Docker Compose local
  12) Cleanup Options                  # Nettoyage par composants
@@ -408,26 +408,37 @@ curl -X POST http://webhook.YOUR_IP.nip.io/webhook \
 
 ### 🛡️ Setup SIEM Host Monitoring
 
-**Configuration Avancée :**
+**Méthode 1 - Script Automatique (Recommandé) :**
 
 ```bash
-# Option 9 du menu principal pour setup SIEM complet
-./setup.sh
-# → 9) Setup SIEM Host Monitoring
+# Rendre le script exécutable
+chmod +x setup-siem.sh
 
-# Cette option configure :
-# - Collecte des logs système sur l'hôte
-# - Installation de fail2ban pour protection SSH
-# - Configuration des rotations de logs
-# - Monitoring continu avec scripts automatisés
+# Lancer la configuration SIEM
+./setup-siem.sh
 ```
 
-**Services de Sécurité Installés :**
+**Méthode 2 - Ansible Manuel :**
+
+```bash
+# Installer Ansible si nécessaire
+sudo apt-get update && sudo apt-get install -y ansible
+
+# Naviguer vers le répertoire ansible
+cd ansible
+
+# Exécuter le playbook SIEM
+ansible-playbook -i inventory playbooks/siem.yml --ask-become-pass
+```
+
+**Configuration Incluse :**
 
 - **fail2ban** : Protection contre les attaques par force brute SSH
 - **auditd** : Audit avancé des accès système
 - **logwatch** : Analyses quotidiennes des logs
 - **chkrootkit** : Détection de rootkits
+- **Rotation des logs** : Gestion automatique des fichiers de logs
+- **Monitoring SSH** : Surveillance des connexions et tentatives
 
 ### 🔐 Intégration avec Alloy
 
