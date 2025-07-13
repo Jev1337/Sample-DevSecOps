@@ -206,174 +206,6 @@ deploy_core_services() {
     log "✅ Core services deployed successfully." "$GREEN"
 }
 
-# Function to deploy SIEM stack
-deploy_siem_stack() {
-    log "🛡️ Deploying SIEM Stack for Security Monitoring..." "$BLUE"
-    
-    log "Installing auditd for enhanced system logging..." "$YELLOW"
-    sudo apt-get update && sudo apt-get install -y auditd audispd-plugins
-    
-    log "Creating SIEM namespace..." "$YELLOW"
-    microk8s kubectl get ns siem >/dev/null 2>&1 || microk8s kubectl create ns siem
-    
-    # Deploy webhook receiver for Git change tracking
-    log "Deploying webhook receiver for Git integration..." "$YELLOW"
-    cat <<EOF | microk8s kubectl apply -f -
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: webhook-receiver
-  namespace: siem
-  labels:
-    app: webhook-receiver
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: webhook-receiver
-  template:
-    metadata:
-      labels:
-        app: webhook-receiver
-    spec:
-      containers:
-      - name: webhook-receiver
-        image: nginx:alpine
-        ports:
-        - containerPort: 80
-        volumeMounts:
-        - name: webhook-logs
-          mountPath: /tmp/webhook-logs
-        - name: nginx-config
-          mountPath: /etc/nginx/conf.d/default.conf
-          subPath: default.conf
-      volumes:
-      - name: webhook-logs
-        hostPath:
-          path: /tmp/webhooks
-          type: DirectoryOrCreate
-      - name: nginx-config
-        configMap:
-          name: webhook-nginx-config
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: webhook-nginx-config
-  namespace: siem
-data:
-  default.conf: |
-    server {
-        listen 80;
-        server_name _;
-        
-        location /webhook {
-            access_log /tmp/webhook-logs/webhook-access.log;
-            error_log /tmp/webhook-logs/webhook-error.log;
-            
-            # Simple webhook logging
-            if (\$request_method = POST) {
-                access_log /tmp/webhook-logs/webhook-payload.log;
-            }
-            
-            return 200 '{"status":"received","timestamp":"'"\$(date -Iseconds)"'"}';
-            add_header Content-Type application/json;
-        }
-        
-        location /health {
-            return 200 '{"status":"ok"}';
-            add_header Content-Type application/json;
-        }
-    }
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: webhook-receiver-service
-  namespace: siem
-spec:
-  selector:
-    app: webhook-receiver
-  ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 80
-  type: ClusterIP
-EOF
-    
-    # Create webhook external access
-    EXTERNAL_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com)
-    cat <<EOF | microk8s kubectl apply -f -
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: webhook-ingress
-  namespace: siem
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-spec:
-  ingressClassName: public
-  rules:
-  - host: webhook.${EXTERNAL_IP}.nip.io
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: webhook-receiver-service
-            port:
-              number: 80
-EOF
-    
-    # Configure system audit logging
-    log "Configuring system audit rules..." "$YELLOW"
-    sudo mkdir -p /etc/audit/rules.d
-    cat <<EOF | sudo tee /etc/audit/rules.d/siem.rules > /dev/null
-# SIEM Audit Rules for Security Monitoring
--w /etc/passwd -p wa -k identity
--w /etc/group -p wa -k identity
--w /etc/shadow -p wa -k identity
--w /etc/sudoers -p wa -k identity
--w /var/log/auth.log -p wa -k authentication
--w /var/log/syslog -p wa -k system
--w /etc/ssh/sshd_config -p wa -k sshd
--w /bin/su -p x -k privileged
--w /usr/bin/sudo -p x -k privileged
--w /usr/bin/passwd -p x -k passwd_modification
--w /usr/bin/apt -p x -k package_management
--w /usr/bin/apt-get -p x -k package_management
--w /usr/bin/dpkg -p x -k package_management
-EOF
-    
-    sudo systemctl enable auditd
-    sudo systemctl restart auditd || log "⚠️ Auditd restart may require reboot to take full effect" "$YELLOW"
-    
-    # Update Alloy configuration for SIEM
-    log "Updating Alloy configuration for SIEM integration..." "$YELLOW"
-    microk8s helm3 upgrade alloy grafana/alloy -n monitoring -f helm/alloy/values.yaml
-    
-    log "⏳ Waiting for SIEM components to be ready..." "$YELLOW"
-    microk8s kubectl rollout status deployment/webhook-receiver -n siem --timeout=2m
-    
-    log "✅ SIEM stack deployed successfully!" "$GREEN"
-    log "🛡️ SIEM CAPABILITIES ENABLED" "$CYAN"
-    log "============================" "$CYAN"
-    log "📊 Monitoring Coverage:" "$YELLOW"
-    log "  ✓ System logins and authentication" "$CYAN"
-    log "  ✓ Package installations and system changes" "$CYAN"
-    log "  ✓ Git webhook integration for code changes" "$CYAN"
-    log "  ✓ CI/CD pipeline activities" "$CYAN"
-    log "  ✓ Security events and audit logs" "$CYAN"
-    log "  ✓ Application logs and errors" "$CYAN"
-    log "" "$CYAN"
-    log "🔗 Webhook Endpoint for Git Integration:" "$YELLOW"
-    log "  http://webhook.${EXTERNAL_IP}.nip.io/webhook" "$CYAN"
-    log "" "$CYAN"
-    log "📈 Grafana Dashboard:" "$YELLOW"
-    log "  Import 'siem-dashboard.json' from monitoring/grafana/dashboards/" "$CYAN"
-}
-
 # Function to deploy monitoring stack
 deploy_monitoring_stack() {
     log "📊 Deploying Monitoring Stack..." "$BLUE"
@@ -689,13 +521,12 @@ run_cleanup() {
         log "Select cleanup action:" "$YELLOW"
         echo "  1) Cleanup Core Services (Jenkins, SonarQube)"
         echo "  2) Cleanup Monitoring Stack (Loki, Grafana, Alloy)"
-        echo "  3) Cleanup SIEM Stack"
-        echo "  4) Cleanup Application Deployment"
-        echo "  5) Cleanup Development Environment (Docker Compose)"
-        echo "  6) Cleanup Azure External Access"
-        echo "  7) Cleanup ALL"
-        echo "  8) Return to main menu"
-        read -p "Enter your choice [1-8]: " cleanup_choice
+        echo "  3) Cleanup Application Deployment"
+        echo "  4) Cleanup Development Environment (Docker Compose)"
+        echo "  5) Cleanup Azure External Access"
+        echo "  6) Cleanup ALL"
+        echo "  7) Return to main menu"
+        read -p "Enter your choice [1-7]: " cleanup_choice
         
         case $cleanup_choice in
             1)
@@ -707,19 +538,15 @@ run_cleanup() {
                 log "✅ Monitoring stack cleanup complete." "$GREEN"
                 ;;
             3)
-                cleanup_siem
-                log "✅ SIEM stack cleanup complete." "$GREEN"
-                ;;
-            4)
                 cleanup_application
                 log "✅ Application deployment cleanup complete." "$GREEN"
                 ;;
-            5)
+            4)
                 log "Stopping Docker Compose services..." "$YELLOW"
                 docker compose down -v
                 log "✅ Development environment cleanup complete." "$GREEN"
                 ;;
-            6)
+            5)
                 log "Removing Azure LoadBalancer services..." "$YELLOW"
                 microk8s kubectl delete service jenkins-loadbalancer -n jenkins || true
                 microk8s kubectl delete service sonarqube-loadbalancer -n sonarqube || true
@@ -727,12 +554,12 @@ run_cleanup() {
                 microk8s kubectl delete service flask-app-loadbalancer -n flask-app || true
                 log "✅ Azure external access cleanup complete." "$GREEN"
                 ;;
-            7)
+            6)
                 cleanup_all
                 docker compose down -v || true
                 log "✅ Full cleanup completed!" "$GREEN"
                 ;;
-            8)
+            7)
                 return 0
                 ;;
             *)
@@ -787,16 +614,15 @@ show_main_menu() {
         echo "  4) Build Jenkins Image"
         echo "  5) Deploy Core Services (Jenkins, SonarQube)"
         echo "  6) Deploy Monitoring Stack (Loki, Grafana, Alloy)"
-        echo "  7) Deploy SIEM Stack (Security Monitoring)"
-        echo "  8) Deploy Flask Application"
-        echo "  9) Configure Azure External Access"
-        echo " 10) Full Production Setup (3-8)"
-        echo " 11) Development Mode (Docker Compose)"
-        echo " 12) Cleanup Options"
-        echo " 13) Show Access Information"
-        echo " 14) Exit"
+        echo "  7) Deploy Flask Application"
+        echo "  8) Configure Azure External Access"
+        echo "  9) Full Production Setup (3-7)"
+        echo " 10) Development Mode (Docker Compose)"
+        echo " 11) Cleanup Options"
+        echo " 12) Show Access Information"
+        echo " 13) Exit"
         echo ""
-        read -p "Enter your choice [1-14]: " choice
+        read -p "Enter your choice [1-13]: " choice
         
         case $choice in
             1)
@@ -818,36 +644,32 @@ show_main_menu() {
                 deploy_monitoring_stack
                 ;;
             7)
-                deploy_siem_stack
-                ;;
-            8)
                 deploy_application
                 ;;
-            9)
+            8)
                 configure_azure_access
                 ;;
-            10)
+            9)
                 log "🚀 Starting Full Production Setup..." "$PURPLE"
                 check_prerequisites
                 setup_microk8s
                 build_jenkins_image
                 deploy_core_services
                 deploy_monitoring_stack
-                deploy_siem_stack
                 deploy_application
                 show_access_info
                 log "✅ Full production setup completed!" "$GREEN"
                 ;;
-            11)
+            10)
                 run_development_mode
                 ;;
-            12)
+            11)
                 run_cleanup
                 ;;
-            13)
+            12)
                 show_access_info
                 ;;
-            14)
+            13)
                 log "👋 Exiting DevSecOps Setup. Goodbye!" "$GREEN"
                 exit 0
                 ;;
@@ -895,16 +717,6 @@ cleanup_application() {
     docker rmi flask-k8s-app:latest localhost:32000/flask-k8s-app:latest || true
 }
 
-cleanup_siem() {
-    log "❌ Cleaning up SIEM stack..." "$YELLOW"
-    microk8s kubectl delete namespace siem --ignore-not-found
-    log "Removing audit rules..." "$YELLOW"
-    sudo rm -f /etc/audit/rules.d/siem.rules || true
-    sudo systemctl restart auditd || true
-    log "Removing webhook logs..." "$YELLOW"
-    sudo rm -rf /tmp/webhooks || true
-}
-
 cleanup_repos() {
     log "Removing Helm repositories..." "$YELLOW"
     microk8s helm3 repo remove jenkins || true
@@ -916,7 +728,6 @@ cleanup_repos() {
 cleanup_all() {
     cleanup_core_services
     cleanup_monitoring
-    cleanup_siem
     cleanup_application
     cleanup_repos
 }
