@@ -5,38 +5,38 @@ echo "=== Loki Debug Check ==="
 
 # Check if Loki is running
 echo "1. Checking Loki pod status..."
-kubectl get pods -n monitoring | grep loki
+microk8s kubectl get pods -n monitoring | grep loki
 
 # Check Loki logs
 echo -e "\n2. Checking Loki logs..."
-kubectl logs -n monitoring deployment/loki --tail=20
+microk8s kubectl logs -n monitoring deployment/loki --tail=20
 
 # Check if Grafana is running
 echo -e "\n3. Checking Grafana pod status..."
-kubectl get pods -n monitoring | grep grafana
+microk8s kubectl get pods -n monitoring | grep grafana
 
 # Check Grafana logs
 echo -e "\n4. Checking Grafana logs..."
-kubectl logs -n monitoring deployment/grafana --tail=20
+microk8s kubectl logs -n monitoring deployment/grafana --tail=20
 
 # Check if ConfigMaps exist for dashboards
 echo -e "\n5. Checking dashboard ConfigMaps..."
-kubectl get configmaps -n monitoring | grep dashboard
+microk8s kubectl get configmaps -n monitoring | grep dashboard
 
 # Check Alloy status
 echo -e "\n6. Checking Alloy pod status..."
-kubectl get pods -n monitoring | grep alloy
+microk8s kubectl get pods -n monitoring | grep alloy
 
 # Check Alloy logs
 echo -e "\n7. Checking Alloy logs..."
-kubectl logs -n monitoring deployment/alloy --tail=20
+microk8s kubectl logs -n monitoring deployment/alloy --tail=20
 
 # Try to query Loki directly
 echo -e "\n8. Testing Loki query API..."
-LOKI_POD=$(kubectl get pods -n monitoring -l app.kubernetes.io/name=loki -o jsonpath='{.items[0].metadata.name}')
+LOKI_POD=$(microk8s kubectl get pods -n monitoring -l app.kubernetes.io/name=loki -o jsonpath='{.items[0].metadata.name}')
 if [ ! -z "$LOKI_POD" ]; then
     echo "Found Loki pod: $LOKI_POD"
-    kubectl port-forward -n monitoring pod/$LOKI_POD 3100:3100 &
+    microk8s kubectl port-forward -n monitoring pod/$LOKI_POD 3100:3100 &
     PF_PID=$!
     sleep 3
     
