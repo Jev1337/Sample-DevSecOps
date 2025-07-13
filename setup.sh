@@ -913,79 +913,133 @@ spec:
         image: python:3.9-slim
         ports:
         - containerPort: 8080
-        command: ["/bin/bash"]
-        args:
-          - -c
-          - |
-            pip install flask requests
-            cat > /app/webhook_receiver.py << 'PYEOF'
-            from flask import Flask, request, jsonify
-            import json
-            import logging
-            from datetime import datetime
-            import os
-
-            app = Flask(__name__)
-            logging.basicConfig(level=logging.INFO)
-
-            @app.route('/webhook', methods=['POST'])
-            def webhook():
-                try:
-                    data = request.get_json()
-                    timestamp = datetime.utcnow().isoformat()
-                    
-                    # Log security-relevant webhook events
-                    security_event = {
-                        "timestamp": timestamp,
-                        "event_type": "webhook_received",
-                        "source_ip": request.remote_addr,
-                        "user_agent": request.headers.get('User-Agent', ''),
-                        "webhook_data": data,
-                        "severity": "info"
-                    }
-                    
-                    # Detect potential security events
-                    if data and isinstance(data, dict):
-                        if 'commits' in data:
-                            security_event['event_type'] = 'git_commit'
-                            security_event['severity'] = 'medium'
-                            if any('password' in str(commit).lower() or 'secret' in str(commit).lower() 
-                                   for commit in data.get('commits', [])):
-                                security_event['severity'] = 'high'
-                                security_event['alert'] = 'Potential credential exposure in commit'
-                        
-                        if 'pull_request' in data:
-                            security_event['event_type'] = 'pull_request'
-                            security_event['severity'] = 'medium'
-                    
-                    # Log the security event in JSON format for Loki
-                    print(json.dumps(security_event))
-                    
-                    return jsonify({"status": "received", "timestamp": timestamp}), 200
-                    
-                except Exception as e:
-                    error_event = {
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "event_type": "webhook_error",
-                        "error": str(e),
-                        "severity": "high"
-                    }
-                    print(json.dumps(error_event))
-                    return jsonify({"error": str(e)}), 500
-
-            @app.route('/health', methods=['GET'])
-            def health():
-                return jsonify({"status": "healthy"}), 200
-
-            if __name__ == '__main__':
-                app.run(host='0.0.0.0', port=8080, debug=False)
-            PYEOF
-            
-            cd /app && python webhook_receiver.py
         workingDir: /app
         env:
         - name: PYTHONUNBUFFERED
           value: "1"
+        command: 
+        - /bin/sh
+        - -c
+        - |
+          mkdir -p /app
+          pip install --no-cache-dir flask requests gunicorn
+          cat > /app/webhook_receiver.py << 'PYEOF'
+          from flask import Flask, request, jsonify
+          import json
+          import logging
+          from datetime import datetime
+          import os
+          import sys
+
+          # Configure logging
+          logging.basicConfig(
+              level=logging.INFO,
+              format='%(asctime)s %(levelname)s %(message)s',
+              handlers=[
+                  logging.StreamHandler(sys.stdout)
+              ]
+          )
+
+          app = Flask(__name__)
+          logger = logging.getLogger(__name__)
+
+          @app.route('/webhook', methods=['POST', 'GET'])
+          def webhook():
+              try:
+                  if request.method == 'GET':
+                      return jsonify({"status": "webhook endpoint ready", "methods": ["POST"]}), 200
+                      
+                  data = request.get_json(force=True) if request.is_json else {}
+                  timestamp = datetime.utcnow().isoformat()
+                  
+                  # Log security-relevant webhook events
+                  security_event = {
+                      "timestamp": timestamp,
+                      "event_type": "webhook_received",
+                      "source_ip": request.environ.get('REMOTE_ADDR', 'unknown'),
+                      "user_agent": request.headers.get('User-Agent', ''),
+                      "content_type": request.headers.get('Content-Type', ''),
+                      "webhook_data": data,
+                      "severity": "info"
+                  }
+                  
+                  # Detect potential security events
+                  if data and isinstance(data, dict):
+                      if 'commits' in data:
+                          security_event['event_type'] = 'git_commit'
+                          security_event['severity'] = 'medium'
+                          commits = data.get('commits', [])
+                          for commit in commits:
+                              commit_str = str(commit).lower()
+                              if any(keyword in commit_str for keyword in ['password', 'secret', 'key', 'token', 'credential']):
+                                  security_event['severity'] = 'high'
+                                  security_event['alert'] = 'Potential credential exposure in commit'
+                                  break
+                      
+                      if 'pull_request' in data:
+                          security_event['event_type'] = 'pull_request'
+                          security_event['severity'] = 'medium'
+                      
+                      if 'action' in data:
+                          security_event['action'] = data['action']
+                  
+                  # Log the security event in JSON format for Loki
+                  logger.info(json.dumps(security_event))
+                  
+                  return jsonify({"status": "received", "timestamp": timestamp, "events_processed": 1}), 200
+                  
+              except Exception as e:
+                  error_event = {
+                      "timestamp": datetime.utcnow().isoformat(),
+                      "event_type": "webhook_error",
+                      "error": str(e),
+                      "severity": "high"
+                  }
+                  logger.error(json.dumps(error_event))
+                  return jsonify({"error": str(e), "status": "error"}), 500
+
+          @app.route('/health', methods=['GET'])
+          def health():
+              return jsonify({"status": "healthy", "timestamp": datetime.utcnow().isoformat()}), 200
+
+          @app.route('/', methods=['GET'])
+          def root():
+              return jsonify({
+                  "service": "SIEM Webhook Receiver",
+                  "endpoints": {
+                      "/webhook": "POST - Receive webhook events",
+                      "/health": "GET - Health check",
+                      "/": "GET - Service info"
+                  },
+                  "status": "ready"
+              }), 200
+
+          if __name__ == '__main__':
+              logger.info("Starting SIEM Webhook Receiver...")
+              app.run(host='0.0.0.0', port=8080, debug=False, threaded=True)
+          PYEOF
+          
+          cd /app
+          python webhook_receiver.py
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
 ---
 apiVersion: v1
 kind: Service
@@ -1012,6 +1066,7 @@ metadata:
   namespace: monitoring
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   ingressClassName: public
   rules:
@@ -1027,7 +1082,11 @@ spec:
               number: 80
 EOF
 
-    log "✅ SIEM webhook service deployed at webhook.${EXTERNAL_IP}.nip.io" "$GREEN"
+    # Wait for deployment to be ready
+    log "⏳ Waiting for SIEM webhook deployment..." "$YELLOW"
+    microk8s kubectl rollout status deployment/siem-webhook -n monitoring --timeout=2m
+
+    log "✅ SIEM webhook service deployed at http://webhook.${EXTERNAL_IP}.nip.io" "$GREEN"
 }
 
 # Function to configure system log forwarding
