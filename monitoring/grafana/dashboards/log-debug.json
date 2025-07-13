@@ -53,11 +53,11 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (job) (count_over_time({job=~\"auth|sudo|syslog|ssh_auth|process_monitor\"} [$__interval]))",
+          "expr": "sum by (job) (count_over_time({job=~\".*\"} [5m]))",
           "refId": "A"
         }
       ],
-      "title": "Security Events by Type",
+      "title": "All Log Sources (by Job)",
       "type": "piechart"
     },
     {
@@ -94,11 +94,11 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=~\"auth|ssh_auth\"} |~ \"Failed|failed|FAILED\"",
+          "expr": "{job=~\".*\"} |~ \".*\"",
           "refId": "A"
         }
       ],
-      "title": "Failed Authentication Attempts",
+      "title": "Recent Log Entries",
       "type": "table"
     },
     {
@@ -180,11 +180,11 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (job) (rate({job=~\"auth|ssh_auth\"} |~ \"Accepted|accepted|SUCCESS\" [$__interval]))",
+          "expr": "sum by (job) (rate({job=~\".*\"} [5m]))",
           "refId": "A"
         }
       ],
-      "title": "Successful SSH Logins by User (Rate)",
+      "title": "Log Rate by Source",
       "type": "timeseries"
     },
     {
@@ -221,11 +221,11 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=~\"sudo|auth\"} |~ \"sudo|SUDO\"",
+          "expr": "{container=~\".*\"} |~ \".*\"",
           "refId": "A"
         }
       ],
-      "title": "Sudo Command Executions",
+      "title": "Container Logs",
       "type": "table"
     },
     {
@@ -262,70 +262,29 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=~\"git_webhook|host_webhook\"} |~ \"webhook|Webhook\"",
+          "expr": "{namespace=~\".*\"} |~ \".*\"",
           "refId": "A"
         }
       ],
-      "title": "Git Webhook Activity",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "continuous-GrYlRd"
-          },
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto"
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 24
-      },
-      "id": 6,
-      "options": {
-        "showHeader": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{job=~\"syslog|messages\"} |~ \"apt|dpkg|yum|rpm|install|remove|upgrade\"",
-          "refId": "A"
-        }
-      ],
-      "title": "Package Management Activities",
+      "title": "Namespace Logs",
       "type": "table"
     }
   ],
   "refresh": "30s",
   "schemaVersion": 37,
   "style": "dark",
-  "tags": ["siem", "security"],
+  "tags": ["debug", "logs"],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "title": "SIEM Security Overview",
-  "uid": "siem-overview",
+  "title": "Log Debug Dashboard",
+  "uid": "log-debug",
   "version": 1,
   "weekStart": ""
 }
