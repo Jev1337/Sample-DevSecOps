@@ -59,26 +59,12 @@ cleanup_repos() {
     microk8s helm3 repo remove aquasecurity || true
 }
 
-# --- Function to remove SIEM Stack ---
-cleanup_siem() {
-    echo "❌ Cleaning up SIEM stack..."
-    echo "Deleting SIEM namespace and resources..."
-    microk8s kubectl delete namespace siem --ignore-not-found
-    echo "Removing audit rules..."
-    sudo rm -f /etc/audit/rules.d/siem.rules || true
-    sudo systemctl restart auditd || true
-    echo "Removing webhook logs..."
-    sudo rm -rf /tmp/webhooks || true
-    echo "✅ SIEM stack cleanup complete."
-}
-
 # --- Function to clean up everything ---
 cleanup_all() {
     cleanup_core_services
     cleanup_monitoring
     cleanup_application
     cleanup_repos
-    cleanup_siem
 }
 
 # --- Main Menu ---
@@ -87,10 +73,9 @@ while true; do
     echo "Select the cleanup action:"
     echo "  1) Cleanup Core Services (Jenkins, SonarQube)"
     echo "  2) Cleanup Monitoring Stack (Loki, Grafana, Alloy)"
-    echo "  3) Cleanup SIEM Stack (Webhook receiver, audit rules)"
-    echo "  4) Cleanup Application Deployment"
-    echo "  5) Cleanup ALL"
-    echo "  6) Exit"
+    echo "  3) Cleanup Application Deployment"
+    echo "  4) Cleanup ALL"
+    echo "  5) Exit"
     read -p "Enter your choice [1-6]: " choice
 
     case $choice in
@@ -103,17 +88,14 @@ while true; do
             echo "✅ Monitoring stack cleanup complete."
             ;;
         3)
-            cleanup_siem
-            ;;
-        4)
             cleanup_application
             echo "✅ Application deployment cleanup complete."
             ;;
-        5)
+        4)
             cleanup_all
             echo "✅ Full cleanup completed! MicroK8s remains installed."
             ;;
-        6)
+        5)
             echo "Exiting cleanup script."
             exit 0
             ;;
