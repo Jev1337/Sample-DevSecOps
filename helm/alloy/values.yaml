@@ -53,12 +53,11 @@ alloy:
 
       // SIEM: SSH and authentication monitoring
       loki.source.journal "ssh_auth" {
-        targets = [
-          {job = "ssh_auth", host = env("HOSTNAME")},
-        ]
+        labels = {job = "auth", host = env("HOSTNAME")}
+        matches = "_SYSTEMD_UNIT=ssh.service,sshd.service"
         relabel_rules = [
           {
-            source_labels = ["__journal_systemd_unit"],
+            source_labels = ["__journal__systemd_unit"],
             regex = "ssh\\.service|sshd\\.service",
             target_label = "unit",
           },
@@ -68,9 +67,7 @@ alloy:
 
       // SIEM: Process monitoring via journal
       loki.source.journal "process_monitor" {
-        targets = [
-          {job = "process_monitor", host = env("HOSTNAME")},
-        ]
+        labels = {job = "syslog", host = env("HOSTNAME")}
         relabel_rules = [
           {
             source_labels = ["__journal_priority"],
