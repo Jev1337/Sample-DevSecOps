@@ -21,5 +21,19 @@ datasources:
       version: 1
       editable: false
       orgId: 1
+      jsonData:
+        maxLines: 5000
+
+# Enable sidecar for automatic dashboard discovery
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    folder: /tmp/dashboards
+    searchNamespace: monitoring
+    provider:
+      foldersFromFilesStructure: true
+
 initChownData:
   enabled: false

@@ -17,15 +17,35 @@
   args:
     executable: /bin/bash
 
+- name: Create SIEM dashboard ConfigMaps with proper labels
+  ansible.builtin.shell: |
+    microk8s kubectl create configmap siem-overview-dashboard -n monitoring \
+      --from-file=siem-overview.json={{ playbook_dir }}/../../monitoring/grafana/dashboards/siem-overview.json \
+      --dry-run=client -o yaml | \
+      microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
+      microk8s kubectl apply -f -
+    
+    microk8s kubectl create configmap ssh-monitoring-dashboard -n monitoring \
+      --from-file=ssh-monitoring.json={{ playbook_dir }}/../../monitoring/grafana/dashboards/ssh-monitoring.json \
+      --dry-run=client -o yaml | \
+      microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
+      microk8s kubectl apply -f -
+    
+    # Add SIEM folder annotations
+    microk8s kubectl annotate configmap siem-overview-dashboard -n monitoring grafana_folder="SIEM" --overwrite
+    microk8s kubectl annotate configmap ssh-monitoring-dashboard -n monitoring grafana_folder="SIEM" --overwrite
+  args:
+    executable: /bin/bash
+
 - name: Deploy Grafana with SIEM dashboards via Helm
   ansible.builtin.shell: |
-    microk8s helm3 status grafana -n monitoring || microk8s helm3 install grafana grafana/grafana -n monitoring -f {{ playbook_dir }}/../../helm/grafana/siem-values.yaml
+    microk8s helm3 status grafana -n monitoring || microk8s helm3 install grafana grafana/grafana -n monitoring -f {{ playbook_dir }}/../../helm/grafana/values.yaml
   args:
     executable: /bin/bash
 
 - name: Deploy Alloy with SIEM configuration via Helm
   ansible.builtin.shell: |
-    microk8s helm3 status alloy -n monitoring || microk8s helm3 install alloy grafana/alloy -n monitoring -f {{ playbook_dir }}/../../helm/alloy/siem-values.yaml
+    microk8s helm3 status alloy -n monitoring || microk8s helm3 install alloy grafana/alloy -n monitoring -f {{ playbook_dir }}/../../helm/alloy/values.yaml
   args:
     executable: /bin/bash
 
