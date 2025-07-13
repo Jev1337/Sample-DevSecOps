@@ -133,15 +133,14 @@ Le menu vous propose les options suivantes :
   3) Setup MicroK8s                   # Configuration cluster K8s
   4) Build Jenkins Image              # Image Jenkins personnalisée
   5) Deploy Core Services             # Jenkins + SonarQube
-  6) Deploy Monitoring Stack with SIEM # Loki + Grafana + Alloy + SIEM
+  6) Deploy Monitoring Stack          # Loki + Grafana + Alloy
   7) Deploy Flask Application         # Application principale
   8) Configure Azure External Access  # Accès cloud
-  9) Setup SIEM Host Monitoring       # Configuration SIEM avancée
- 10) Full Production Setup            # Installation complète (3-8)
- 11) Development Mode                 # Docker Compose local
- 12) Cleanup Options                  # Nettoyage par composants
- 13) Show Access Information          # URLs et credentials
- 14) Exit
+  9) Full Production Setup            # Installation complète (3-7)
+ 10) Development Mode                 # Docker Compose local
+ 11) Cleanup Options                  # Nettoyage par composants
+ 12) Show Access Information          # URLs et credentials
+ 13) Exit
 ```
 
 ### ⚡ Installation Express (Production)
@@ -312,172 +311,63 @@ Métriques surveillées :
 - 🔍 Patterns d'attaque détectés
 - 📈 Anomalies trafic réseau
 
-## 🛡️ SIEM
+## �️ SIEM
 
 ### 🎯 Security Information and Event Management
 
-Le système SIEM intégré offre une surveillance complète des événements de sécurité avec Grafana Alloy comme collecteur centralisé :
+Le système SIEM intégré offre une surveillance complète des événements de sécurité :
 
-**🔍 Sources de Données Surveillées :**
+**🔍 Événements Surveillés :**
 
-| Type d'Événement | Source | Description | Dashboard |
-|------------------|--------|-------------|-----------|
-| **SSH Authentication** | `/var/log/auth.log` | Connexions réussies/échouées, tentatives invalides | SIEM Security Dashboard |
-| **System Events** | `/var/log/syslog` | Événements système critiques | SIEM Security Dashboard |
-| **Audit Logs** | `/var/log/audit/audit.log` | Accès fichiers, changements privilèges | SIEM Security Dashboard |
-| **Kernel Events** | `/var/log/kern.log` | Événements noyau, erreurs hardware | SIEM Security Dashboard |
-| **Git Webhooks** | Webhook receiver (port 9999) | Push, commits, changements code | SIEM Security Dashboard |
-| **Container Logs** | Kubernetes pods | Logs applications, erreurs services | App Logs Dashboard |
-| **Web Access** | Nginx logs | Requêtes HTTP, codes d'erreur | SIEM Security Dashboard |
-
-**Fonctionnalités SIEM Avancées :**
-
-- 🔒 **Détection d'Intrusion** : Analyse des tentatives SSH échouées
-- 🚨 **Alertes Temps Réel** : Événements critiques avec seuils configurables  
-- 📊 **Corrélation d'Événements** : Liens entre différentes sources de logs
-- 🔍 **Analyse Comportementale** : Détection d'anomalies dans les patterns d'accès
-- 📈 **Métriques de Sécurité** : KPIs sécurité avec historique
-- 🌐 **Monitoring Git** : Surveillance des changements de code via webhooks
+| Type d'Événement | Source | Description |
+|------------------|--------|-------------|
+| **Authentification** | `/var/log/auth.log` | Connexions SSH, sudo, échecs |
+| **Changements Système** | `/var/log/dpkg.log` | Installations/suppression packages |
+| **Événements Kernel** | `/var/log/kern.log` | Événements système critiques |
+| **Changements Code** | Git Webhooks | Push, commits, branches |
+| **Pipeline CI/CD** | Jenkins logs | Builds, déploiements, tests |
+| **Applications** | Container logs | Erreurs, warnings, métriques |
 
 ### 📊 Dashboard SIEM
 
-**Accès au Dashboard :**
+**Importation du Dashboard :**
 
 ```bash
-# Dashboard SIEM disponible après déploiement
-# URL: http://grafana.YOUR_IP.nip.io
-# Dashboard: "SIEM Security Dashboard"
-# Credentials par défaut: admin/admin123
+# Dashboard disponible dans monitoring/grafana/dashboards/siem-dashboard.json
+# Importer via Grafana UI :
+# 1. Accéder à Grafana (http://grafana.local)
+# 2. Navigation → Dashboards → Import
+# 3. Télécharger siem-dashboard.json
+# 4. Configurer data source : Loki
 ```
 
-**Panneaux Disponibles :**
+**Métriques SIEM :**
 
-- 🔐 **SSH Events Distribution** : Répartition des événements d'authentification
-- � **Authentication Timeline** : Évolution temporelle des connexions
-- 🚨 **Top Failed Sources** : Sources IP avec le plus d'échecs
-- ⚠️ **Security Events by Severity** : Classification par niveau de gravité
-- � **Git Activity** : Monitoring des webhooks et commits
-- 📋 **Critical Events Log** : Logs des événements critiques en temps réel
+- 🔐 **Authentification** : Succès/échecs, utilisateurs, IPs sources
+- 🔄 **Changements Code** : Commits, auteurs, repositories
+- 🏗️ **CI/CD** : Builds, déploiements, statuts
+- 📦 **Système** : Installations, mises à jour, configurations
+- ⚠️ **Alertes** : Événements suspicieux, anomalies
 
 ### 🔗 Configuration Webhook Git
 
-**Déploiement Automatique :**
+**Setup Automatique :**
 
 ```bash
-# Le webhook est automatiquement déployé lors du setup monitoring
-./setup.sh
-# Option 6: Deploy Monitoring Stack with SIEM
+# Utiliser le script de configuration
+./configure-webhook.sh
 
-# URL du webhook sera affichée :
-# 🔗 SIEM Webhook URL: http://webhook.YOUR_IP.nip.io/webhook
-```
-
-**Configuration Git Repository :**
-
-```bash
-# Dans votre repository Git, configurer le webhook :
-# Settings → Webhooks → Add webhook
-# Payload URL: http://webhook.YOUR_IP.nip.io/webhook
+# Ou configurer manuellement :
+# URL: http://webhook.YOUR_IP.nip.io/webhook
 # Content-Type: application/json
-# Events: Push events, Pull requests (recommandé)
-# SSL verification: Disable (pour tests locaux)
+# Events: Push events (ou tous pour surveillance complète)
 ```
 
 **Test du Webhook :**
 
 ```bash
-# Test manuel avec curl
+# Test manuel
 curl -X POST http://webhook.YOUR_IP.nip.io/webhook \
-  -H "Content-Type: application/json" \
-  -d '{
-    "repository": {"name": "test-repo"},
-    "pusher": {"name": "test-user"},
-    "ref": "refs/heads/main",
-    "commits": [
-      {
-        "id": "abc123",
-        "message": "Test commit",
-        "author": {"name": "Test User"}
-      }
-    ]
-  }'
-
-# Vérifier dans Grafana → Explore → Loki :
-# {event_type="git_push"}
-```
-
-### 🛡️ Setup SIEM Host Monitoring
-
-**Configuration Avancée :**
-
-```bash
-# Option 9 du menu principal pour setup SIEM complet
-./setup.sh
-# → 9) Setup SIEM Host Monitoring
-
-# Cette option configure :
-# - Collecte des logs système sur l'hôte
-# - Installation de fail2ban pour protection SSH
-# - Configuration des rotations de logs
-# - Monitoring continu avec scripts automatisés
-```
-
-**Services de Sécurité Installés :**
-
-- **fail2ban** : Protection contre les attaques par force brute SSH
-- **auditd** : Audit avancé des accès système
-- **logwatch** : Analyses quotidiennes des logs
-- **chkrootkit** : Détection de rootkits
-
-### 🔐 Intégration avec Alloy
-
-**Configuration Alloy pour SIEM :**
-
-Le collecteur Alloy est configuré avec plusieurs sources :
-
-```alloy
-// Collecte logs système de l'hôte
-local.file_match "system_logs" {
-  path_targets = [
-    {"__path__" = "/host/var/log/auth.log*", "log_type" = "authentication"},
-    {"__path__" = "/host/var/log/syslog*", "log_type" = "system"},
-    {"__path__" = "/host/var/log/audit/audit.log*", "log_type" = "audit"}
-  ]
-}
-
-// Réception webhooks Git
-loki.source.webhook "git_webhooks" {
-  http {
-    listen_port = 9999
-  }
-  webhook_config {
-    path = "/webhook"
-  }
-}
-
-// Réception syslog distant
-loki.source.syslog "siem_syslog" {
-  listener {
-    address = "0.0.0.0:51400"
-    protocol = "tcp"
-  }
-}
-```
-
-### 📈 Alerting et Notifications
-
-**Configuration des Alertes :**
-
-```bash
-# Alertes configurées automatiquement :
-# - Plus de 5 échecs SSH en 5 minutes
-# - Connexions depuis nouvelles IPs
-# - Erreurs critiques dans les applications
-# - Activité Git suspecte (commits massifs)
-
-# Personnalisation via Grafana :
-# Alerting → Alert Rules → Create Rule
-```
   -H "Content-Type: application/json" \
   -d '{
     "repository": {"full_name": "test/repo"},

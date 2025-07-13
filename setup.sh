@@ -208,7 +208,7 @@ deploy_core_services() {
 
 # Function to deploy monitoring stack
 deploy_monitoring_stack() {
-    log "📊 Deploying Monitoring Stack with SIEM..." "$BLUE"
+    log "📊 Deploying Monitoring Stack..." "$BLUE"
     
     microk8s kubectl get ns monitoring >/dev/null 2>&1 || microk8s kubectl create ns monitoring
     
@@ -237,70 +237,20 @@ deploy_monitoring_stack() {
         log "✅ Grafana is already deployed." "$GREEN"
     fi
     
-    # Deploy Alloy with SIEM configuration
+    # Deploy Alloy
     if ! microk8s helm3 status alloy -n monitoring &> /dev/null; then
-        log "Deploying Alloy with SIEM configuration..." "$YELLOW"
-        microk8s helm3 install alloy grafana/alloy -n monitoring -f helm/alloy/values.yaml \
-            --set alloy.mounts.varlog.enabled=true \
-            --set alloy.mounts.varlog.hostPath=/var/log \
-            --set alloy.mounts.varlog.mountPath=/host/var/log
+        log "Deploying Alloy for log collection..." "$YELLOW"
+        microk8s helm3 install alloy grafana/alloy -n monitoring -f helm/alloy/values.yaml
     else
         log "✅ Alloy is already deployed." "$GREEN"
     fi
-    
-    # Deploy SIEM webhook service
-    log "Setting up SIEM webhook service..." "$YELLOW"
-    EXTERNAL_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com)
-    
-    # Create webhook service
-    cat <<EOF | microk8s kubectl apply -f -
-apiVersion: v1
-kind: Service
-metadata:
-  name: alloy-webhook-service
-  namespace: monitoring
-spec:
-  type: LoadBalancer
-  ports:
-    - name: webhook
-      port: 9999
-      targetPort: 9999
-      protocol: TCP
-  selector:
-    app.kubernetes.io/name: alloy
-EOF
-    
-    # Create webhook ingress
-    cat <<EOF | microk8s kubectl apply -f -
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: alloy-webhook-ingress
-  namespace: monitoring
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /webhook
-spec:
-  ingressClassName: public
-  rules:
-    - host: webhook.${EXTERNAL_IP}.nip.io
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: alloy-webhook-service
-                port:
-                  number: 9999
-EOF
     
     log "⏳ Waiting for monitoring components..." "$YELLOW"
     microk8s kubectl rollout status statefulset/loki -n monitoring --timeout=5m
     microk8s kubectl rollout status deployment/grafana -n monitoring --timeout=5m
     microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=5m
     
-    log "✅ Monitoring stack with SIEM deployed successfully." "$GREEN"
-    log "🔗 SIEM Webhook URL: http://webhook.${EXTERNAL_IP}.nip.io/webhook" "$CYAN"
+    log "✅ Monitoring stack deployed successfully." "$GREEN"
 }
 
 # Function to build and deploy application
@@ -619,25 +569,8 @@ run_cleanup() {
     done
 }
 
-# Function to setup SIEM monitoring
-setup_siem_monitoring() {
-    log "🛡️ Setting up SIEM Monitoring..." "$BLUE"
-    
-    # Check if Ansible is installed
-    if ! command -v ansible-playbook &> /dev/null; then
-        log "Installing Ansible..." "$YELLOW"
-        sudo apt-get update
-        sudo apt-get install -y ansible
-    fi
-    
-    # Run SIEM Ansible playbook
-    log "Running SIEM configuration playbook..." "$YELLOW"
-    cd "$SCRIPT_DIR/ansible"
-    ansible-playbook -i inventory playbooks/siem.yml --ask-become-pass
-    
-    cd "$SCRIPT_DIR"
-    log "✅ SIEM monitoring setup completed!" "$GREEN"
-}
+# Function to display access information
+show_access_info() {
     log "🔗 Service Access Information" "$CYAN"
     log "=============================" "$CYAN"
     
@@ -663,12 +596,6 @@ setup_siem_monitoring() {
     log "   - Grafana:   http://grafana.local (admin/admin123)" "$CYAN"
     echo ""
     
-    log "🛡️ SIEM & Security URLs:" "$PURPLE"
-    EXTERNAL_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com || echo "YOUR_IP")
-    log "   - Webhook:   http://webhook.${EXTERNAL_IP}.nip.io/webhook" "$CYAN"
-    log "   - SIEM Dashboard: Available in Grafana (SIEM Security Dashboard)" "$CYAN"
-    echo ""
-    
     log "🛠️  CI/CD Pipeline Setup:" "$YELLOW"
     log "   1. Configure a new 'Pipeline' job in Jenkins" "$YELLOW"
     log "   2. Point it to your Git repository" "$YELLOW"
@@ -686,17 +613,16 @@ show_main_menu() {
         echo "  3) Setup MicroK8s"
         echo "  4) Build Jenkins Image"
         echo "  5) Deploy Core Services (Jenkins, SonarQube)"
-        echo "  6) Deploy Monitoring Stack with SIEM (Loki, Grafana, Alloy)"
+        echo "  6) Deploy Monitoring Stack (Loki, Grafana, Alloy)"
         echo "  7) Deploy Flask Application"
         echo "  8) Configure Azure External Access"
-        echo "  9) Setup SIEM Host Monitoring"
-        echo " 10) Full Production Setup (3-8)"
-        echo " 11) Development Mode (Docker Compose)"
-        echo " 12) Cleanup Options"
-        echo " 13) Show Access Information"
-        echo " 14) Exit"
+        echo "  9) Full Production Setup (3-7)"
+        echo " 10) Development Mode (Docker Compose)"
+        echo " 11) Cleanup Options"
+        echo " 12) Show Access Information"
+        echo " 13) Exit"
         echo ""
-        read -p "Enter your choice [1-14]: " choice
+        read -p "Enter your choice [1-13]: " choice
         
         case $choice in
             1)
@@ -724,9 +650,6 @@ show_main_menu() {
                 configure_azure_access
                 ;;
             9)
-                setup_siem_monitoring
-                ;;
-            10)
                 log "🚀 Starting Full Production Setup..." "$PURPLE"
                 check_prerequisites
                 setup_microk8s
@@ -737,16 +660,16 @@ show_main_menu() {
                 show_access_info
                 log "✅ Full production setup completed!" "$GREEN"
                 ;;
-            11)
+            10)
                 run_development_mode
                 ;;
-            12)
+            11)
                 run_cleanup
                 ;;
-            13)
+            12)
                 show_access_info
                 ;;
-            14)
+            13)
                 log "👋 Exiting DevSecOps Setup. Goodbye!" "$GREEN"
                 exit 0
                 ;;
