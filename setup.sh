@@ -638,6 +638,9 @@ setup_siem_monitoring() {
     cd "$SCRIPT_DIR"
     log "✅ SIEM monitoring setup completed!" "$GREEN"
 }
+
+# Function to display access information
+show_access_info() {
     log "🔗 Service Access Information" "$CYAN"
     log "=============================" "$CYAN"
     
