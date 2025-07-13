@@ -30,6 +30,9 @@ cleanup_monitoring() {
     microk8s helm3 uninstall grafana -n monitoring || true
     echo "❌ Uninstalling Alloy..."
     microk8s helm3 uninstall alloy -n monitoring || true
+    echo "❌ Removing SIEM webhook services..."
+    microk8s kubectl delete service alloy-webhook-service -n monitoring || true
+    microk8s kubectl delete ingress alloy-webhook-ingress -n monitoring || true
     echo "Deleting Monitoring namespace..."
     microk8s kubectl delete ns monitoring --ignore-not-found
 }
@@ -45,8 +48,18 @@ cleanup_application() {
     docker rmi flask-k8s-app:latest localhost:32000/flask-k8s-app:latest || true
 }
 
-# --- Function to remove Helm Repositories ---
-cleanup_repos() {
+# --- Function to cleanup SIEM host monitoring ---
+cleanup_siem() {
+    echo "❌ Removing SIEM monitoring configurations..."
+    sudo rm -rf /opt/siem || true
+    sudo crontab -l | grep -v "SIEM Security Monitor" | crontab - || true
+    echo "❌ Stopping fail2ban..."
+    sudo systemctl stop fail2ban || true
+    sudo systemctl disable fail2ban || true
+    echo "❌ Removing SIEM packages..."
+    sudo apt-get remove -y fail2ban logwatch chkrootkit || true
+    echo "✅ SIEM cleanup complete."
+}
     echo "Removing Jenkins Helm repo..."
     microk8s helm3 repo remove jenkins || true
     echo "Removing SonarQube Helm repo..."
@@ -74,8 +87,9 @@ while true; do
     echo "  1) Cleanup Core Services (Jenkins, SonarQube)"
     echo "  2) Cleanup Monitoring Stack (Loki, Grafana, Alloy)"
     echo "  3) Cleanup Application Deployment"
-    echo "  4) Cleanup ALL"
-    echo "  5) Exit"
+    echo "  4) Cleanup SIEM Host Monitoring"
+    echo "  5) Cleanup ALL"
+    echo "  6) Exit"
     read -p "Enter your choice [1-6]: " choice
 
     case $choice in
@@ -92,10 +106,15 @@ while true; do
             echo "✅ Application deployment cleanup complete."
             ;;
         4)
-            cleanup_all
-            echo "✅ Full cleanup completed! MicroK8s remains installed."
+            cleanup_siem
+            echo "✅ SIEM host monitoring cleanup complete."
             ;;
         5)
+            cleanup_all
+            cleanup_siem
+            echo "✅ Full cleanup completed! MicroK8s remains installed."
+            ;;
+        6)
             echo "Exiting cleanup script."
             exit 0
             ;;

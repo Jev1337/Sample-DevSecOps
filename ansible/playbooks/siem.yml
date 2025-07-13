@@ -1,0 +1,109 @@
+---
+- name: Configure SIEM monitoring with enhanced logging
+  hosts: localhost
+  become: yes
+  vars:
+    external_ip: "{{ ansible_default_ipv4.address }}"
+  
+  tasks:
+    - name: Include SIEM setup role
+      include_role:
+        name: siem_setup
+      
+    - name: Install additional security monitoring tools
+      package:
+        name:
+          - fail2ban
+          - logwatch
+          - chkrootkit
+        state: present
+      
+    - name: Configure fail2ban for SSH protection
+      copy:
+        dest: /etc/fail2ban/jail.local
+        content: |
+          [DEFAULT]
+          bantime = 3600
+          findtime = 600
+          maxretry = 3
+          
+          [sshd]
+          enabled = true
+          port = ssh
+          logpath = /var/log/auth.log
+          maxretry = 3
+          bantime = 3600
+      notify: restart fail2ban
+      
+    - name: Enable and start fail2ban
+      systemd:
+        name: fail2ban
+        enabled: yes
+        state: started
+        
+    - name: Create SIEM monitoring script
+      copy:
+        dest: /opt/siem/monitor-security.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          # SIEM Security Monitoring Script
+          
+          LOG_FILE="/var/log/siem-monitor.log"
+          
+          echo "$(date): Starting SIEM security check" >> $LOG_FILE
+          
+          # Check for failed SSH logins
+          FAILED_LOGINS=$(grep "Failed password" /var/log/auth.log | wc -l)
+          if [ $FAILED_LOGINS -gt 10 ]; then
+              echo "$(date): WARNING: High number of failed SSH logins: $FAILED_LOGINS" >> $LOG_FILE
+          fi
+          
+          # Check for new users
+          NEW_USERS=$(grep "new user" /var/log/auth.log | tail -10)
+          if [ ! -z "$NEW_USERS" ]; then
+              echo "$(date): INFO: New user activities detected" >> $LOG_FILE
+          fi
+          
+          # Check disk space
+          DISK_USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
+          if [ $DISK_USAGE -gt 90 ]; then
+              echo "$(date): CRITICAL: Disk space usage is at $DISK_USAGE%" >> $LOG_FILE
+          fi
+          
+          echo "$(date): SIEM security check completed" >> $LOG_FILE
+          
+    - name: Create cron job for SIEM monitoring
+      cron:
+        name: "SIEM Security Monitor"
+        minute: "*/5"
+        job: "/opt/siem/monitor-security.sh"
+        
+    - name: Display SIEM setup information
+      debug:
+        msg: |
+          SIEM setup completed!
+          
+          Webhook URL: http://webhook.{{ external_ip }}.nip.io/webhook
+          
+          Configure your Git repositories to send webhooks to this URL for commit monitoring.
+          
+          Security logs are being collected from:
+          - /var/log/auth.log (SSH authentication)
+          - /var/log/secure (Security events)
+          - /var/log/syslog (System logs)
+          - /var/log/audit/audit.log (Audit logs)
+          
+          Monitoring includes:
+          - SSH login attempts (successful/failed)
+          - Git webhook events
+          - System security events
+          - Container logs from Kubernetes
+          
+          Access the SIEM dashboard in Grafana to view security events.
+
+  handlers:
+    - name: restart fail2ban
+      systemd:
+        name: fail2ban
+        state: restarted
