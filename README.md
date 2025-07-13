@@ -819,7 +819,7 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
 
 <div align="center">
 
-**🚀 Créé avec ❤️ pour mon stage de TeamWill Consulting**
+**🚀 Créé avec ❤️ pour l'apprentissage DevSecOps**
 
 [![Stars](https://img.shields.io/github/stars/Jev1337/Sample-DevSecOps?style=social)](https://github.com/Jev1337/Sample-DevSecOps)
 [![Forks](https://img.shields.io/github/forks/Jev1337/Sample-DevSecOps?style=social)](https://github.com/Jev1337/Sample-DevSecOps)
