@@ -1,17 +1,339 @@
 ---
-# Main playbook to orchestrate all setup steps for DevSecOps environment
-- name: DevSecOps Environment Setup (MicroK8s Single Node)
+- name: Deploy DevSecOps Infrastructure
   hosts: localhost
-  become: false
-  vars_files:
-    - ../vars/main.yml
-  roles:
-    - ../roles/prerequisites
-    - ../roles/docker
-    - ../roles/microk8s
-    - ../roles/jenkins_image
-    - ../roles/core_services
-    - ../roles/monitoring_stack
-    - ../roles/flask_app
-    - ../roles/azure_access
-    - ../roles/access_info
+  become: yes
+  vars:
+    external_ip: "{{ ansible_default_ipv4.address }}"
+    
+  tasks:
+    - name: Install required packages
+      package:
+        name:
+          - docker.io
+          - docker-compose
+          - snapd
+          - curl
+          - git
+        state: present
+        
+    - name: Start and enable Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+        
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+        
+    - name: Install MicroK8s
+      snap:
+        name: microk8s
+        channel: 1.30/stable
+        classic: yes
+        
+    - name: Add user to microk8s group
+      user:
+        name: "{{ ansible_user }}"
+        groups: microk8s
+        append: yes
+        
+    - name: Wait for MicroK8s to be ready
+      shell: microk8s status --wait-ready
+      register: microk8s_status
+      retries: 10
+      delay: 30
+      
+    - name: Enable MicroK8s addons
+      shell: |
+        microk8s enable dns
+        microk8s enable helm3
+        microk8s enable ingress
+        microk8s enable metrics-server
+        microk8s enable storage
+        microk8s enable registry --size 20Gi
+      register: addons_result
+      
+    - name: Add Helm repositories
+      shell: |
+        microk8s helm3 repo add jenkins https://charts.jenkins.io
+        microk8s helm3 repo add bitnami https://charts.bitnami.com/bitnami
+        microk8s helm3 repo add sonarqube https://SonarSource.github.io/helm-chart-sonarqube
+        microk8s helm3 repo add grafana https://grafana.github.io/helm-charts
+        microk8s helm3 repo update
+        
+    - name: Create namespaces
+      kubernetes.core.k8s:
+        name: "{{ item }}"
+        api_version: v1
+        kind: Namespace
+        state: present
+      loop:
+        - jenkins
+        - sonarqube
+        - monitoring
+        - flask-app
+        
+    - name: Deploy Jenkins
+      shell: |
+        microk8s helm3 install jenkins jenkins/jenkins -n jenkins -f helm/jenkins/values.yaml
+      args:
+        chdir: "{{ playbook_dir }}/.."
+      register: jenkins_deploy
+      ignore_errors: yes
+      
+    - name: Deploy PostgreSQL for SonarQube
+      shell: |
+        microk8s helm3 install postgresql bitnami/postgresql -n sonarqube -f helm/postgresql/values.yaml
+      args:
+        chdir: "{{ playbook_dir }}/.."
+      register: postgres_deploy
+      ignore_errors: yes
+      
+    - name: Deploy SonarQube
+      shell: |
+        microk8s helm3 install sonarqube sonarqube/sonarqube -n sonarqube -f helm/sonarqube/values.yaml
+      args:
+        chdir: "{{ playbook_dir }}/.."
+      register: sonarqube_deploy
+      ignore_errors: yes
+      
+    - name: Deploy Loki
+      shell: |
+        microk8s helm3 install loki grafana/loki -n monitoring -f helm/loki/values.yaml
+      args:
+        chdir: "{{ playbook_dir }}/.."
+      register: loki_deploy
+      ignore_errors: yes
+      
+    - name: Deploy Grafana
+      shell: |
+        microk8s helm3 install grafana grafana/grafana -n monitoring -f helm/grafana/values.yaml
+      args:
+        chdir: "{{ playbook_dir }}/.."
+      register: grafana_deploy
+      ignore_errors: yes
+      
+    - name: Deploy Alloy with SIEM configuration
+      shell: |
+        microk8s helm3 install alloy grafana/alloy -n monitoring -f helm/alloy/values.yaml
+      args:
+        chdir: "{{ playbook_dir }}/.."
+      register: alloy_deploy
+      ignore_errors: yes
+      
+    - name: Build and deploy Flask application
+      block:
+        - name: Build Flask Docker image
+          shell: |
+            docker build -t flask-k8s-app:latest ./app
+            docker tag flask-k8s-app:latest localhost:32000/flask-k8s-app:latest
+            docker push localhost:32000/flask-k8s-app:latest
+          args:
+            chdir: "{{ playbook_dir }}/.."
+            
+        - name: Update deployment image reference
+          replace:
+            path: "{{ playbook_dir }}/../k8s/deployment.yaml"
+            regexp: 'image: flask-k8s-app:latest'
+            replace: 'image: localhost:32000/flask-k8s-app:latest'
+            
+        - name: Deploy Flask application
+          kubernetes.core.k8s:
+            state: present
+            src: "{{ playbook_dir }}/../k8s/{{ item }}"
+          loop:
+            - namespace.yaml
+            - deployment.yaml
+            - service.yaml
+            - ingress.yaml
+            - hpa.yaml
+            
+    - name: Create SIEM webhook service
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: alloy-webhook-service
+            namespace: monitoring
+          spec:
+            type: LoadBalancer
+            ports:
+              - name: webhook
+                port: 9999
+                targetPort: 9999
+                protocol: TCP
+            selector:
+              app.kubernetes.io/name: alloy
+              
+    - name: Create webhook ingress
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: alloy-webhook-ingress
+            namespace: monitoring
+            annotations:
+              nginx.ingress.kubernetes.io/rewrite-target: /webhook
+          spec:
+            ingressClassName: public
+            rules:
+              - host: "webhook.{{ external_ip }}.nip.io"
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: alloy-webhook-service
+                          port:
+                            number: 9999
+                            
+    - name: Create external access LoadBalancers
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: "{{ item.name }}-loadbalancer"
+            namespace: "{{ item.namespace }}"
+          spec:
+            type: LoadBalancer
+            ports:
+              - port: "{{ item.port }}"
+                targetPort: "{{ item.target_port }}"
+                name: http
+            selector: "{{ item.selector }}"
+      loop:
+        - name: jenkins
+          namespace: jenkins
+          port: 8080
+          target_port: 8080
+          selector:
+            app.kubernetes.io/component: jenkins-controller
+            app.kubernetes.io/instance: jenkins
+        - name: sonarqube
+          namespace: sonarqube
+          port: 9000
+          target_port: 9000
+          selector:
+            app: sonarqube
+        - name: grafana
+          namespace: monitoring
+          port: 3000
+          target_port: 3000
+          selector:
+            app.kubernetes.io/name: grafana
+        - name: flask-app
+          namespace: flask-app
+          port: 80
+          target_port: 5000
+          selector:
+            app: flask-app
+            
+    - name: Create external access Ingresses
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: "{{ item.name }}-external"
+            namespace: "{{ item.namespace }}"
+            annotations:
+              nginx.ingress.kubernetes.io/rewrite-target: /
+          spec:
+            ingressClassName: public
+            rules:
+              - host: "{{ item.name }}.{{ external_ip }}.nip.io"
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: "{{ item.service }}"
+                          port:
+                            number: "{{ item.port }}"
+      loop:
+        - name: jenkins
+          namespace: jenkins
+          service: jenkins
+          port: 8080
+        - name: sonarqube
+          namespace: sonarqube
+          service: sonarqube-sonarqube
+          port: 9000
+        - name: grafana
+          namespace: monitoring
+          service: grafana
+          port: 80
+        - name: app
+          namespace: flask-app
+          service: flask-app-service
+          port: 80
+          
+    - name: Wait for deployments to be ready
+      shell: |
+        microk8s kubectl rollout status {{ item.type }}/{{ item.name }} -n {{ item.namespace }} --timeout=300s
+      loop:
+        - type: statefulset
+          name: jenkins
+          namespace: jenkins
+        - type: statefulset
+          name: postgresql
+          namespace: sonarqube
+        - type: statefulset
+          name: sonarqube-sonarqube
+          namespace: sonarqube
+        - type: statefulset
+          name: loki
+          namespace: monitoring
+        - type: deployment
+          name: grafana
+          namespace: monitoring
+        - type: daemonset
+          name: alloy
+          namespace: monitoring
+        - type: deployment
+          name: flask-app
+          namespace: flask-app
+      ignore_errors: yes
+      
+    - name: Get Jenkins admin password
+      shell: |
+        microk8s kubectl get secret jenkins -n jenkins -o jsonpath="{.data.jenkins-admin-password}" | base64 --decode
+      register: jenkins_password
+      ignore_errors: yes
+      
+    - name: Display access information
+      debug:
+        msg: |
+          ✅ DevSecOps Infrastructure Deployed Successfully!
+          
+          🌐 External Access URLs:
+          - Jenkins:   http://jenkins.{{ external_ip }}.nip.io (admin/{{ jenkins_password.stdout | default('check-manually') }})
+          - SonarQube: http://sonarqube.{{ external_ip }}.nip.io (admin/admin)
+          - Grafana:   http://grafana.{{ external_ip }}.nip.io (admin/admin123)
+          - Flask App: http://app.{{ external_ip }}.nip.io
+          
+          🛡️ SIEM & Security:
+          - Webhook:   http://webhook.{{ external_ip }}.nip.io/webhook
+          - SIEM Dashboard: Available in Grafana (SIEM Security Dashboard)
+          
+          📝 Next Steps:
+          1. Configure Git webhooks to: http://webhook.{{ external_ip }}.nip.io/webhook
+          2. Run SIEM host monitoring: ansible-playbook -i inventory playbooks/siem.yml --ask-become-pass
+          3. Import SIEM dashboard in Grafana from monitoring/grafana/dashboards/
+          
+          🔧 CI/CD Pipeline:
+          1. Create new Pipeline job in Jenkins
+          2. Point to your Git repository  
+          3. Set Script Path to 'jenkins/Jenkinsfile'

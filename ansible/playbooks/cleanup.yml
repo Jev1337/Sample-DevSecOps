@@ -1,72 +1,232 @@
 ---
-# Cleanup playbook to remove all deployed services
-- name: DevSecOps Cleanup
+- name: Cleanup DevSecOps Infrastructure
   hosts: localhost
-  vars_files:
-    - ../vars/main.yml
+  become: yes
+  vars:
+    external_ip: "{{ ansible_default_ipv4.address }}"
+    
   tasks:
-    - name: Cleanup Core Services
-      ansible.builtin.shell: |
-        microk8s helm3 uninstall jenkins -n jenkins || true
-        microk8s helm3 uninstall sonarqube -n sonarqube || true
-        microk8s helm3 uninstall postgresql -n sonarqube || true
-        microk8s kubectl delete pvc -n sonarqube --all || true
-        microk8s kubectl delete ns jenkins --ignore-not-found
-        microk8s kubectl delete ns sonarqube --ignore-not-found
-      args:
-        executable: /bin/bash
+    - name: Confirm cleanup action
+      pause:
+        prompt: |
+          ⚠️  WARNING: This will remove all DevSecOps infrastructure!
+          
+          This will delete:
+          - All Kubernetes deployments (Jenkins, SonarQube, Grafana, Loki, Alloy, Flask App)
+          - All LoadBalancer services and Ingresses  
+          - All namespaces and their data
+          - Docker images (optional)
+          - SIEM host monitoring tools (optional)
+          
+          Are you sure you want to continue? (yes/no)
+      register: cleanup_confirm
       
-    - name: Cleanup Monitoring Stack
-      ansible.builtin.shell: |
-        microk8s helm3 uninstall loki -n monitoring || true
-        microk8s helm3 uninstall grafana -n monitoring || true
-        microk8s helm3 uninstall alloy -n monitoring || true
-        microk8s kubectl delete ns monitoring --ignore-not-found
-      args:
-        executable: /bin/bash
-        
-    - name: Cleanup Flask Application
-      ansible.builtin.shell: |
-        microk8s kubectl delete -f {{ playbook_dir }}/../../k8s/ --ignore-not-found
-      args:
-        executable: /bin/bash
-        
-    - name: Revert image in deployment.yaml
-      ansible.builtin.replace:
-        path: "{{ playbook_dir }}/../../k8s/deployment.yaml"
-        regexp: 'localhost:32000/flask-k8s-app:latest'
-        replace: 'flask-k8s-app:latest'
+    - name: Exit if not confirmed
+      fail:
+        msg: "Cleanup cancelled by user"
+      when: cleanup_confirm.user_input | lower != 'yes'
       
-    - name: Remove local Docker images
-      ansible.builtin.shell: |
-        docker rmi flask-k8s-app:latest localhost:32000/flask-k8s-app:latest || true
-        docker rmi jenkins-devsecops:latest localhost:32000/jenkins-devsecops:latest || true
-        
-    - name: Remove Azure LoadBalancer services
-      ansible.builtin.shell: |
-        microk8s kubectl delete service jenkins-loadbalancer -n jenkins || true
-        microk8s kubectl delete service sonarqube-loadbalancer -n sonarqube || true
-        microk8s kubectl delete service grafana-loadbalancer -n monitoring || true
-        microk8s kubectl delete service flask-app-loadbalancer -n flask-app || true
-      args:
-        executable: /bin/bash
+    - name: Uninstall Helm releases
+      shell: |
+        microk8s helm3 uninstall {{ item.name }} -n {{ item.namespace }}
+      loop:
+        - name: jenkins
+          namespace: jenkins
+        - name: postgresql
+          namespace: sonarqube
+        - name: sonarqube
+          namespace: sonarqube
+        - name: loki
+          namespace: monitoring
+        - name: grafana
+          namespace: monitoring
+        - name: alloy
+          namespace: monitoring
+      ignore_errors: yes
+      
+    - name: Delete Flask application resources
+      kubernetes.core.k8s:
+        state: absent
+        src: "{{ playbook_dir }}/../k8s/{{ item }}"
+      loop:
+        - deployment.yaml
+        - service.yaml
+        - ingress.yaml
+        - hpa.yaml
+      ignore_errors: yes
+      
+    - name: Delete SIEM webhook resources
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: alloy-webhook-service
+            namespace: monitoring
+      ignore_errors: yes
+      
+    - name: Delete webhook ingress
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: alloy-webhook-ingress
+            namespace: monitoring
+      ignore_errors: yes
+      
+    - name: Delete LoadBalancer services
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: "{{ item }}-loadbalancer"
+            namespace: "{{ item }}"
+      loop:
+        - jenkins
+        - sonarqube
+        - grafana
+        - flask-app
+      ignore_errors: yes
+      
+    - name: Delete external ingresses
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: "{{ item }}-external"
+            namespace: "{{ item }}"
+      loop:
+        - jenkins
+        - sonarqube
+        - grafana
+        - app
+      ignore_errors: yes
+      
+    - name: Delete namespaces
+      kubernetes.core.k8s:
+        name: "{{ item }}"
+        api_version: v1
+        kind: Namespace
+        state: absent
+      loop:
+        - jenkins
+        - sonarqube
+        - monitoring
+        - flask-app
+      ignore_errors: yes
       
     - name: Remove Helm repositories
-      ansible.builtin.shell: |
-        microk8s helm3 repo remove jenkins || true
-        microk8s helm3 repo remove sonarqube || true
-        microk8s helm3 repo remove grafana || true
-        microk8s helm3 repo remove bitnami || true
-      args:
-        executable: /bin/bash
+      shell: |
+        microk8s helm3 repo remove {{ item }}
+      loop:
+        - jenkins
+        - bitnami
+        - sonarqube
+        - grafana
+      ignore_errors: yes
       
-    - name: Stop Docker Compose services
-      community.docker.docker_compose:
-        project_src: "{{ playbook_dir }}/../../"
+    - name: Ask about Docker image cleanup
+      pause:
+        prompt: "Do you want to remove Docker images? (yes/no)"
+      register: docker_cleanup
+      
+    - name: Remove Docker images
+      shell: |
+        docker rmi flask-k8s-app:latest localhost:32000/flask-k8s-app:latest jenkins-devsecops:latest localhost:32000/jenkins-devsecops:latest
+      when: docker_cleanup.user_input | lower == 'yes'
+      ignore_errors: yes
+      
+    - name: Ask about SIEM host monitoring cleanup
+      pause:
+        prompt: "Do you want to remove SIEM host monitoring tools (fail2ban, auditd, etc.)? (yes/no)"
+      register: siem_cleanup
+      
+    - name: Remove SIEM host monitoring
+      block:
+        - name: Stop and disable SIEM services
+          systemd:
+            name: "{{ item }}"
+            state: stopped
+            enabled: no
+          loop:
+            - fail2ban
+            - auditd
+          ignore_errors: yes
+          
+        - name: Remove SIEM packages
+          package:
+            name:
+              - fail2ban
+              - logwatch
+              - chkrootkit
+            state: absent
+          ignore_errors: yes
+          
+        - name: Remove SIEM configuration files
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - /opt/siem
+            - /etc/logrotate.d/siem-security
+            - /etc/fail2ban/jail.local
+          ignore_errors: yes
+          
+        - name: Remove SIEM cron jobs
+          cron:
+            name: "SIEM Security Monitor"
+            state: absent
+          ignore_errors: yes
+      when: siem_cleanup.user_input | lower == 'yes'
+      
+    - name: Ask about MicroK8s removal
+      pause:
+        prompt: "Do you want to remove MicroK8s completely? (yes/no)"
+      register: k8s_cleanup
+      
+    - name: Remove MicroK8s
+      snap:
+        name: microk8s
         state: absent
-        remove_volumes: true
-      ignore_errors: true
+      when: k8s_cleanup.user_input | lower == 'yes'
+      ignore_errors: yes
       
-    - name: Print cleanup completion message
-      ansible.builtin.debug:
-        msg: "✅ Full cleanup completed!"
+    - name: Revert deployment image reference
+      replace:
+        path: "{{ playbook_dir }}/../k8s/deployment.yaml"
+        regexp: 'image: localhost:32000/flask-k8s-app:latest'
+        replace: 'image: flask-k8s-app:latest'
+      ignore_errors: yes
+      
+    - name: Display cleanup summary
+      debug:
+        msg: |
+          ✅ DevSecOps Infrastructure Cleanup Completed!
+          
+          📋 What was removed:
+          - All Helm deployments (Jenkins, SonarQube, Grafana, Loki, Alloy)
+          - All Kubernetes resources and namespaces
+          - LoadBalancer services and Ingresses
+          - SIEM webhook infrastructure
+          {% if docker_cleanup.user_input | lower == 'yes' %}
+          - Docker images
+          {% endif %}
+          {% if siem_cleanup.user_input | lower == 'yes' %}
+          - SIEM host monitoring tools
+          {% endif %}
+          {% if k8s_cleanup.user_input | lower == 'yes' %}
+          - MicroK8s installation
+          {% endif %}
+          
+          🔄 To redeploy:
+          ansible-playbook -i inventory playbooks/main.yml --ask-become-pass
+          
+          🛡️ To setup SIEM monitoring:
+          ansible-playbook -i inventory playbooks/siem.yml --ask-become-pass

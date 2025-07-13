@@ -48,6 +48,19 @@
         enabled: yes
         state: started
 
+    - name: Check if SSH service exists
+      command: systemctl list-unit-files --type=service
+      register: service_list
+      changed_when: false
+
+    - name: Set SSH service name based on distribution
+      set_fact:
+        ssh_service_name: "{{ 'ssh' if 'ssh.service' in service_list.stdout else 'sshd' }}"
+
+    - name: Display detected SSH service name
+      debug:
+        msg: "Detected SSH service name: {{ ssh_service_name }}"
+
     - name: Configure SSH logging for better SIEM integration
       lineinfile:
         path: /etc/ssh/sshd_config
@@ -55,6 +68,7 @@
         line: 'LogLevel VERBOSE'
         backup: yes
       notify: restart sshd
+      when: ssh_service_name is defined
 
     - name: Configure audit logging
       lineinfile:
@@ -63,11 +77,14 @@
         line: 'log_file = /var/log/audit/audit.log'
         backup: yes
       notify: restart auditd
+      ignore_errors: yes
 
     - name: Enable and start auditd service
       systemd:
         name: auditd
         enabled: yes
+        state: started
+      ignore_errors: yes
         state: started
       
     - name: Install additional security monitoring tools
@@ -165,7 +182,7 @@
   handlers:
     - name: restart sshd
       systemd:
-        name: sshd
+        name: "{{ ssh_service_name | default('ssh') }}"
         state: restarted
 
     - name: restart auditd
