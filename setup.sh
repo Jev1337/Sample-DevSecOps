@@ -682,11 +682,12 @@ show_main_menu() {
         echo "  9) Configure Azure External Access"
         echo " 10) Full Production Setup (3-8)"
         echo " 11) Development Mode (Docker Compose)"
-        echo " 12) Cleanup Options"
-        echo " 13) Show Access Information"
-        echo " 14) Exit"
+        echo " 12) Fix SIEM Configuration (Troubleshooting)"
+        echo " 13) Cleanup Options"
+        echo " 14) Show Access Information"
+        echo " 15) Exit"
         echo ""
-        read -p "Enter your choice [1-14]: " choice
+        read -p "Enter your choice [1-15]: " choice
         
         case $choice in
             1)
@@ -732,12 +733,21 @@ show_main_menu() {
                 run_development_mode
                 ;;
             12)
-                run_cleanup
+                log "🔧 Starting SIEM Configuration Fix..." "$BLUE"
+                if [ -f "fix-siem.sh" ]; then
+                    chmod +x fix-siem.sh
+                    ./fix-siem.sh
+                else
+                    log "❌ fix-siem.sh not found!" "$RED"
+                fi
                 ;;
             13)
-                show_access_info
+                run_cleanup
                 ;;
             14)
+                show_access_info
+                ;;
+            15)
                 log "👋 Exiting DevSecOps Setup. Goodbye!" "$GREEN"
                 exit 0
                 ;;
