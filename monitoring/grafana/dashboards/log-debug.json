@@ -53,7 +53,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (job) (count_over_time({job=~\".*\"} [5m]))",
+          "expr": "sum by (service_name) (count_over_time({service_name=~\".*\"} [5m]))",
           "refId": "A"
         }
       ],
@@ -94,7 +94,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=~\".*\"} |~ \".*\"",
+          "expr": "{service_name=~\".*\"} |~ \".*\"",
           "refId": "A"
         }
       ],
@@ -180,7 +180,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (job) (rate({job=~\".*\"} [5m]))",
+          "expr": "sum by (service_name) (rate({service_name=~\".*\"} [5m]))",
           "refId": "A"
         }
       ],
@@ -221,7 +221,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{container=~\".*\"} |~ \".*\"",
+          "expr": "{pod=~\".*\"} |~ \".*\"",
           "refId": "A"
         }
       ],
@@ -262,7 +262,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{namespace=~\".*\"} |~ \".*\"",
+          "expr": "{stream=~\".*\"} |~ \".*\"",
           "refId": "A"
         }
       ],
