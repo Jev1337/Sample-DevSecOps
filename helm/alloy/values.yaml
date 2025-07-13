@@ -233,29 +233,14 @@ alloy:
     privileged: false
     runAsUser: 0  # Run as root to access journal
     runAsGroup: 0
-    capabilities:
-      add:
-        - DAC_READ_SEARCH  # Needed to read journal files
-  
-  extraVolumes:
-    - name: var-log
-      hostPath:
-        path: /var/log
-    - name: run-log
-      hostPath:
-        path: /run/log
-    - name: machine-id
-      hostPath:
-        path: /etc/machine-id
-        type: File
-  
-  extraVolumeMounts:
-    - name: var-log
-      mountPath: /var/log
-      readOnly: true
-    - name: run-log
-      mountPath: /run/log
-      readOnly: true
-    - name: machine-id
-      mountPath: /etc/machine-id
-      readOnly: true
+
+extraVolumes:
+  - name: var-log
+    hostPath:
+      path: /var/log
+      type: Directory
+
+extraVolumeMounts:
+  - name: var-log
+    mountPath: /var/log
+    readOnly: true
