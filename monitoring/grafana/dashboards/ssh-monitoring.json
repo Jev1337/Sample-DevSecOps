@@ -88,7 +88,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (job) (rate({job=~\"auth|ssh_auth\"} |~ \"ssh|SSH\" [$__interval]))",
+          "expr": "sum by (auth_status) (rate({job=\"auth\"} |~ \"ssh\" | json | event_type=\"ssh_auth\" [$__interval]))",
           "refId": "A"
         }
       ],
@@ -139,7 +139,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "topk(10, count by (__extracted_field_source_ip) (rate({job=~\"auth|ssh_auth\"} |~ \"Failed|failed\" | regexp \"from (?P<source_ip>[\\\\d\\\\.]+)\" [$__interval])))",
+          "expr": "topk(10, sum by (source_ip) (count_over_time({job=\"auth\"} |~ \"Failed\" | json | event_type=\"ssh_auth\" | auth_status=\"Failed\" [$__interval])))",
           "refId": "A"
         }
       ],
@@ -186,7 +186,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=~\"auth|ssh_auth\"} |~ \"ssh|SSH\"",
+          "expr": "{job=\"auth\"} |~ \"ssh\" | json | event_type=\"ssh_auth\"",
           "refId": "A"
         }
       ],

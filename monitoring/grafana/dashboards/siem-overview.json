@@ -53,7 +53,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (job) (count_over_time({job=~\"auth|sudo|syslog|ssh_auth|process_monitor\"} [$__interval]))",
+          "expr": "sum by (event_type) (count_over_time({job=~\"auth|sudo|syslog\"} | json | event_type != \"\" [$__interval]))",
           "refId": "A"
         }
       ],
@@ -94,7 +94,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=~\"auth|ssh_auth\"} |~ \"Failed|failed|FAILED\"",
+          "expr": "{job=\"auth\"} |~ \"Failed\" | json | auth_status=\"Failed\"",
           "refId": "A"
         }
       ],
@@ -180,7 +180,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (job) (rate({job=~\"auth|ssh_auth\"} |~ \"Accepted|accepted|SUCCESS\" [$__interval]))",
+          "expr": "sum by (username) (rate({job=\"auth\"} |~ \"Accepted\" | json | auth_status=\"Accepted\" [$__interval]))",
           "refId": "A"
         }
       ],
@@ -221,7 +221,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=~\"sudo|auth\"} |~ \"sudo|SUDO\"",
+          "expr": "{job=\"sudo\"} | json | event_type=\"sudo_usage\"",
           "refId": "A"
         }
       ],
@@ -262,7 +262,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=~\"git_webhook|host_webhook\"} |~ \"webhook|Webhook\"",
+          "expr": "{job=\"git_webhook\"} | json | event_type=\"git_webhook\"",
           "refId": "A"
         }
       ],
@@ -303,7 +303,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=~\"syslog|messages\"} |~ \"apt|dpkg|yum|rpm|install|remove|upgrade\"",
+          "expr": "{job=~\"syslog|messages\"} | json | event_type=\"package_management\"",
           "refId": "A"
         }
       ],

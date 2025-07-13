@@ -256,10 +256,8 @@ deploy_monitoring_stack() {
     if ! microk8s helm3 status grafana -n monitoring &> /dev/null; then
         log "Deploying Grafana with SIEM dashboards..." "$YELLOW"
         
-        # Create ConfigMaps for all dashboards with proper labels for sidecar discovery
-        log "Creating all dashboard ConfigMaps..." "$YELLOW"
-        
-        # SIEM dashboards
+        # Create ConfigMaps for SIEM dashboards with proper labels for sidecar discovery
+        log "Creating SIEM dashboard ConfigMaps..." "$YELLOW"
         microk8s kubectl create configmap siem-overview-dashboard -n monitoring \
             --from-file=siem-overview.json=monitoring/grafana/dashboards/siem-overview.json \
             --dry-run=client -o yaml | \
@@ -272,32 +270,9 @@ deploy_monitoring_stack() {
             microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
             microk8s kubectl apply -f -
         
-        # Application dashboards
-        microk8s kubectl create configmap app-logs-dashboard -n monitoring \
-            --from-file=app-logs.json=monitoring/grafana/dashboards/app-logs.json \
-            --dry-run=client -o yaml | \
-            microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-            microk8s kubectl apply -f -
-        
-        microk8s kubectl create configmap security-dashboard -n monitoring \
-            --from-file=security.json=monitoring/grafana/dashboards/security.json \
-            --dry-run=client -o yaml | \
-            microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-            microk8s kubectl apply -f -
-        
-        # Debug dashboard for troubleshooting
-        microk8s kubectl create configmap log-debug-dashboard -n monitoring \
-            --from-file=log-debug.json=monitoring/grafana/dashboards/log-debug.json \
-            --dry-run=client -o yaml | \
-            microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-            microk8s kubectl apply -f -
-        
-        # Add folder annotations to group dashboards
+        # Add SIEM folder annotation to group dashboards
         microk8s kubectl annotate configmap siem-overview-dashboard -n monitoring grafana_folder="SIEM" --overwrite
         microk8s kubectl annotate configmap ssh-monitoring-dashboard -n monitoring grafana_folder="SIEM" --overwrite
-        microk8s kubectl annotate configmap app-logs-dashboard -n monitoring grafana_folder="Application" --overwrite
-        microk8s kubectl annotate configmap security-dashboard -n monitoring grafana_folder="Security" --overwrite
-        microk8s kubectl annotate configmap log-debug-dashboard -n monitoring grafana_folder="Debug" --overwrite
         
         microk8s helm3 install grafana grafana/grafana -n monitoring -f helm/grafana/values.yaml
     else
@@ -1074,16 +1049,13 @@ show_main_menu() {
         echo "  7) Deploy Flask Application"
         echo "  8) Configure Azure External Access"
         echo "  9) Deploy SIEM Security Agents"
-        echo " 10) Manage SIEM Dashboards"
-        echo " 11) Update SIEM Dashboards (Legacy)"
-        echo " 12) Debug Logs & Data"
-        echo " 13) Full Production Setup (3-7,9)"
-        echo " 14) Development Mode (Docker Compose)"
-        echo " 15) Cleanup Options"
-        echo " 16) Show Access Information"
-        echo " 17) Exit"
+        echo " 10) Full Production Setup (3-7,9)"
+        echo " 11) Development Mode (Docker Compose)"
+        echo " 12) Cleanup Options"
+        echo " 13) Show Access Information"
+        echo " 14) Exit"
         echo ""
-        read -p "Enter your choice [1-17]: " choice
+        read -p "Enter your choice [1-14]: " choice
         
         case $choice in
             1)
@@ -1114,15 +1086,6 @@ show_main_menu() {
                 deploy_siem_agents
                 ;;
             10)
-                manage_dashboards
-                ;;
-            11)
-                update_dashboards
-                ;;
-            12)
-                debug_logs
-                ;;
-            13)
                 log "🚀 Starting Full Production Setup with SIEM..." "$PURPLE"
                 check_prerequisites
                 setup_microk8s
@@ -1134,16 +1097,16 @@ show_main_menu() {
                 show_access_info
                 log "✅ Full production setup with SIEM completed!" "$GREEN"
                 ;;
-            14)
+            11)
                 run_development_mode
                 ;;
-            15)
+            12)
                 run_cleanup
                 ;;
-            16)
+            13)
                 show_access_info
                 ;;
-            17)
+            14)
                 log "👋 Exiting DevSecOps Setup. Goodbye!" "$GREEN"
                 exit 0
                 ;;
@@ -1247,362 +1210,6 @@ cleanup_siem() {
     sudo systemctl daemon-reload
     
     log "✅ SIEM cleanup completed." "$GREEN"
-}
-
-# Update SIEM dashboards
-update_dashboards() {
-    log "Updating all dashboards..." "$BLUE"
-    
-    # Update existing ConfigMaps or create new ones
-    microk8s kubectl delete configmap siem-overview-dashboard -n monitoring --ignore-not-found
-    microk8s kubectl delete configmap ssh-monitoring-dashboard -n monitoring --ignore-not-found
-    microk8s kubectl delete configmap log-debug-dashboard -n monitoring --ignore-not-found
-    microk8s kubectl delete configmap app-logs-dashboard -n monitoring --ignore-not-found
-    microk8s kubectl delete configmap security-dashboard -n monitoring --ignore-not-found
-    
-    # Recreate with updated content
-    microk8s kubectl create configmap siem-overview-dashboard -n monitoring \
-        --from-file=siem-overview.json=monitoring/grafana/dashboards/siem-overview.json \
-        --dry-run=client -o yaml | \
-        microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-        microk8s kubectl apply -f -
-    
-    microk8s kubectl create configmap ssh-monitoring-dashboard -n monitoring \
-        --from-file=ssh-monitoring.json=monitoring/grafana/dashboards/ssh-monitoring.json \
-        --dry-run=client -o yaml | \
-        microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-        microk8s kubectl apply -f -
-    
-    microk8s kubectl create configmap app-logs-dashboard -n monitoring \
-        --from-file=app-logs.json=monitoring/grafana/dashboards/app-logs.json \
-        --dry-run=client -o yaml | \
-        microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-        microk8s kubectl apply -f -
-    
-    microk8s kubectl create configmap security-dashboard -n monitoring \
-        --from-file=security.json=monitoring/grafana/dashboards/security.json \
-        --dry-run=client -o yaml | \
-        microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-        microk8s kubectl apply -f -
-    
-    microk8s kubectl create configmap log-debug-dashboard -n monitoring \
-        --from-file=log-debug.json=monitoring/grafana/dashboards/log-debug.json \
-        --dry-run=client -o yaml | \
-        microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-        microk8s kubectl apply -f -
-    
-    # Add folder annotations
-    microk8s kubectl annotate configmap siem-overview-dashboard -n monitoring grafana_folder="SIEM" --overwrite
-    microk8s kubectl annotate configmap ssh-monitoring-dashboard -n monitoring grafana_folder="SIEM" --overwrite
-    microk8s kubectl annotate configmap app-logs-dashboard -n monitoring grafana_folder="Application" --overwrite
-    microk8s kubectl annotate configmap security-dashboard -n monitoring grafana_folder="Security" --overwrite
-    microk8s kubectl annotate configmap log-debug-dashboard -n monitoring grafana_folder="Debug" --overwrite
-    
-    # Restart Grafana to pick up changes quickly
-    microk8s kubectl rollout restart deployment/grafana -n monitoring
-    
-    log "✅ All dashboards updated successfully!" "$GREEN"
-}
-
-# Debug logs function
-debug_logs() {
-    log "Running log debug check..." "$BLUE"
-    
-    # Check which script to use based on OS
-    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || command -v powershell.exe &> /dev/null; then
-        # Windows environment
-        log "Using PowerShell debug script..." "$YELLOW"
-        powershell.exe -ExecutionPolicy Bypass -File debug_logs.ps1
-    else
-        # Unix-like environment
-        log "Using Bash debug script..." "$YELLOW"
-        chmod +x debug_logs.sh
-        ./debug_logs.sh
-    fi
-}
-
-# Function to manage dashboard provisioning
-manage_dashboards() {
-    log "Managing dashboard provisioning..." "$BLUE"
-    
-    echo "Dashboard Management Options:"
-    echo "1) Deploy/Update provisioned dashboards (read-only)"
-    echo "2) Deploy editable dashboards (can be modified in UI)"
-    echo "3) Remove all provisioned dashboards"
-    echo "4) List current dashboards"
-    echo "5) Upgrade Grafana settings for dashboard editing"
-    echo "6) Auto-discover and deploy all dashboard files"
-    echo "7) Return to main menu"
-    echo ""
-    read -p "Enter your choice [1-7]: " dash_choice
-    
-    case $dash_choice in
-        1)
-            deploy_provisioned_dashboards
-            ;;
-        2)
-            deploy_editable_dashboards
-            ;;
-        3)
-            remove_provisioned_dashboards
-            ;;
-        4)
-            list_dashboards
-            ;;
-        5)
-            upgrade_grafana_settings
-            ;;
-        6)
-            deploy_all_dashboard_files
-            ;;
-        7)
-            return
-            ;;
-        *)
-            log "❌ Invalid option." "$RED"
-            ;;
-    esac
-}
-
-# Deploy provisioned (read-only) dashboards
-deploy_provisioned_dashboards() {
-    log "Deploying all provisioned dashboards..." "$YELLOW"
-    
-    # Remove existing ConfigMaps
-    microk8s kubectl delete configmap siem-overview-dashboard -n monitoring --ignore-not-found
-    microk8s kubectl delete configmap ssh-monitoring-dashboard -n monitoring --ignore-not-found
-    microk8s kubectl delete configmap log-debug-dashboard -n monitoring --ignore-not-found
-    microk8s kubectl delete configmap app-logs-dashboard -n monitoring --ignore-not-found
-    microk8s kubectl delete configmap security-dashboard -n monitoring --ignore-not-found
-    
-    # Create ConfigMaps for SIEM dashboards
-    microk8s kubectl create configmap siem-overview-dashboard -n monitoring \
-        --from-file=siem-overview.json=monitoring/grafana/dashboards/siem-overview.json \
-        --dry-run=client -o yaml | \
-        microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-        microk8s kubectl apply -f -
-    
-    microk8s kubectl create configmap ssh-monitoring-dashboard -n monitoring \
-        --from-file=ssh-monitoring.json=monitoring/grafana/dashboards/ssh-monitoring.json \
-        --dry-run=client -o yaml | \
-        microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-        microk8s kubectl apply -f -
-    
-    # Create ConfigMaps for application dashboards
-    microk8s kubectl create configmap app-logs-dashboard -n monitoring \
-        --from-file=app-logs.json=monitoring/grafana/dashboards/app-logs.json \
-        --dry-run=client -o yaml | \
-        microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-        microk8s kubectl apply -f -
-    
-    microk8s kubectl create configmap security-dashboard -n monitoring \
-        --from-file=security.json=monitoring/grafana/dashboards/security.json \
-        --dry-run=client -o yaml | \
-        microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-        microk8s kubectl apply -f -
-    
-    # Create ConfigMap for debug dashboard
-    microk8s kubectl create configmap log-debug-dashboard -n monitoring \
-        --from-file=log-debug.json=monitoring/grafana/dashboards/log-debug.json \
-        --dry-run=client -o yaml | \
-        microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-        microk8s kubectl apply -f -
-    
-    # Add folder annotations to organize dashboards
-    microk8s kubectl annotate configmap siem-overview-dashboard -n monitoring grafana_folder="SIEM" --overwrite
-    microk8s kubectl annotate configmap ssh-monitoring-dashboard -n monitoring grafana_folder="SIEM" --overwrite
-    microk8s kubectl annotate configmap app-logs-dashboard -n monitoring grafana_folder="Application" --overwrite
-    microk8s kubectl annotate configmap security-dashboard -n monitoring grafana_folder="Security" --overwrite
-    microk8s kubectl annotate configmap log-debug-dashboard -n monitoring grafana_folder="Debug" --overwrite
-    
-    log "✅ All provisioned dashboards deployed (read-only in UI)" "$GREEN"
-}
-
-# Deploy editable dashboards via API
-deploy_editable_dashboards() {
-    log "Deploying all editable dashboards via API..." "$YELLOW"
-    
-    # Remove provisioned versions first
-    remove_provisioned_dashboards
-    
-    # Wait for Grafana to be ready
-    log "Waiting for Grafana to be ready..." "$YELLOW"
-    microk8s kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=grafana -n monitoring --timeout=60s
-    
-    # Get Grafana service details
-    GRAFANA_POD=$(microk8s kubectl get pods -n monitoring -l app.kubernetes.io/name=grafana -o jsonpath='{.items[0].metadata.name}')
-    
-    # Port forward to Grafana
-    log "Setting up port forward to Grafana..." "$YELLOW"
-    microk8s kubectl port-forward -n monitoring pod/$GRAFANA_POD 3000:3000 &
-    PF_PID=$!
-    sleep 5
-    
-    # Import dashboards via API
-    log "Importing dashboards via Grafana API..." "$YELLOW"
-    
-    # Create folders first
-    SIEM_FOLDER=$(curl -X POST -H "Content-Type: application/json" -d '{"title":"SIEM"}' \
-        http://admin:admin123@localhost:3000/api/folders | jq -r '.id // 1')
-    
-    APP_FOLDER=$(curl -X POST -H "Content-Type: application/json" -d '{"title":"Application"}' \
-        http://admin:admin123@localhost:3000/api/folders | jq -r '.id // 2')
-    
-    SECURITY_FOLDER=$(curl -X POST -H "Content-Type: application/json" -d '{"title":"Security"}' \
-        http://admin:admin123@localhost:3000/api/folders | jq -r '.id // 3')
-    
-    DEBUG_FOLDER=$(curl -X POST -H "Content-Type: application/json" -d '{"title":"Debug"}' \
-        http://admin:admin123@localhost:3000/api/folders | jq -r '.id // 4')
-    
-    # Import SIEM overview dashboard
-    SIEM_DASHBOARD=$(cat monitoring/grafana/dashboards/siem-overview.json | jq --argjson folderId "$SIEM_FOLDER" '. + {"folderId": $folderId}' | jq '{"dashboard": ., "overwrite": true}')
-    echo "$SIEM_DASHBOARD" | curl -X POST -H "Content-Type: application/json" -d @- \
-        http://admin:admin123@localhost:3000/api/dashboards/db
-    
-    # Import SSH monitoring dashboard
-    SSH_DASHBOARD=$(cat monitoring/grafana/dashboards/ssh-monitoring.json | jq --argjson folderId "$SIEM_FOLDER" '. + {"folderId": $folderId}' | jq '{"dashboard": ., "overwrite": true}')
-    echo "$SSH_DASHBOARD" | curl -X POST -H "Content-Type: application/json" -d @- \
-        http://admin:admin123@localhost:3000/api/dashboards/db
-    
-    # Import application logs dashboard
-    APP_DASHBOARD=$(cat monitoring/grafana/dashboards/app-logs.json | jq --argjson folderId "$APP_FOLDER" '. + {"folderId": $folderId}' | jq '{"dashboard": ., "overwrite": true}')
-    echo "$APP_DASHBOARD" | curl -X POST -H "Content-Type: application/json" -d @- \
-        http://admin:admin123@localhost:3000/api/dashboards/db
-    
-    # Import security dashboard
-    SECURITY_DASHBOARD=$(cat monitoring/grafana/dashboards/security.json | jq --argjson folderId "$SECURITY_FOLDER" '. + {"folderId": $folderId}' | jq '{"dashboard": ., "overwrite": true}')
-    echo "$SECURITY_DASHBOARD" | curl -X POST -H "Content-Type: application/json" -d @- \
-        http://admin:admin123@localhost:3000/api/dashboards/db
-    
-    # Import debug dashboard
-    DEBUG_DASHBOARD=$(cat monitoring/grafana/dashboards/log-debug.json | jq --argjson folderId "$DEBUG_FOLDER" '. + {"folderId": $folderId}' | jq '{"dashboard": ., "overwrite": true}')
-    echo "$DEBUG_DASHBOARD" | curl -X POST -H "Content-Type: application/json" -d @- \
-        http://admin:admin123@localhost:3000/api/dashboards/db
-    
-    # Stop port forward
-    kill $PF_PID 2>/dev/null
-    
-    log "✅ All editable dashboards deployed (can be modified in UI)" "$GREEN"
-}
-
-# Remove provisioned dashboards
-remove_provisioned_dashboards() {
-    log "Removing all provisioned dashboards..." "$YELLOW"
-    
-    microk8s kubectl delete configmap siem-overview-dashboard -n monitoring --ignore-not-found
-    microk8s kubectl delete configmap ssh-monitoring-dashboard -n monitoring --ignore-not-found
-    microk8s kubectl delete configmap log-debug-dashboard -n monitoring --ignore-not-found
-    microk8s kubectl delete configmap app-logs-dashboard -n monitoring --ignore-not-found
-    microk8s kubectl delete configmap security-dashboard -n monitoring --ignore-not-found
-    
-    # Restart Grafana to clear provisioned dashboards
-    microk8s kubectl rollout restart deployment/grafana -n monitoring
-    
-    log "✅ All provisioned dashboards removed" "$GREEN"
-}
-
-# List current dashboards
-list_dashboards() {
-    log "Current dashboard ConfigMaps:" "$BLUE"
-    microk8s kubectl get configmaps -n monitoring | grep dashboard || echo "No dashboard ConfigMaps found"
-    
-    log "\nCurrent Grafana folders and dashboards via API:" "$BLUE"
-    GRAFANA_POD=$(microk8s kubectl get pods -n monitoring -l app.kubernetes.io/name=grafana -o jsonpath='{.items[0].metadata.name}')
-    
-    if [ ! -z "$GRAFANA_POD" ]; then
-        microk8s kubectl port-forward -n monitoring pod/$GRAFANA_POD 3000:3000 &
-        PF_PID=$!
-        sleep 3
-        
-        echo "Folders:"
-        curl -s http://admin:admin123@localhost:3000/api/folders | jq -r '.[] | "\(.title) (ID: \(.id))"'
-        
-        echo -e "\nDashboards:"
-        curl -s http://admin:admin123@localhost:3000/api/search | jq -r '.[] | "\(.title) (UID: \(.uid)) - Folder: \(.folderTitle // "General")"'
-        
-        kill $PF_PID 2>/dev/null
-    fi
-}
-
-# Function to upgrade Grafana with new dashboard settings
-upgrade_grafana_settings() {
-    log "Upgrading Grafana with editable dashboard settings..." "$YELLOW"
-    
-    if microk8s helm3 status grafana -n monitoring &> /dev/null; then
-        log "Upgrading existing Grafana installation..." "$YELLOW"
-        microk8s helm3 upgrade grafana grafana/grafana -n monitoring -f helm/grafana/values.yaml
-        
-        # Wait for rollout to complete
-        microk8s kubectl rollout status deployment/grafana -n monitoring --timeout=120s
-        
-        log "✅ Grafana upgraded with new settings" "$GREEN"
-    else
-        log "❌ Grafana is not deployed. Deploy it first using option 6." "$RED"
-    fi
-}
-
-# Function to automatically discover and deploy all dashboard files
-deploy_all_dashboard_files() {
-    log "Auto-discovering and deploying all dashboard files..." "$YELLOW"
-    
-    # Get all JSON files in the dashboards directory
-    DASHBOARD_DIR="monitoring/grafana/dashboards"
-    
-    if [ ! -d "$DASHBOARD_DIR" ]; then
-        log "❌ Dashboard directory not found: $DASHBOARD_DIR" "$RED"
-        return 1
-    fi
-    
-    # Remove all existing dashboard ConfigMaps
-    log "Removing existing dashboard ConfigMaps..." "$YELLOW"
-    microk8s kubectl get configmaps -n monitoring | grep dashboard | awk '{print $1}' | xargs -r microk8s kubectl delete configmap -n monitoring --ignore-not-found
-    
-    # Discover and create ConfigMaps for all JSON files
-    for dashboard_file in "$DASHBOARD_DIR"/*.json; do
-        if [ -f "$dashboard_file" ]; then
-            # Extract filename without path and extension
-            dashboard_name=$(basename "$dashboard_file" .json)
-            configmap_name="${dashboard_name}-dashboard"
-            
-            log "Creating ConfigMap for: $dashboard_name" "$CYAN"
-            
-            # Create ConfigMap with proper labels
-            microk8s kubectl create configmap "$configmap_name" -n monitoring \
-                --from-file="$dashboard_name.json=$dashboard_file" \
-                --dry-run=client -o yaml | \
-                microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-                microk8s kubectl apply -f -
-            
-            # Determine folder based on dashboard name
-            case "$dashboard_name" in
-                *siem*|*ssh*)
-                    folder="SIEM"
-                    ;;
-                *app*|*application*)
-                    folder="Application"
-                    ;;
-                *security*)
-                    folder="Security"
-                    ;;
-                *debug*|*log*)
-                    folder="Debug"
-                    ;;
-                *)
-                    folder="General"
-                    ;;
-            esac
-            
-            # Add folder annotation
-            microk8s kubectl annotate configmap "$configmap_name" -n monitoring "grafana_folder=$folder" --overwrite
-            
-            log "✅ Dashboard $dashboard_name deployed to $folder folder" "$GREEN"
-        fi
-    done
-    
-    # Restart Grafana to pick up new dashboards
-    microk8s kubectl rollout restart deployment/grafana -n monitoring
-    
-    log "✅ All dashboard files auto-discovered and deployed!" "$GREEN"
 }
 
 # Start the script

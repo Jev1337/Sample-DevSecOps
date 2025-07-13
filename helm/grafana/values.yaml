@@ -34,8 +34,6 @@ sidecar:
     searchNamespace: monitoring
     provider:
       foldersFromFilesStructure: true
-      allowUiUpdates: true
-      disableDeletion: false
 
 initChownData:
   enabled: false
