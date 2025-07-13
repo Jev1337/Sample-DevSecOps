@@ -1,0 +1,611 @@
+persistence:
+  enabled: true
+  storageClassName: "microk8s-hostpath"
+  size: "2Gi"
+adminPassword: "admin123"
+ingress:
+  enabled: true
+  ingressClassName: public
+  hosts:
+    - grafana.local
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://loki.monitoring.svc.cluster.local:3100
+      uid: loki
+      isDefault: true
+      version: 1
+      editable: false
+      orgId: 1
+    - name: Loki-SIEM
+      type: loki
+      access: proxy
+      url: http://loki.monitoring.svc.cluster.local:3100
+      uid: loki-siem
+      version: 1
+      editable: false
+      orgId: 1
+      jsonData:
+        maxLines: 5000
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+    - name: 'default'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: false
+      editable: true
+      options:
+        path: /var/lib/grafana/dashboards/default
+    - name: 'siem'
+      orgId: 1
+      folder: 'SIEM'
+      type: file
+      disableDeletion: false
+      editable: true
+      options:
+        path: /var/lib/grafana/dashboards/siem
+dashboards:
+  default:
+    app-logs:
+      file: dashboards/app-logs.json
+    security:
+      file: dashboards/security.json
+  siem:
+    siem-overview:
+      json: |
+        {
+          "annotations": {
+            "list": []
+          },
+          "editable": true,
+          "fiscalYearStartMonth": 0,
+          "graphTooltip": 0,
+          "id": null,
+          "links": [],
+          "liveNow": false,
+          "panels": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki-siem"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "vis": false
+                    }
+                  },
+                  "mappings": []
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 0
+              },
+              "id": 1,
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom"
+                },
+                "pieType": "pie",
+                "tooltip": {
+                  "mode": "single"
+                }
+              },
+              "targets": [
+                {
+                  "datasource": {
+                    "type": "loki",
+                    "uid": "loki-siem"
+                  },
+                  "expr": "sum by (event_type) (count_over_time({job=~\"auth|sudo|syslog\"} | json | event_type != \"\" [$__interval]))",
+                  "refId": "A"
+                }
+              ],
+              "title": "Security Events by Type",
+              "type": "piechart"
+            },
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki-siem"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "continuous-GrYlRd"
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "displayMode": "auto"
+                  },
+                  "mappings": []
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 0
+              },
+              "id": 2,
+              "options": {
+                "showHeader": true
+              },
+              "targets": [
+                {
+                  "datasource": {
+                    "type": "loki",
+                    "uid": "loki-siem"
+                  },
+                  "expr": "{job=\"auth\"} |~ \"Failed\" | json | auth_status=\"Failed\"",
+                  "refId": "A"
+                }
+              ],
+              "title": "Failed Authentication Attempts",
+              "type": "table"
+            },
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki-siem"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "drawStyle": "line",
+                    "fillOpacity": 10,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "vis": false
+                    },
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "never",
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "mappings": [],
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 8
+              },
+              "id": 3,
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "single"
+                }
+              },
+              "targets": [
+                {
+                  "datasource": {
+                    "type": "loki",
+                    "uid": "loki-siem"
+                  },
+                  "expr": "sum by (username) (rate({job=\"auth\"} |~ \"Accepted\" | json | auth_status=\"Accepted\" [$__interval]))",
+                  "refId": "A"
+                }
+              ],
+              "title": "Successful SSH Logins by User (Rate)",
+              "type": "timeseries"
+            },
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki-siem"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "continuous-GrYlRd"
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "displayMode": "auto"
+                  },
+                  "mappings": []
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 16
+              },
+              "id": 4,
+              "options": {
+                "showHeader": true
+              },
+              "targets": [
+                {
+                  "datasource": {
+                    "type": "loki",
+                    "uid": "loki-siem"
+                  },
+                  "expr": "{job=\"sudo\"} | json | event_type=\"sudo_usage\"",
+                  "refId": "A"
+                }
+              ],
+              "title": "Sudo Command Executions",
+              "type": "table"
+            },
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki-siem"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "continuous-GrYlRd"
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "displayMode": "auto"
+                  },
+                  "mappings": []
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 16
+              },
+              "id": 5,
+              "options": {
+                "showHeader": true
+              },
+              "targets": [
+                {
+                  "datasource": {
+                    "type": "loki",
+                    "uid": "loki-siem"
+                  },
+                  "expr": "{job=\"git_webhook\"} | json | event_type=\"git_webhook\"",
+                  "refId": "A"
+                }
+              ],
+              "title": "Git Webhook Activity",
+              "type": "table"
+            },
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki-siem"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "continuous-GrYlRd"
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "displayMode": "auto"
+                  },
+                  "mappings": []
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 24
+              },
+              "id": 6,
+              "options": {
+                "showHeader": true
+              },
+              "targets": [
+                {
+                  "datasource": {
+                    "type": "loki",
+                    "uid": "loki-siem"
+                  },
+                  "expr": "{job=~\"syslog|messages\"} | json | event_type=\"package_management\"",
+                  "refId": "A"
+                }
+              ],
+              "title": "Package Management Activities",
+              "type": "table"
+            }
+          ],
+          "refresh": "30s",
+          "schemaVersion": 37,
+          "style": "dark",
+          "tags": ["siem", "security"],
+          "templating": {
+            "list": []
+          },
+          "time": {
+            "from": "now-6h",
+            "to": "now"
+          },
+          "timepicker": {},
+          "timezone": "",
+          "title": "SIEM Security Overview",
+          "uid": "siem-overview",
+          "version": 1,
+          "weekStart": ""
+        }
+    ssh-monitoring:
+      json: |
+        {
+          "annotations": {
+            "list": []
+          },
+          "editable": true,
+          "fiscalYearStartMonth": 0,
+          "graphTooltip": 0,
+          "id": null,
+          "links": [],
+          "liveNow": false,
+          "panels": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki-siem"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "drawStyle": "line",
+                    "fillOpacity": 10,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "vis": false
+                    },
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "never",
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "mappings": [],
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 0
+              },
+              "id": 1,
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "single"
+                }
+              },
+              "targets": [
+                {
+                  "datasource": {
+                    "type": "loki",
+                    "uid": "loki-siem"
+                  },
+                  "expr": "sum by (auth_status) (rate({job=\"auth\"} |~ \"ssh\" | json | event_type=\"ssh_auth\" [$__interval]))",
+                  "refId": "A"
+                }
+              ],
+              "title": "SSH Authentication Rate by Status",
+              "type": "timeseries"
+            },
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki-siem"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "continuous-RdYlGr"
+                  },
+                  "custom": {
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "vis": false
+                    }
+                  },
+                  "mappings": []
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 0
+              },
+              "id": 2,
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom"
+                },
+                "pieType": "pie",
+                "tooltip": {
+                  "mode": "single"
+                }
+              },
+              "targets": [
+                {
+                  "datasource": {
+                    "type": "loki",
+                    "uid": "loki-siem"
+                  },
+                  "expr": "topk(10, sum by (source_ip) (count_over_time({job=\"auth\"} |~ \"Failed\" | json | event_type=\"ssh_auth\" | auth_status=\"Failed\" [$__interval])))",
+                  "refId": "A"
+                }
+              ],
+              "title": "Top Source IPs with Failed SSH Attempts",
+              "type": "piechart"
+            },
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki-siem"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "continuous-GrYlRd"
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "displayMode": "auto"
+                  },
+                  "mappings": []
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 12,
+                "w": 24,
+                "x": 0,
+                "y": 8
+              },
+              "id": 3,
+              "options": {
+                "showHeader": true,
+                "sortBy": [
+                  {
+                    "desc": true,
+                    "displayName": "Time"
+                  }
+                ]
+              },
+              "targets": [
+                {
+                  "datasource": {
+                    "type": "loki",
+                    "uid": "loki-siem"
+                  },
+                  "expr": "{job=\"auth\"} |~ \"ssh\" | json | event_type=\"ssh_auth\"",
+                  "refId": "A"
+                }
+              ],
+              "title": "SSH Authentication Events Detail",
+              "type": "table"
+            }
+          ],
+          "refresh": "30s",
+          "schemaVersion": 37,
+          "style": "dark",
+          "tags": ["ssh", "authentication", "siem"],
+          "templating": {
+            "list": []
+          },
+          "time": {
+            "from": "now-6h",
+            "to": "now"
+          },
+          "timepicker": {},
+          "timezone": "",
+          "title": "SSH Authentication Monitoring",
+          "uid": "ssh-monitoring",
+          "version": 1,
+          "weekStart": ""
+        }
+initChownData:
+  enabled: false

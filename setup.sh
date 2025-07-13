@@ -255,26 +255,7 @@ deploy_monitoring_stack() {
     # Deploy Grafana with SIEM configuration
     if ! microk8s helm3 status grafana -n monitoring &> /dev/null; then
         log "Deploying Grafana with SIEM dashboards..." "$YELLOW"
-        
-        # Create ConfigMaps for SIEM dashboards with proper labels for sidecar discovery
-        log "Creating SIEM dashboard ConfigMaps..." "$YELLOW"
-        microk8s kubectl create configmap siem-overview-dashboard -n monitoring \
-            --from-file=siem-overview.json=monitoring/grafana/dashboards/siem-overview.json \
-            --dry-run=client -o yaml | \
-            microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-            microk8s kubectl apply -f -
-        
-        microk8s kubectl create configmap ssh-monitoring-dashboard -n monitoring \
-            --from-file=ssh-monitoring.json=monitoring/grafana/dashboards/ssh-monitoring.json \
-            --dry-run=client -o yaml | \
-            microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
-            microk8s kubectl apply -f -
-        
-        # Add SIEM folder annotation to group dashboards
-        microk8s kubectl annotate configmap siem-overview-dashboard -n monitoring grafana_folder="SIEM" --overwrite
-        microk8s kubectl annotate configmap ssh-monitoring-dashboard -n monitoring grafana_folder="SIEM" --overwrite
-        
-        microk8s helm3 install grafana grafana/grafana -n monitoring -f helm/grafana/values.yaml
+        microk8s helm3 install grafana grafana/grafana -n monitoring -f helm/grafana/siem-values.yaml
     else
         log "✅ Grafana is already deployed." "$GREEN"
     fi
@@ -282,7 +263,7 @@ deploy_monitoring_stack() {
     # Deploy Alloy with SIEM configuration
     if ! microk8s helm3 status alloy -n monitoring &> /dev/null; then
         log "Deploying Alloy with SIEM log collection..." "$YELLOW"
-        microk8s helm3 install alloy grafana/alloy -n monitoring -f helm/alloy/values.yaml
+        microk8s helm3 install alloy grafana/alloy -n monitoring -f helm/alloy/siem-values.yaml
     else
         log "✅ Alloy is already deployed." "$GREEN"
     fi
@@ -1198,8 +1179,6 @@ cleanup_siem() {
     # Remove SIEM Kubernetes resources
     microk8s kubectl delete daemonset siem-log-collector -n monitoring || true
     microk8s kubectl delete configmap siem-host-config -n monitoring || true
-    microk8s kubectl delete configmap siem-overview-dashboard -n monitoring || true
-    microk8s kubectl delete configmap ssh-monitoring-dashboard -n monitoring || true
     microk8s kubectl delete serviceaccount siem-log-collector -n monitoring || true
     microk8s kubectl delete clusterrole siem-log-collector || true
     microk8s kubectl delete clusterrolebinding siem-log-collector || true

@@ -1,0 +1,218 @@
+alloy:
+  configMap:
+    create: true
+    content: |
+      // Standard Kubernetes pod discovery
+      discovery.kubernetes "pods" {
+        role = "pod"
+      }
+
+      discovery.relabel "kubernetes_pods" {
+        targets = discovery.kubernetes.pods.targets
+        rule {
+          source_labels = ["__meta_kubernetes_pod_phase"]
+          regex = "Pending|Succeeded|Failed|Completed"
+          action = "drop"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+          regex = "false"
+          action = "drop"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          regex = ""
+          action = "drop"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label = "container"
+        }
+      }
+
+      // SIEM: System log collection
+      loki.source.file "system_logs" {
+        targets = [
+          {__path__ = "/var/log/auth.log", job = "auth", host = env("HOSTNAME")},
+          {__path__ = "/var/log/sudo.log", job = "sudo", host = env("HOSTNAME")},
+          {__path__ = "/var/log/syslog", job = "syslog", host = env("HOSTNAME")},
+          {__path__ = "/var/log/secure", job = "secure", host = env("HOSTNAME")},
+          {__path__ = "/var/log/messages", job = "messages", host = env("HOSTNAME")},
+          {__path__ = "/var/log/audit/audit.log", job = "audit", host = env("HOSTNAME")},
+        ]
+        forward_to = [loki.process.security_events.receiver]
+      }
+
+      // SIEM: SSH and authentication monitoring
+      loki.source.journal "ssh_auth" {
+        targets = [
+          {job = "ssh_auth", host = env("HOSTNAME")},
+        ]
+        relabel_rules = [
+          {
+            source_labels = ["__journal_systemd_unit"]
+            regex = "ssh\\.service|sshd\\.service"
+            target_label = "unit"
+          },
+        ]
+        forward_to = [loki.process.security_events.receiver]
+      }
+
+      // SIEM: Process monitoring via journal
+      loki.source.journal "process_monitor" {
+        targets = [
+          {job = "process_monitor", host = env("HOSTNAME")},
+        ]
+        relabel_rules = [
+          {
+            source_labels = ["__journal_priority"]
+            regex = "[0-4]"
+            target_label = "severity"
+          },
+        ]
+        forward_to = [loki.process.security_events.receiver]
+      }
+
+      // SIEM: Git webhook monitoring
+      loki.source.file "webhook_logs" {
+        targets = [
+          {__path__ = "/var/log/webhook.log", job = "git_webhook", host = env("HOSTNAME")},
+          {__path__ = "/var/log/nginx/access.log", job = "nginx_access", host = env("HOSTNAME")},
+          {__path__ = "/var/log/nginx/error.log", job = "nginx_error", host = env("HOSTNAME")},
+        ]
+        forward_to = [loki.process.security_events.receiver]
+      }
+
+      // SIEM: Security event processing and enrichment
+      loki.process "security_events" {
+        stage.regex {
+          expression = "(?P<timestamp>\\w{3}\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2}).*?(?P<process>\\w+)(?:\\[(?P<pid>\\d+)\\])?:?\\s*(?P<message>.*)"
+        }
+        
+        stage.labels {
+          values = {
+            timestamp = "",
+            process = "",
+            pid = "",
+          }
+        }
+
+        // SSH login detection
+        stage.match {
+          selector = '{job="auth"} |~ "sshd.*Accepted|sshd.*Failed"'
+          stage.regex {
+            expression = "sshd.*?(?P<auth_status>Accepted|Failed)\\s+(?P<auth_method>\\w+)\\s+for\\s+(?P<username>\\w+)\\s+from\\s+(?P<source_ip>[\\d\\.]+)"
+          }
+          stage.labels {
+            values = {
+              event_type = "ssh_auth",
+              auth_status = "",
+              auth_method = "",
+              username = "",
+              source_ip = "",
+            }
+          }
+        }
+
+        // Sudo usage detection
+        stage.match {
+          selector = '{job="sudo"} |~ "sudo.*COMMAND"'
+          stage.regex {
+            expression = "sudo.*?USER=(?P<sudo_user>\\w+).*?COMMAND=(?P<command>.*)"
+          }
+          stage.labels {
+            values = {
+              event_type = "sudo_usage",
+              sudo_user = "",
+              command = "",
+            }
+          }
+        }
+
+        // Package installation detection
+        stage.match {
+          selector = '{job="syslog"} |~ "apt|dpkg|yum|rpm"'
+          stage.regex {
+            expression = "(?P<package_manager>apt|dpkg|yum|rpm).*?(?P<package_action>install|remove|upgrade).*?(?P<package_name>\\S+)"
+          }
+          stage.labels {
+            values = {
+              event_type = "package_management",
+              package_manager = "",
+              package_action = "",
+              package_name = "",
+            }
+          }
+        }
+
+        // User account changes
+        stage.match {
+          selector = '{job="auth"} |~ "useradd|userdel|usermod|passwd"'
+          stage.regex {
+            expression = "(?P<user_action>useradd|userdel|usermod|passwd).*?(?P<target_user>\\w+)"
+          }
+          stage.labels {
+            values = {
+              event_type = "user_management",
+              user_action = "",
+              target_user = "",
+            }
+          }
+        }
+
+        // Git webhook events
+        stage.match {
+          selector = '{job="git_webhook"}'
+          stage.regex {
+            expression = ".*?(?P<http_method>GET|POST|PUT|DELETE)\\s+(?P<webhook_path>/webhook).*?(?P<response_code>\\d{3})"
+          }
+          stage.labels {
+            values = {
+              event_type = "git_webhook",
+              http_method = "",
+              webhook_path = "",
+              response_code = "",
+            }
+          }
+        }
+
+        // Network connection monitoring
+        stage.match {
+          selector = '{job="syslog"} |~ "kernel.*TCP|kernel.*UDP"'
+          stage.regex {
+            expression = "kernel.*?(?P<protocol>TCP|UDP).*?(?P<source_ip>[\\d\\.]+):(?P<source_port>\\d+).*?(?P<dest_ip>[\\d\\.]+):(?P<dest_port>\\d+)"
+          }
+          stage.labels {
+            values = {
+              event_type = "network_connection",
+              protocol = "",
+              source_ip = "",
+              source_port = "",
+              dest_ip = "",
+              dest_port = "",
+            }
+          }
+        }
+
+        forward_to = [loki.write.default.receiver]
+      }
+
+      // Standard Kubernetes pod logs
+      loki.source.kubernetes "pods" {
+        targets    = discovery.relabel.kubernetes_pods.output
+        forward_to = [loki.write.default.receiver]
+      }
+
+      loki.write "default" {
+        endpoint {
+          url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+        }
+      }
