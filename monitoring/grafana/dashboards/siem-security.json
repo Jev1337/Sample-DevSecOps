@@ -25,7 +25,7 @@
     {
       "datasource": {
         "type": "loki",
-        "uid": "loki"
+        "uid": "${DS_LOKI}"
       },
       "fieldConfig": {
         "defaults": {
@@ -73,7 +73,7 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "loki"
+            "uid": "${DS_LOKI}"
           },
           "editorMode": "code",
           "expr": "sum by (event_type) (count_over_time({log_type=\"authentication\"} |~ \".*\" [$__range]))",
@@ -87,7 +87,7 @@
     {
       "datasource": {
         "type": "loki",
-        "uid": "loki"
+        "uid": "${DS_LOKI}"
       },
       "fieldConfig": {
         "defaults": {
@@ -165,7 +165,7 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "loki"
+            "uid": "${DS_LOKI}"
           },
           "editorMode": "code",
           "expr": "sum by (event_type) (rate({log_type=\"authentication\"} |~ \".*\" [$__rate_interval]))",
@@ -179,7 +179,7 @@
     {
       "datasource": {
         "type": "loki",
-        "uid": "loki"
+        "uid": "${DS_LOKI}"
       },
       "fieldConfig": {
         "defaults": {
@@ -234,7 +234,7 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "loki"
+            "uid": "${DS_LOKI}"
           },
           "editorMode": "code",
           "expr": "topk(10, sum by (source_ip) (count_over_time({event_type=\"ssh_failed\"} [$__range])))",
@@ -260,7 +260,7 @@
     {
       "datasource": {
         "type": "loki",
-        "uid": "loki"
+        "uid": "${DS_LOKI}"
       },
       "fieldConfig": {
         "defaults": {
@@ -308,7 +308,7 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "loki"
+            "uid": "${DS_LOKI}"
           },
           "editorMode": "code",
           "expr": "sum by (severity) (count_over_time({log_type=~\"authentication|system\"} |~ \".*\" [$__range]))",
@@ -322,7 +322,7 @@
     {
       "datasource": {
         "type": "loki",
-        "uid": "loki"
+        "uid": "${DS_LOKI}"
       },
       "fieldConfig": {
         "defaults": {
@@ -400,7 +400,7 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "loki"
+            "uid": "${DS_LOKI}"
           },
           "editorMode": "code",
           "expr": "sum by (event_type) (rate({event_type=\"git_push\"} [$__rate_interval]))",
@@ -414,7 +414,7 @@
     {
       "datasource": {
         "type": "loki",
-        "uid": "loki"
+        "uid": "${DS_LOKI}"
       },
       "gridPos": {
         "h": 8,
@@ -437,7 +437,7 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "loki"
+            "uid": "${DS_LOKI}"
           },
           "editorMode": "code",
           "expr": "{severity=\"critical\"} |~ \".*\"",
