@@ -51,31 +51,41 @@ alloy:
         forward_to = [loki.process.security_events.receiver]
       }
 
+      // Relabel component for SSH authentication
+      loki.relabel "ssh_auth_relabel" {
+        forward_to = [loki.process.security_events.receiver]
+        
+        rule {
+          source_labels = ["__journal__systemd_unit"]
+          regex = "ssh\\.service|sshd\\.service"
+          target_label = "unit"
+        }
+      }
+
+      // Relabel component for process monitoring
+      loki.relabel "process_monitor_relabel" {
+        forward_to = [loki.process.security_events.receiver]
+        
+        rule {
+          source_labels = ["__journal_priority"]
+          regex = "[0-4]"
+          target_label = "severity"
+        }
+      }
+
       // SIEM: SSH and authentication monitoring
       loki.source.journal "ssh_auth" {
         labels = {job = "auth", host = env("HOSTNAME")}
         matches = "_SYSTEMD_UNIT=ssh.service,sshd.service"
-        relabel_rules = [
-          {
-            source_labels = ["__journal__systemd_unit"],
-            regex = "ssh\\.service|sshd\\.service",
-            target_label = "unit",
-          },
-        ]
-        forward_to = [loki.process.security_events.receiver]
+        relabel_rules = loki.relabel.ssh_auth_relabel.rules
+        forward_to = [loki.relabel.ssh_auth_relabel.receiver]
       }
 
       // SIEM: Process monitoring via journal
       loki.source.journal "process_monitor" {
         labels = {job = "syslog", host = env("HOSTNAME")}
-        relabel_rules = [
-          {
-            source_labels = ["__journal_priority"],
-            regex = "[0-4]",
-            target_label = "severity",
-          },
-        ]
-        forward_to = [loki.process.security_events.receiver]
+        relabel_rules = loki.relabel.process_monitor_relabel.rules
+        forward_to = [loki.relabel.process_monitor_relabel.receiver]
       }
 
       // SIEM: Git webhook monitoring
