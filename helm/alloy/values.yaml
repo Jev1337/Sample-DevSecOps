@@ -63,8 +63,12 @@ alloy:
       local.file_match "system_logs" {
         path_targets = [
           {__path__ = "/var/log/auth.log", job = "system-auth"},
+          {__path__ = "/var/log/sudo.log", job = "system-auth"},
+          {__path__ = "/var/log/ssh-failures.log", job = "system-auth"},
           {__path__ = "/var/log/dpkg.log", job = "package-install"},
-          {__path__ = "/var/log/apt/history.log", job = "apt-history"},
+          {__path__ = "/var/log/apt/history.log", job = "package-install"},
+          {__path__ = "/var/log/webhook.log", job = "webhook-receiver"},
+          {__path__ = "/var/log/siem-monitor.log", job = "siem-monitor"},
         ]
       }
 
@@ -88,85 +92,63 @@ alloy:
 
       // Process real system authentication logs
       loki.process "system_logs" {
-        // Process system-auth logs
+        // Process system-auth logs (auth.log, sudo.log, ssh-failures.log)
         stage.match {
           selector = "{job=\"system-auth\"}"
           
-          // Parse basic log structure first
-          stage.regex {
-            expression = "^(?P<timestamp>\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d+\\+\\d{2}:\\d{2}) (?P<hostname>\\S+) (?P<program>\\S+)(\\[(?P<pid>\\d+)\\])?: (?P<message>.*)"
-          }
-          
-          stage.timestamp {
-            source = "timestamp"
-            format = "2006-01-02T15:04:05.000000+07:00"
-          }
-          
-          stage.labels {
-            values = {
-              job = "system-auth",
-              hostname = "",
-              program = "",
-            }
-          }
-          
           // SSH invalid user attempts
-          stage.regex {
-            expression = ".*Disconnected from invalid user (?P<invalid_user>\\S+) (?P<source_ip>\\d+\\.\\d+\\.\\d+\\.\\d+).*"
-          }
-          
-          stage.labels {
-            values = {
-              event_type = "ssh_invalid_user",
-              invalid_user = "",
-              source_ip = "",
+          stage.match {
+            selector = "{job=\"system-auth\"} |~ \"(?i)invalid user\""
+            stage.regex {
+              expression = ".*invalid user (?P<invalid_user>\\S+) from (?P<source_ip>[0-9.]+)"
+            }
+            stage.labels {
+              values = {
+                event_type = "ssh_invalid_user",
+                level = "warning",
+              }
             }
           }
           
           // Failed password attempts  
-          stage.regex {
-            expression = ".*Failed password for (?P<failed_user>\\S+) from (?P<source_ip>\\d+\\.\\d+\\.\\d+\\.\\d+).*"
-          }
-          
-          stage.labels {
-            values = {
-              event_type = "auth_failure",
-              failed_user = "",
-              source_ip = "",
+          stage.match {
+            selector = "{job=\"system-auth\"} |~ \"(?i)failed password\""
+            stage.regex {
+              expression = ".*Failed password for (?P<failed_user>\\S+) from (?P<source_ip>[0-9.]+)"
+            }
+            stage.labels {
+              values = {
+                event_type = "auth_failure",
+                level = "warning",
+              }
             }
           }
           
           // Successful logins
-          stage.regex {
-            expression = ".*session opened for user (?P<user>\\S+).*by (?P<login_user>\\S+).*"
-          }
-          
-          stage.labels {
-            values = {
-              event_type = "successful_login",
-              user = "",
-              login_user = "",
+          stage.match {
+            selector = "{job=\"system-auth\"} |~ \"(?i)session opened\""
+            stage.regex {
+              expression = ".*session opened for user (?P<user>\\S+)"
+            }
+            stage.labels {
+              values = {
+                event_type = "successful_login",
+                level = "info",
+              }
             }
           }
           
-          // Sudo usage
-          stage.regex {
-            expression = ".*sudo: (?P<sudo_user>\\S+) : TTY=(?P<tty>\\S+) ; PWD=(?P<pwd>\\S+) ; USER=(?P<target_user>\\S+) ; COMMAND=(?P<command>.*)"
-          }
-          
-          stage.labels {
-            values = {
-              event_type = "sudo_usage",
-              sudo_user = "",
-              target_user = "",
-              command = "",
+          // Sudo usage from sudo.log
+          stage.match {
+            selector = "{job=\"system-auth\"} |~ \"sudo:\""
+            stage.regex {
+              expression = ".*sudo: (?P<sudo_user>\\S+) : TTY=(?P<tty>\\S+) ; PWD=(?P<pwd>\\S+) ; USER=(?P<target_user>\\S+) ; COMMAND=(?P<command>.*)"
             }
-          }
-          
-          // Default event type for system-auth
-          stage.labels {
-            values = {
-              event_type = "auth_event",
+            stage.labels {
+              values = {
+                event_type = "sudo_usage",
+                level = "info",
+              }
             }
           }
         }
@@ -174,23 +156,25 @@ alloy:
         // Process package installation logs
         stage.match {
           selector = "{job=\"package-install\"}"
-          
+          stage.regex {
+            expression = ".*(?P<action>install|upgrade|remove).*(?P<package>\\S+)"
+          }
           stage.labels {
             values = {
-              job = "package-install",
               event_type = "package_change",
+              level = "info",
             }
           }
         }
         
-        // Process APT history logs
+        // Process webhook logs
         stage.match {
-          selector = "{job=\"apt-history\"}"
-          
+          selector = "{job=\"webhook-receiver\"}"
+          stage.json {}
           stage.labels {
             values = {
-              job = "apt-history",
-              event_type = "apt_action",
+              event_type = "webhook_event",
+              level = "info",
             }
           }
         }
