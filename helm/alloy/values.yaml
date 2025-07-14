@@ -172,7 +172,7 @@ alloy:
           selector = "{job=\"webhook-receiver\"}"
           // Try to parse as JSON if possible, but don't fail if it's not JSON
           stage.match {
-            selector = "{job=\"webhook-receiver\"} |~ \"^\\{\""
+            selector = "{job=\"webhook-receiver\"} |~ \"^\\\\{\""
             stage.json {
               expressions = {
                 event_type = "event_type",
