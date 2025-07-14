@@ -16,7 +16,7 @@ spec:
       - |
         while true; do
           # Send SSH authentication failure logs with job="node-logs"
-          TIMESTAMP=$(date +%s%N)
+          TIMESTAMP=$(date +%s%9N)
           curl -X POST http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push \
             -H "Content-Type: application/json" \
             -d "{
@@ -35,7 +35,7 @@ spec:
             }" || echo "Failed to send SSH log"
           
           # Send Kubernetes audit logs with job="kubernetes-audit"
-          TIMESTAMP=$(date +%s%N)
+          TIMESTAMP=$(date +%s%9N)
           AUDIT_ID="audit-$(date +%s)-$(( RANDOM % 1000 ))"
           curl -X POST http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push \
             -H "Content-Type: application/json" \
