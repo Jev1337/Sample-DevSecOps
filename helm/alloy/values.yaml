@@ -50,9 +50,9 @@ alloy:
           }
         }
         
-        // Look for security-related patterns in pod logs
+        // Only forward error/security-related patterns to reduce stream count
         stage.regex {
-          expression = "(?i).*(error|warn|fail|denied|unauthorized|forbidden|exception|panic|fatal).*"
+          expression = "(?i).*(error|fail|denied|unauthorized|forbidden|exception|panic|fatal).*"
         }
         
         forward_to = [loki.write.default.receiver]
@@ -62,7 +62,6 @@ alloy:
       local.file_match "system_logs" {
         path_targets = [
           {__path__ = "/var/log/auth.log", job = "system-auth"},
-          {__path__ = "/var/log/syslog", job = "system-syslog"},
         ]
       }
 
@@ -86,26 +85,27 @@ alloy:
 
       // Process real system authentication logs
       loki.process "system_logs" {
-        stage.regex {
-          expression = "^(?P<timestamp>\\S+ \\S+) (?P<hostname>\\S+) (?P<program>\\S+)(\\[(?P<pid>\\d+)\\])?: (?P<message>.*)"
-        }
-        
-        stage.timestamp {
-          source = "timestamp"
-          format = "Jan 02 15:04:05"
-        }
-        
-        stage.labels {
-          values = {
-            hostname = "",
-            program = "",
-            job = "",
-          }
-        }
-        
-        // Filter for security-related events
+        // Only process auth logs, skip noisy syslog
         stage.match {
           selector = "{job=\"system-auth\"}"
+          
+          stage.regex {
+            expression = "^(?P<timestamp>\\S+ \\S+) (?P<hostname>\\S+) (?P<program>\\S+)(\\[(?P<pid>\\d+)\\])?: (?P<message>.*)"
+          }
+          
+          stage.timestamp {
+            source = "timestamp"
+            format = "Jan 02 15:04:05"
+          }
+          
+          stage.labels {
+            values = {
+              program = "",
+              job = "system-auth",
+            }
+          }
+          
+          // Filter for security-related events only
           stage.regex {
             expression = "(?i).*(ssh|sudo|su|failed|error|denied|unauthorized|forbidden|authentication|login|logout|session).*"
             source = "message"
