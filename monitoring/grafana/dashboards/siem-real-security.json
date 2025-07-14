@@ -23,7 +23,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (job) (rate({job=~\"system-auth|webhook-receiver|package-install\"} [5m]))",
+          "expr": "sum by (job) (rate({job=~\"system-auth|system-audit|webhook-receiver|package-install|siem-monitor\"} [5m]))",
           "refId": "A",
           "legendFormat": "{{job}}",
           "datasource": {
@@ -64,7 +64,8 @@
         },
         "orientation": "horizontal",
         "textMode": "auto",
-        "colorMode": "background"
+        "colorMode": "background",
+        "noValue": "No Security Events"
       },
       "gridPos": {
         "h": 8,
@@ -83,7 +84,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-auth\"} |~ \"(?i)invalid user\" | regexp \"invalid user (?P<username>\\\\S+) from (?P<source_ip>[0-9.]+)\" | line_format \"{{.__timestamp__}} | Invalid User: {{.username}} from IP: {{.source_ip}}\"",
+          "expr": "{job=\"system-auth\"} |~ \"invalid user\" | regexp \"invalid user (?P<username>\\\\S+) (?P<source_ip>[0-9.]+)\" | line_format \"{{.__timestamp__}} | Invalid User: {{.username}} from IP: {{.source_ip}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -98,7 +99,7 @@
         "wrapLogMessage": true,
         "prettifyLogMessage": false,
         "enableLogDetails": true,
-        "dedupStrategy": "none",
+        "dedupStrategy": "exact",
         "sortOrder": "Descending"
       },
       "gridPos": {
@@ -118,8 +119,9 @@
       },
       "targets": [
         {
-          "expr": "topk(10, sum by (source_ip) (count_over_time({job=\"system-auth\"} |~ \"(?i)(invalid user|failed password|authentication failure)\" | regexp \"from (?P<source_ip>[0-9.]+)\" [1h])))",
+          "expr": "topk(10, sum by (source_ip) (count_over_time({job=\"system-auth\"} |~ \"invalid user .* [0-9]+\\\\.[0-9]+\\\\.[0-9]+\\\\.[0-9]+\" | regexp \"invalid user \\\\S+ (?P<source_ip>[0-9]+\\\\.[0-9]+\\\\.[0-9]+\\\\.[0-9]+)\" [$__range])))",
           "refId": "A",
+          "instant": false,
           "datasource": {
             "type": "loki",
             "uid": "loki"
@@ -184,11 +186,15 @@
         {
           "id": "organize",
           "options": {
-            "excludeByName": {},
+            "excludeByName": {
+              "Time": true,
+              "": true
+            },
             "indexByName": {},
             "renameByName": {
               "source_ip": "Source IP Address",
-              "Value": "Failed Attempts"
+              "Value": "Failed Attempts",
+              "Value #A": "Failed Attempts"
             }
           }
         }
@@ -211,7 +217,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-auth\"} |~ \"sudo:\" != \"sudo: unable to resolve host\" | line_format \"{{.__timestamp__}} | {{.__line__}}\"",
+          "expr": "{job=\"system-auth\"} |~ \"sudo:\" |~ \"COMMAND=\" != \"sudo: unable to resolve host\" != \"sudo: pam_open_session\" | regexp \"sudo:\\\\s*(?P<user>\\\\S+)\\\\s*:.*COMMAND=(?P<command>.+)$\" | line_format \"{{.__timestamp__}} | User {{.user}} executed as Sudo: {{.command}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -226,7 +232,7 @@
         "wrapLogMessage": true,
         "prettifyLogMessage": false,
         "enableLogDetails": true,
-        "dedupStrategy": "none",
+        "dedupStrategy": "exact",
         "sortOrder": "Descending"
       },
       "gridPos": {
@@ -246,7 +252,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"package-install\"} |~ \"(?i)(install|upgrade|remove)\" | regexp \"status (?P<action>\\\\S+) (?P<package>[^:]+):\" | line_format \"{{.__timestamp__}} | {{.action | title}}: {{.package}}\"",
+          "expr": "{job=\"package-install\"} |~ \"status (installed|half-configured|half-installed|unpacked|triggers-pending)\" | regexp \"status (?P<action>\\\\S+) (?P<package>[^:]+):\" != \": \" | line_format \"{{.__timestamp__}} | {{.action | title}}: {{.package}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -266,105 +272,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 24,
         "x": 0,
-        "y": 16
-      }
-    },
-    {
-      "id": 6,
-      "title": "User Activity Summary",
-      "type": "table",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "sum by (user) (count_over_time({job=\"system-auth\"} |~ \"(?i)(sudo|session opened)\" | regexp \"(?:sudo:.*USER=(?P<user>\\\\S+)|session opened for user (?P<user>\\\\S+))\" [1h]))",
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "displayMode": "list",
-            "filterable": true
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 10
-              },
-              {
-                "color": "red",
-                "value": 50
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "user"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Username"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Value"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Activity Count"
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true
-      },
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {},
-            "indexByName": {},
-            "renameByName": {
-              "user": "Username",
-              "Value": "Activity Count"
-            }
-          }
-        }
-      ],
-      "pluginVersion": "9.0.0",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
         "y": 16
       }
     },
@@ -378,7 +287,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"webhook-receiver\"} | json | line_format \"{{.__timestamp__}} | Event: {{.event_type}} | Source: {{.source}} | Repository: {{.repository}} | Actor: {{.actor}} | Level: {{.level}} | {{if .pr_action}}PR Action: {{.pr_action}} | {{end}}{{if .issue_action}}Issue Action: {{.issue_action}} | {{end}}{{if .workflow_status}}Workflow: {{.workflow_name}} ({{.workflow_status}}) | {{end}}Details: {{.message}}\"",
+          "expr": "{job=\"webhook-receiver\"} != \"Webhook check:\" | json | line_format \"{{.__timestamp__}} | Event: {{.event_type | default \\\"unknown\\\"}} | Source: {{.source | default \\\"unknown\\\"}} | Repository: {{.repository | default \\\"N/A\\\"}} | Actor: {{.actor | default \\\"N/A\\\"}} | Level: {{.level | default \\\"info\\\"}} | {{if .pr_action}}PR Action: {{.pr_action}} | {{end}}{{if .issue_action}}Issue Action: {{.issue_action}} | {{end}}{{if .workflow_status}}Workflow: {{.workflow_name}} ({{.workflow_status}}) | {{end}}Details: {{.message | default \\\"No details\\\"}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -404,6 +313,41 @@
       }
     },
     {
+      "id": 11,
+      "title": "User Sessions & Authentication Events",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"system-auth\"} |~ \"(session opened|session closed|Accepted|Failed|Invalid|authentication failure)\" | regexp \"(?:session (?P<action>opened|closed) for user (?P<user>\\\\S+)|(?P<auth_result>Accepted|Failed) (?P<method>\\\\S+) for (?P<auth_user>\\\\S+) from (?P<source_ip>[0-9.]+)|Invalid user (?P<invalid_user>\\\\S+) from (?P<invalid_ip>[0-9.]+)|authentication failure.*user=(?P<fail_user>\\\\S+))\" | line_format \"{{.__timestamp__}} | {{if .action}}Session {{.action}} for user {{.user}}{{else if .auth_result}}{{.auth_result}} {{.method}} login for {{.auth_user}} from {{.source_ip}}{{else if .invalid_user}}Invalid login attempt: {{.invalid_user}} from {{.invalid_ip}}{{else if .fail_user}}Authentication failed for {{.fail_user}}{{else}}Auth Event: {{.__line__}}{{end}}\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "exact",
+        "sortOrder": "Descending"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      }
+    },
+    {
       "id": 8,
       "title": "Security Events Timeline",
       "type": "timeseries",
@@ -413,7 +357,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (job) (rate({job=~\"system-auth|webhook-receiver|package-install\"} [1m]))",
+          "expr": "sum by (job) (rate({job=~\"system-auth|system-audit|webhook-receiver|package-install|siem-monitor\"} [1m]))",
           "refId": "A",
           "legendFormat": "{{job}}",
           "datasource": {
@@ -482,12 +426,12 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 48
       }
     },
     {
-      "id": 9,
-      "title": "User Command History (Click on user to drill down)",
+      "id": 10,
+      "title": "All Command Executions (Audit Trail)",
       "type": "logs",
       "datasource": {
         "type": "loki",
@@ -495,8 +439,16 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-auth\"} |~ \"sudo:.*COMMAND=\" | regexp \"sudo:.*USER=(?P<user>\\\\S+).*COMMAND=(?P<command>.*)$\" | line_format \"{{.__timestamp__}} | User: {{.user}} executed: {{.command}}\"",
+          "expr": "{job=\"system-audit\", audit_type=\"EXECVE\"} | regexp \"a0=\\\"(?P<cmd>[^\\\"]+)\\\"(?:\\\\s+a1=\\\"(?P<a1>[^\\\"]*)\\\")??(?:\\\\s+a2=\\\"(?P<a2>[^\\\"]*)\\\")??(?:\\\\s+a3=\\\"(?P<a3>[^\\\"]*)\\\")??\" != \"runc\" != \"check-status\" != \"exe\" != \"/snap/\" | line_format \"{{.__timestamp__}} | EXEC: {{.cmd}}{{if .a1}} {{.a1}}{{end}}{{if .a2}} {{.a2}}{{end}}{{if .a3}} {{.a3}}{{end}}\"",
           "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        },
+        {
+          "expr": "{job=\"system-audit\", audit_type=\"SYSCALL\"} |= \"tty=pts\" | regexp \"comm=\\\"(?P<command>[^\\\"]+)\\\".*exe=\\\"(?P<executable>[^\\\"]+)\\\"\" != \"bash\" != \"zsh\" != \"sh\" | line_format \"{{.__timestamp__}} | TTY COMMAND: {{.command}} ({{.executable}})\"",
+          "refId": "B",
           "datasource": {
             "type": "loki",
             "uid": "loki"
@@ -517,14 +469,14 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 32
       }
     }
   ],
   "time": {
-    "from": "now-1h",
+    "from": "now-6h",
     "to": "now"
   },
   "timepicker": {},
-  "refresh": "5s"
+  "refresh": "30s"
 }
