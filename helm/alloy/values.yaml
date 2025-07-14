@@ -53,7 +53,6 @@ alloy:
         // Look for security-related patterns in pod logs
         stage.regex {
           expression = "(?i).*(error|warn|fail|denied|unauthorized|forbidden|exception|panic|fatal).*"
-          source = ""
         }
         
         forward_to = [loki.write.default.receiver]
@@ -89,7 +88,6 @@ alloy:
       loki.process "system_logs" {
         stage.regex {
           expression = "^(?P<timestamp>\\S+ \\S+) (?P<hostname>\\S+) (?P<program>\\S+)(\\[(?P<pid>\\d+)\\])?: (?P<message>.*)"
-          source = ""
         }
         
         stage.timestamp {
@@ -124,7 +122,6 @@ alloy:
           selector = "{job=\"system-audit\"}"
           stage.regex {
             expression = "^type=(?P<audit_type>\\S+) msg=audit\\((?P<audit_timestamp>[^)]+)\\): (?P<audit_message>.*)"
-            source = ""
           }
           
           stage.labels {
