@@ -2,9 +2,17 @@
 # Ensure required tools are installed: snap, git, curl
 - name: Wait for automatic system updates to complete
   ansible.builtin.shell: |
+    timeout=300  # 5 minutes timeout
+    elapsed=0
     while pgrep -x "unattended-upgr" > /dev/null; do
-      echo "Waiting for unattended-upgr to complete..."
-      sleep 5
+      if [ $elapsed -ge $timeout ]; then
+        echo "Timeout reached, forcefully stopping unattended-upgr"
+        killall -9 unattended-upgr || true
+        break
+      fi
+      echo "Waiting for unattended-upgr to complete... ($elapsed/$timeout seconds)"
+      sleep 10
+      elapsed=$((elapsed + 10))
     done
   become: true
   changed_when: false
