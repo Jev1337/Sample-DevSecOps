@@ -8,5 +8,11 @@ metadata:
 data:
   app-logs.json: |
 {{ lookup('file', playbook_dir + '/../../monitoring/grafana/dashboards/app-logs.json') | indent(4, True) }}
+  auth-monitoring.json: |
+{{ lookup('file', playbook_dir + '/../../monitoring/grafana/dashboards/auth-monitoring.json') | indent(4, True) }}
   security.json: |
 {{ lookup('file', playbook_dir + '/../../monitoring/grafana/dashboards/security.json') | indent(4, True) }}
+  siem-overview.json: |
+{{ lookup('file', playbook_dir + '/../../monitoring/grafana/dashboards/siem-overview.json') | indent(4, True) }}
+  system-audit.json: |
+{{ lookup('file', playbook_dir + '/../../monitoring/grafana/dashboards/system-audit.json') | indent(4, True) }}
