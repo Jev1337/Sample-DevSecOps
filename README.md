@@ -298,6 +298,36 @@ trivy image localhost:32000/flask-k8s-app:latest
 | **Code Quality** | Analyse statique continue | SonarQube |
 | **Vulnerability Scan** | Scan images + filesystem | Trivy |
 | **Secrets Management** | Kubernetes secrets chiffrés | K8s |
+| **Security Monitoring** | Centralisation des événements de sécurité | SIEM |
+| **Intrusion Detection** | Détection des tentatives d'authentification | Fail2ban |
+| **System Auditing** | Audit des fichiers critiques et commandes | Auditd |
+| **Git Security** | Monitoring des webhooks Git | Custom Webhook |
+
+### 🛡️ SIEM (Security Information and Event Management)
+
+Notre solution inclut un système SIEM complet pour surveiller les événements de sécurité:
+
+```bash
+# Déployer uniquement les composants SIEM
+./setup.sh
+# Sélectionnez l'option 9: "Deploy SIEM Components"
+
+# Pour une installation complète incluant le SIEM
+./setup.sh
+# Sélectionnez l'option 11: "Complete SecOps Setup (3-9)"
+```
+
+**Fonctionnalités de surveillance:**
+
+- Tentatives d'authentification SSH
+- Événements webhook Git
+- Logs système (auth.log, syslog)
+- Activités de gestion de paquets
+- Modifications de fichiers système
+- Logs d'audit Kubernetes
+- Dashboards Grafana spécifiques à la sécurité
+
+Accès au dashboard SIEM: http://grafana.EXTERNAL_IP.nip.io ou http://grafana.local (Dashboard "SIEM")
 | **Network Policies** | Isolation réseau pods | K8s NetworkPolicy |
 | **RBAC** | Contrôle accès granulaire | K8s RBAC |
 | **TLS/SSL** | Chiffrement en transit | Ingress TLS |

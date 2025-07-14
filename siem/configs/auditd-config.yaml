@@ -1,0 +1,52 @@
+# Auditd configuration for SIEM integration
+# This configuration focuses on security-related events
+
+active: yes
+log_format: enriched
+log_group: adm
+priority_boost: 4
+freq: 20
+disp_qos: lossy
+dispatcher: /sbin/audispd
+name_format: hostname
+max_log_file: 50
+max_log_file_action: ROTATE
+num_logs: 5
+disp_qos: lossy
+dispatcher: /sbin/audispd
+
+# Audit rules
+# Authentication events
+-w /var/log/auth.log -p wa -k auth_changes
+-w /var/log/secure -p wa -k auth_changes
+-w /etc/passwd -p wa -k user_modifications
+-w /etc/shadow -p wa -k user_modifications
+-w /etc/group -p wa -k group_modifications
+-w /etc/gshadow -p wa -k group_modifications
+
+# Critical system files
+-w /etc/sudoers -p wa -k sudoers_changes
+-w /etc/sudoers.d/ -p wa -k sudoers_changes
+
+# Package management
+-w /usr/bin/dpkg -p x -k package_management
+-w /usr/bin/apt -p x -k package_management
+-w /usr/bin/apt-get -p x -k package_management
+-w /usr/bin/apt-add-repository -p x -k package_management
+
+# Critical commands
+-w /usr/bin/wget -p x -k web_downloads
+-w /usr/bin/curl -p x -k web_downloads
+
+# SSH related
+-w /etc/ssh/sshd_config -p wa -k ssh_config_changes
+-w /root/.ssh/ -p wa -k ssh_key_changes
+-w /home/ubuntu/.ssh/ -p wa -k ssh_key_changes
+
+# Docker/Kubernetes sensitive files
+-w /etc/docker/ -p wa -k docker_changes
+-w /etc/kubernetes/ -p wa -k k8s_changes
+-w /var/snap/microk8s/current/certs/ -p wa -k microk8s_certs_changes
+
+# Log all executed commands
+-a exit,always -F arch=b64 -S execve -k command_execution
