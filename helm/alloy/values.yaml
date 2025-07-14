@@ -47,6 +47,7 @@ alloy:
         stage.labels {
           values = {
             job = "kubernetes-pods",
+            event_type = "k8s_event",
           }
         }
         
