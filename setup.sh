@@ -491,8 +491,74 @@ run_development_mode() {
         return 1
     fi
     
-    log "Starting all services with Docker Compose..." "$YELLOW"
-    docker compose up -d
+    # Ask if SIEM components should be included
+    echo ""
+    log "Include SIEM components in development environment?" "$YELLOW"
+    echo "  1) Standard development environment"
+    echo "  2) Development environment with SIEM components"
+    read -p "Enter your choice [1-2]: " dev_choice
+    
+    case $dev_choice in
+        1)
+            log "Starting standard development environment..." "$YELLOW"
+            docker compose up -d
+            ;;
+        2)
+            log "Starting development environment with SIEM components..." "$YELLOW"
+            
+            # Check if docker-compose.siem.yml exists
+            if [ ! -f "docker-compose.siem.yml" ]; then
+                log "❌ docker-compose.siem.yml not found!" "$RED"
+                log "Creating SIEM docker-compose file..." "$YELLOW"
+                
+                # Create the SIEM config directory if it doesn't exist
+                mkdir -p siem/configs
+                
+                # Copy alloy-security-config.river if it exists, otherwise create a placeholder
+                if [ ! -f "siem/configs/alloy-security-config.river" ]; then
+                    log "Creating Alloy security configuration..." "$YELLOW"
+                    cp -f siem/configs/alloy-security-config.river siem/configs/alloy-security-config.river 2>/dev/null || \
+                    echo 'discovery.kubernetes "pods" { role = "pod" }' > siem/configs/alloy-security-config.river
+                fi
+                
+                # Create nginx webhook config if needed
+                if [ ! -f "siem/configs/nginx-webhook.conf" ]; then
+                    log "Creating nginx webhook configuration..." "$YELLOW"
+                    mkdir -p siem/configs
+                    echo 'server { listen 8080; location /webhook { return 200 "{\"status\":\"success\"}"; } }' > siem/configs/nginx-webhook.conf
+                fi
+                
+                # Create docker-compose.siem.yml file
+                cat docker-compose.yml | sed 's/monitoring\/alloy\/docker-config.alloy/siem\/configs\/alloy-security-config.river/' > docker-compose.siem.yml
+                
+                # Add webhook service
+                cat >> docker-compose.siem.yml << EOF
+  webhook:
+    image: nginxinc/nginx-unprivileged:1.25-alpine
+    container_name: webhook-receiver
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./siem/configs/nginx-webhook.conf:/etc/nginx/conf.d/default.conf:ro
+      - webhook_logs:/var/log/nginx
+    networks:
+      - monitoring
+    depends_on:
+      - loki
+
+volumes:
+  webhook_logs:
+EOF
+            fi
+            
+            docker compose -f docker-compose.siem.yml up -d
+            ;;
+        *)
+            log "Invalid option. Starting standard environment..." "$RED"
+            docker compose up -d
+            ;;
+    esac
     
     log "⏳ Waiting for services to start..." "$YELLOW"
     sleep 10
@@ -503,6 +569,11 @@ run_development_mode() {
     log "   - SonarQube: http://localhost:9000" "$CYAN"
     log "   - Grafana:   http://localhost:3000" "$CYAN"
     log "   - Loki:      http://localhost:3100" "$CYAN"
+    
+    if [ "$dev_choice" = "2" ]; then
+        log "   - Webhook:   http://localhost:8080/webhook" "$CYAN"
+        log "🛡️ SIEM components included" "$CYAN"
+    fi
 }
 
 # Function to run cleanup
@@ -516,7 +587,13 @@ run_cleanup() {
     
     # Source the cleanup functions
     source "$SCRIPT_DIR/cleanup.sh"
-    source "$SCRIPT_DIR/siem/siem-functions.sh"
+    
+    # Source SIEM functions if available
+    if [ -f "$SCRIPT_DIR/siem/siem-functions.sh" ]; then
+        source "$SCRIPT_DIR/siem/siem-functions.sh"
+    else
+        log "⚠️ SIEM functions not found. SIEM cleanup options will not be available." "$YELLOW"
+    fi
     
     while true; do
         echo ""
@@ -526,10 +603,16 @@ run_cleanup() {
         echo "  3) Cleanup Application Deployment"
         echo "  4) Cleanup Development Environment (Docker Compose)"
         echo "  5) Cleanup Azure External Access"
-        echo "  6) Cleanup SIEM Components"
-        echo "  7) Cleanup ALL"
-        echo "  8) Return to main menu"
-        read -p "Enter your choice [1-8]: " cleanup_choice
+        if type cleanup_siem &>/dev/null; then
+            echo "  6) Cleanup SIEM Components"
+            echo "  7) Cleanup ALL"
+            echo "  8) Return to main menu"
+            read -p "Enter your choice [1-8]: " cleanup_choice
+        else
+            echo "  6) Cleanup ALL"
+            echo "  7) Return to main menu"
+            read -p "Enter your choice [1-7]: " cleanup_choice
+        fi
         
         case $cleanup_choice in
             1)
@@ -547,6 +630,10 @@ run_cleanup() {
             4)
                 log "Stopping Docker Compose services..." "$YELLOW"
                 docker compose down -v
+                # Also try to clean up SIEM compose if it exists
+                if [ -f "docker-compose.siem.yml" ]; then
+                    docker compose -f docker-compose.siem.yml down -v
+                fi
                 log "✅ Development environment cleanup complete." "$GREEN"
                 ;;
             5)
@@ -558,17 +645,41 @@ run_cleanup() {
                 log "✅ Azure external access cleanup complete." "$GREEN"
                 ;;
             6)
-                cleanup_siem
-                log "✅ SIEM components cleanup complete." "$GREEN"
+                if type cleanup_siem &>/dev/null; then
+                    cleanup_siem
+                    log "✅ SIEM components cleanup complete." "$GREEN"
+                else
+                    # If SIEM functions aren't available, option 6 is Cleanup ALL
+                    cleanup_all
+                    docker compose down -v || true
+                    if [ -f "docker-compose.siem.yml" ]; then
+                        docker compose -f docker-compose.siem.yml down -v
+                    fi
+                    log "✅ Full cleanup completed!" "$GREEN"
+                fi
                 ;;
             7)
-                cleanup_all
-                cleanup_siem
-                docker compose down -v || true
-                log "✅ Full cleanup completed!" "$GREEN"
+                if type cleanup_siem &>/dev/null; then
+                    # With SIEM functions, option 7 is Cleanup ALL
+                    cleanup_all
+                    cleanup_siem
+                    docker compose down -v || true
+                    if [ -f "docker-compose.siem.yml" ]; then
+                        docker compose -f docker-compose.siem.yml down -v
+                    fi
+                    log "✅ Full cleanup completed!" "$GREEN"
+                else
+                    # Without SIEM functions, option 7 is Return to menu
+                    return 0
+                fi
                 ;;
             8)
-                return 0
+                if type cleanup_siem &>/dev/null; then
+                    # With SIEM functions, option 8 is Return to menu
+                    return 0
+                else
+                    log "Invalid option. Please try again." "$RED"
+                fi
                 ;;
             *)
                 log "Invalid option. Please try again." "$RED"
@@ -612,6 +723,11 @@ show_access_info() {
 
 # Main menu function
 show_main_menu() {
+    # Source SIEM functions if available
+    if [ -f "$SCRIPT_DIR/siem/siem-functions.sh" ]; then
+        source "$SCRIPT_DIR/siem/siem-functions.sh"
+    fi
+    
     while true; do
         echo ""
         log "🚀 DevSecOps Setup Menu" "$PURPLE"
@@ -624,15 +740,26 @@ show_main_menu() {
         echo "  6) Deploy Monitoring Stack (Loki, Grafana, Alloy)"
         echo "  7) Deploy Flask Application"
         echo "  8) Configure Azure External Access"
-        echo "  9) Deploy SIEM Components"
-        echo " 10) Full Production Setup (3-8)"
-        echo " 11) Complete SecOps Setup (3-9)"
-        echo " 12) Development Mode (Docker Compose)"
-        echo " 13) Cleanup Options"
-        echo " 14) Show Access Information"
-        echo " 15) Exit"
-        echo ""
-        read -p "Enter your choice [1-15]: " choice
+        
+        if type deploy_siem &>/dev/null; then
+            echo "  9) Deploy SIEM Components"
+            echo " 10) Full Production Setup (3-8)"
+            echo " 11) Complete SecOps Setup (3-9)"
+            echo " 12) Development Mode (Docker Compose)"
+            echo " 13) Cleanup Options"
+            echo " 14) Show Access Information"
+            echo " 15) Exit"
+            echo ""
+            read -p "Enter your choice [1-15]: " choice
+        else
+            echo "  9) Full Production Setup (3-8)"
+            echo " 10) Development Mode (Docker Compose)"
+            echo " 11) Cleanup Options"
+            echo " 12) Show Access Information"
+            echo " 13) Exit"
+            echo ""
+            read -p "Enter your choice [1-13]: " choice
+        fi
         
         case $choice in
             1)
@@ -660,49 +787,94 @@ show_main_menu() {
                 configure_azure_access
                 ;;
             9)
-                # Source SIEM functions
-                source "$SCRIPT_DIR/siem/siem-functions.sh"
-                deploy_siem
+                if type deploy_siem &>/dev/null; then
+                    deploy_siem
+                else
+                    # Without SIEM functions, option 9 is Full Production Setup
+                    log "🚀 Starting Full Production Setup..." "$PURPLE"
+                    check_prerequisites
+                    setup_microk8s
+                    build_jenkins_image
+                    deploy_core_services
+                    deploy_monitoring_stack
+                    deploy_application
+                    configure_azure_access
+                    show_access_info
+                    log "✅ Full production setup completed!" "$GREEN"
+                fi
                 ;;
             10)
-                log "🚀 Starting Full Production Setup..." "$PURPLE"
-                check_prerequisites
-                setup_microk8s
-                build_jenkins_image
-                deploy_core_services
-                deploy_monitoring_stack
-                deploy_application
-                configure_azure_access
-                show_access_info
-                log "✅ Full production setup completed!" "$GREEN"
+                if type deploy_siem &>/dev/null; then
+                    # With SIEM functions, option 10 is Full Production Setup
+                    log "� Starting Full Production Setup..." "$PURPLE"
+                    check_prerequisites
+                    setup_microk8s
+                    build_jenkins_image
+                    deploy_core_services
+                    deploy_monitoring_stack
+                    deploy_application
+                    configure_azure_access
+                    show_access_info
+                    log "✅ Full production setup completed!" "$GREEN"
+                else
+                    # Without SIEM functions, option 10 is Development Mode
+                    run_development_mode
+                fi
                 ;;
             11)
-                log "🔒 Starting Complete SecOps Setup..." "$PURPLE"
-                check_prerequisites
-                setup_microk8s
-                build_jenkins_image
-                deploy_core_services
-                deploy_monitoring_stack
-                deploy_application
-                configure_azure_access
-                # Source SIEM functions
-                source "$SCRIPT_DIR/siem/siem-functions.sh"
-                deploy_siem
-                show_access_info
-                log "✅ Complete SecOps setup completed!" "$GREEN"
+                if type deploy_siem &>/dev/null; then
+                    # With SIEM functions, option 11 is Complete SecOps Setup
+                    log "🔒 Starting Complete SecOps Setup..." "$PURPLE"
+                    check_prerequisites
+                    setup_microk8s
+                    build_jenkins_image
+                    deploy_core_services
+                    deploy_monitoring_stack
+                    deploy_application
+                    configure_azure_access
+                    deploy_siem
+                    show_access_info
+                    log "✅ Complete SecOps setup completed!" "$GREEN"
+                else
+                    # Without SIEM functions, option 11 is Cleanup Options
+                    run_cleanup
+                fi
                 ;;
             12)
-                run_development_mode
+                if type deploy_siem &>/dev/null; then
+                    # With SIEM functions, option 12 is Development Mode
+                    run_development_mode
+                else
+                    # Without SIEM functions, option 12 is Show Access Information
+                    show_access_info
+                fi
                 ;;
             13)
-                run_cleanup
+                if type deploy_siem &>/dev/null; then
+                    # With SIEM functions, option 13 is Cleanup Options
+                    run_cleanup
+                else
+                    # Without SIEM functions, option 13 is Exit
+                    log "👋 Exiting DevSecOps Setup. Goodbye!" "$GREEN"
+                    exit 0
+                fi
                 ;;
             14)
-                show_access_info
+                if type deploy_siem &>/dev/null; then
+                    # With SIEM functions, option 14 is Show Access Information
+                    show_access_info
+                else
+                    log "❌ Invalid option. Please try again." "$RED"
+                fi
                 ;;
             15)
-                log "👋 Exiting DevSecOps Setup. Goodbye!" "$GREEN"
-                exit 0
+                if type deploy_siem &>/dev/null; then
+                    # With SIEM functions, option 15 is Exit
+                    log "👋 Exiting DevSecOps Setup. Goodbye!" "$GREEN"
+                    exit 0
+                else
+                    log "❌ Invalid option. Please try again." "$RED"
+                fi
                 ;;
             *)
                 log "❌ Invalid option. Please try again." "$RED"
