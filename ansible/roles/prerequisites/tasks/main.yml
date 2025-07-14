@@ -1,5 +1,4 @@
 ---
-# Ensure required tools are installed: snap, git, curl
 - name: Update apt cache
   ansible.builtin.shell: |
     apt-get clean

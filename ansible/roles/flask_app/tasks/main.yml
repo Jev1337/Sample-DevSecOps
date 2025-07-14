@@ -3,19 +3,19 @@
 - name: Build Flask Docker image
   ansible.builtin.command: docker build -t flask-k8s-app:latest .
   args:
-    chdir: "{{ playbook_dir }}/../../app"
+    chdir: "{{ playbook_dir }}/../app"
   register: docker_build
   changed_when: docker_build.rc == 0
 
 - name: Tag Flask image for local registry
   ansible.builtin.command: docker tag flask-k8s-app:latest localhost:32000/flask-k8s-app:latest
   args:
-    chdir: "{{ playbook_dir }}/../../app"
+    chdir: "{{ playbook_dir }}/../app"
 
 - name: Push Flask image to local registry
   ansible.builtin.command: docker push localhost:32000/flask-k8s-app:latest
   args:
-    chdir: "{{ playbook_dir }}/../../app"
+    chdir: "{{ playbook_dir }}/../app"
 
 - name: Create flask-app namespace if missing
   ansible.builtin.shell: microk8s kubectl get ns flask-app || microk8s kubectl create ns flask-app
@@ -24,12 +24,12 @@
 
 - name: Update deployment.yaml image reference
   ansible.builtin.replace:
-    path: "{{ playbook_dir }}/../../k8s/deployment.yaml"
+    path: "{{ playbook_dir }}/../k8s/deployment.yaml"
     regexp: 'image: flask-k8s-app:latest'
     replace: 'image: localhost:32000/flask-k8s-app:latest'
 
 - name: Deploy Flask application manifests
-  ansible.builtin.shell: microk8s kubectl apply -f {{ playbook_dir }}/../../k8s/
+  ansible.builtin.shell: microk8s kubectl apply -f {{ playbook_dir }}/../k8s/
   args:
     executable: /bin/bash
 

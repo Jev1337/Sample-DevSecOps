@@ -14,7 +14,7 @@
 
 - name: Start all services with Docker Compose
   community.docker.docker_compose:
-    project_src: "{{ playbook_dir }}/../../"
+    project_src: "{{ playbook_dir }}/../"
     state: present
     detach: true
 

@@ -1,18 +1,4 @@
-# 🚀 Comple## 📋 Table of Contents
-
-- [🎯 Overview](#-overview)
-- [🏗️ Architecture](#️-architecture)
-- [⚡ Quick Setup](#-quick-setup)
-- [🧩 Components](#-components)
-- [🔒 Security](#-security)
-- [🛡️ SIEM](#️-siem)
-- [📊 Monitoring](#-monitoring)
-- [🤖 Ansible Automation](#-ansible-automation)
-- [☁️ Azure Infrastructure](#️-azure-infrastructure)
-- [🛠️ Development](#️-development)
-- [🔧 Troubleshooting](#-troubleshooting)
-- [📚 Documentation](#-documentation)
-- [📜 License](#-license)vironment - Kubernetes CI/CD Security Pipeline
+# 🚀 Flask K8s DevSecOps - Complete CI/CD Security Pipeline
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/Docker-20.10%2B-blue)](https://www.docker.com/)
@@ -21,7 +7,7 @@
 [![Ansible](https://img.shields.io/badge/Ansible-2.15%2B-red)](https://www.ansible.com/)
 [![Terraform](https://img.shields.io/badge/Terraform-1.5%2B-purple)](https://www.terraform.io/)
 
-A comprehensive DevSecOps environment with automated deployment, security monitoring, SIEM integration, and complete CI/CD pipeline for Flask applications on Kubernetes.
+Une solution complète de déploiement sécurisé d'applications Flask sur Kubernetes avec pipeline DevSecOps intégré, monitoring avancé, SIEM et automation complète.
 
 ## 📋 Table des Matières
 
@@ -39,32 +25,32 @@ A comprehensive DevSecOps environment with automated deployment, security monito
 - [📚 Documentation](#-documentation)
 - [📜 Licence](#-licence)
 
-## 🎯 Overview
+## 🎯 Vue d'ensemble
 
-### ✨ Key Features
+### ✨ Fonctionnalités principales
 
-| Component | Description | Technology |
+| Composant | Description | Technologie |
 |-----------|-------------|-------------|
-| **🐍 Flask Application** | REST API with metrics and structured logging | Python 3.9+, Prometheus |
-| **🔄 DevSecOps Pipeline** | Automated CI/CD with security scans | Jenkins, SonarQube, Trivy |
-| **📦 K8s Orchestration** | Deployment, scaling, and automated management | MicroK8s, Helm Charts |
-| **📊 Complete Monitoring** | Centralized logs and real-time dashboards | Loki, Grafana, Alloy |
-| **🛡️ Integrated SIEM** | Security monitoring and system events | SIEM Dashboard, Audit logs, Webhook receiver |
-| **🔐 Integrated Security** | Vulnerability scans and code quality | Trivy, SonarQube, Audit logs |
-| **☁️ Cloud Ready** | Azure support with external access | LoadBalancer, Ingress |
+| **🐍 Application Flask** | API REST avec métriques et logs structurés | Python 3.9+, Prometheus |
+| **🔄 Pipeline DevSecOps** | CI/CD automatisé avec scans sécurisés | Jenkins, SonarQube, Trivy |
+| **📦 Orchestration K8s** | Déploiement, scaling et gestion automatique | MicroK8s, Helm Charts |
+| **📊 Monitoring Complet** | Logs centralisés et dashboards temps réel | Loki, Grafana, Alloy |
+| **🛡️ SIEM Intégré** | Surveillance sécurité et événements système | SIEM Dashboard, Audit logs, Webhook receiver |
+| **🔐 Sécurité Intégrée** | Scans vulnérabilités et qualité code | Trivy, SonarQube, Audit logs |
+| **☁️ Cloud Ready** | Support Azure avec accès externe | LoadBalancer, Ingress |
 
-### 🎪 Latest Version Features
+### 🎪 Nouveautés de cette version
 
-- ✅ **Interactive Menu Setup** with Ansible-driven automation
-- ✅ **Automated Docker Installation** with comprehensive setup
-- ✅ **Integrated Azure Support** with external access configuration
-- ✅ **Development Mode** with standalone Docker Compose
-- ✅ **Smart Cleanup** by components using Ansible tags
-- ✅ **Integrated SIEM** with real-time security monitoring
-- ✅ **Git/SCM Webhook Receiver** for event tracking
-- ✅ **Kubernetes Audit Logging** with security policies
-- ✅ **Complete Automation** via Ansible playbooks
-- ✅ **Modular Architecture** with reusable roles
+- ✅ **Setup simplifié** avec menu interactif Ansible-driven
+- ✅ **Installation Docker** automatisée
+- ✅ **Support Azure** intégré avec accès externe
+- ✅ **Mode développement** Docker Compose standalone
+- ✅ **Cleanup intelligent** par composants avec tags Ansible
+- ✅ **SIEM intégré** avec monitoring sécurité temps réel
+- ✅ **Webhook receiver** pour événements Git/SCM
+- ✅ **Audit logging K8s** avec policies sécurisées
+- ✅ **Automation complète** via playbooks Ansible
+- ✅ **Architecture modulaire** avec roles réutilisables
 
 ## 🏗️ Architecture
 
@@ -123,78 +109,64 @@ graph TB
 | **IaC** | Terraform + Ansible | Latest | Infrastructure + Automation |
 | **Cloud** | Azure LoadBalancer | - | Accès externe |
 
-## ⚡ Quick Setup
+## ⚡ Installation Rapide
 
-### 🚀 Automated Setup (Recommended)
+### 🚀 Setup Automatisé (Recommandé)
 
 ```bash
-# 1. Clone the repository
+# 1. Cloner le projet
 git clone <repository-url>
 cd Sample-DevSecOps
 
-# 2. Make the script executable
+# 2. Rendre le script exécutable
 chmod +x setup.sh
 
-# 3. Launch the interactive menu
+# 3. Lancer le menu interactif
 ./setup.sh
 ```
 
-The interactive menu provides the following options:
+Le menu vous propose les options suivantes :
 
 ```
 🚀 DevSecOps Setup Menu
 ======================
-  1) Check Prerequisites              # Verify system requirements
-  2) Install Ansible (if needed)     # Automated Ansible installation
-  3) Deploy Individual Components    # Component-by-component deployment
-  4) Deploy Full Production Environment # Complete installation (recommended)
-  5) Deploy SIEM Security Monitoring # Security monitoring stack
-  6) Development Mode (Docker Compose) # Local development environment
-  7) Show System Status              # Check deployment status
-  8) Show Access Information          # Display service URLs and credentials
-  9) Cleanup Options                  # Component-based cleanup
- 10) Exit
+  1) Install Docker                    # Installation Docker automatisée
+  2) Check Prerequisites              # Vérification prérequis
+  3) Setup MicroK8s                   # Configuration cluster K8s
+  4) Build Jenkins Image              # Image Jenkins personnalisée
+  5) Deploy Core Services             # Jenkins + SonarQube
+  6) Deploy Monitoring Stack          # Loki + Grafana + Alloy
+  7) Deploy Flask Application         # Application principale
+  8) Configure Azure External Access  # Accès cloud
+  9) Full Production Setup            # Installation complète (3-7)
+ 10) Development Mode                 # Docker Compose local
+ 11) Cleanup Options                  # Nettoyage par composants
+ 12) Show Access Information          # URLs et credentials
+ 13) Exit
 ```
 
-### ⚡ One-Click Production Setup
+### ⚡ Installation Express (Production)
 
 ```bash
 ./setup.sh
-# Choose option 4 for complete installation
+# Choisir option 9 pour l'installation complète
 ```
 
-### 🧪 Local Development Mode
+### 🧪 Mode Développement Local
 
 ```bash
 ./setup.sh
-# Choose option 6 for Docker Compose development environment
+# Choisir option 10 pour Docker Compose
 ```
 
-### 🧩 Individual Component Deployment
+### 📋 Prérequis Système
 
-The setup script also provides granular component deployment:
-
-```
-🧩 Component Deployment Menu
-============================
-  1) Prerequisites & Docker           # System setup and Docker installation
-  2) MicroK8s Setup                   # Kubernetes cluster setup
-  3) Core Services (Jenkins, SonarQube) # CI/CD and code quality tools
-  4) Monitoring Stack (Loki, Grafana) # Logging and visualization
-  5) Flask Application                # Main application deployment
-  6) SIEM Security Monitoring         # Security event monitoring
-  7) Azure External Access            # Cloud access configuration
-  8) Return to main menu
-```
-
-### 📋 System Requirements
-
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
+| Composant | Version Minimum | Recommandé |
+|-----------|----------------|------------|
 | **OS** | Ubuntu 20.04+ | Ubuntu 22.04 LTS |
 | **CPU** | 2 cores | 4+ cores |
 | **RAM** | 4GB | 8GB+ |
-| **Storage** | 10GB free | 20GB+ |
+| **Stockage** | 10GB libre | 20GB+ |
 | **Docker** | 20.10+ | 24.0+ |
 | **Git** | 2.25+ | Latest |
 

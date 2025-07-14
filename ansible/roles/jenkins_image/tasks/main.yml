@@ -13,16 +13,16 @@
 - name: Build Jenkins DevSecOps image
   ansible.builtin.command: docker build --build-arg DOCKER_GID={{ docker_gid }} -t jenkins-devsecops:latest .
   args:
-    chdir: "{{ playbook_dir }}/../../jenkins"
+    chdir: "{{ playbook_dir }}/../jenkins"
   register: docker_build
   changed_when: docker_build.rc == 0
 
 - name: Tag Jenkins image for local registry
   ansible.builtin.command: docker tag jenkins-devsecops:latest localhost:32000/jenkins-devsecops:latest
   args:
-    chdir: "{{ playbook_dir }}/../../jenkins"
+    chdir: "{{ playbook_dir }}/../jenkins"
 
 - name: Push Jenkins image to local registry
   ansible.builtin.command: docker push localhost:32000/jenkins-devsecops:latest
   args:
-    chdir: "{{ playbook_dir }}/../../jenkins"
+    chdir: "{{ playbook_dir }}/../jenkins"
