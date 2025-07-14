@@ -88,10 +88,11 @@ alloy:
 
       // Process real system authentication logs
       loki.process "system_logs" {
-        // First parse the basic log structure for all auth logs
+        // Process system-auth logs
         stage.match {
           selector = "{job=\"system-auth\"}"
           
+          // Parse basic log structure first
           stage.regex {
             expression = "^(?P<timestamp>\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d+\\+\\d{2}:\\d{2}) (?P<hostname>\\S+) (?P<program>\\S+)(\\[(?P<pid>\\d+)\\])?: (?P<message>.*)"
           }
@@ -108,13 +109,11 @@ alloy:
               program = "",
             }
           }
-        }
-        
-        // Extract SSH invalid user attempts - matches: "Disconnected from invalid user sql 139.59.21.115"
-        stage.match {
-          selector = "{job=\"system-auth\"}"
+          
+          // SSH invalid user attempts
           stage.regex {
             expression = ".*Disconnected from invalid user (?P<invalid_user>\\S+) (?P<source_ip>\\d+\\.\\d+\\.\\d+\\.\\d+).*"
+            action = "replace"
           }
           
           stage.labels {
@@ -124,13 +123,11 @@ alloy:
               source_ip = "",
             }
           }
-        }
-        
-        // Extract failed password attempts  
-        stage.match {
-          selector = "{job=\"system-auth\"}"
+          
+          // Failed password attempts  
           stage.regex {
             expression = ".*Failed password for (?P<failed_user>\\S+) from (?P<source_ip>\\d+\\.\\d+\\.\\d+\\.\\d+).*"
+            action = "replace"
           }
           
           stage.labels {
@@ -140,29 +137,11 @@ alloy:
               source_ip = "",
             }
           }
-        }
-        
-        // Extract authentication failures (PAM)
-        stage.match {
-          selector = "{job=\"system-auth\"}"
-          stage.regex {
-            expression = ".*authentication failure.*user=(?P<failed_user>\\S+).*rhost=(?P<source_ip>\\S+).*"
-          }
           
-          stage.labels {
-            values = {
-              event_type = "auth_failure",
-              failed_user = "",
-              source_ip = "",
-            }
-          }
-        }
-        
-        // Extract successful logins - matches: "session opened for user"
-        stage.match {
-          selector = "{job=\"system-auth\"}"
+          // Successful logins
           stage.regex {
             expression = ".*session opened for user (?P<user>\\S+).*by (?P<login_user>\\S+).*"
+            action = "replace"
           }
           
           stage.labels {
@@ -172,13 +151,11 @@ alloy:
               login_user = "",
             }
           }
-        }
-        
-        // Extract sudo usage - matches: "sudo: azureuser : TTY=pts/0 ; PWD=/home/azureuser/Sample-DevSecOps ; USER=root ; COMMAND=/usr/bin/tail"
-        stage.match {
-          selector = "{job=\"system-auth\"}"
+          
+          // Sudo usage
           stage.regex {
             expression = ".*sudo: (?P<sudo_user>\\S+) : TTY=(?P<tty>\\S+) ; PWD=(?P<pwd>\\S+) ; USER=(?P<target_user>\\S+) ; COMMAND=(?P<command>.*)"
+            action = "replace"
           }
           
           stage.labels {
@@ -189,29 +166,8 @@ alloy:
               command = "",
             }
           }
-        }
-        
-        // Extract sudo authentication failures
-        stage.match {
-          selector = "{job=\"system-auth\"}"
-          stage.regex {
-            expression = ".*sudo.*(?:authentication failure|incorrect password|user NOT in sudoers).*"
-          }
           
-          stage.labels {
-            values = {
-              event_type = "sudo_failure",
-            }
-          }
-        }
-        
-        // Catch-all for other auth events that don't match specific patterns
-        stage.match {
-          selector = "{job=\"system-auth\"}"
-          stage.regex {
-            expression = ".*"
-          }
-          
+          // Default event type for system-auth
           stage.labels {
             values = {
               event_type = "auth_event",
@@ -222,15 +178,6 @@ alloy:
         // Process package installation logs
         stage.match {
           selector = "{job=\"package-install\"}"
-          
-          stage.regex {
-            expression = "^(?P<timestamp>\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}) (?P<action>\\S+) (?P<package>\\S+) (?P<old_version>\\S+) (?P<new_version>\\S+)"
-          }
-          
-          stage.timestamp {
-            source = "timestamp"
-            format = "2006-01-02 15:04:05"
-          }
           
           stage.labels {
             values = {
@@ -243,10 +190,6 @@ alloy:
         // Process APT history logs
         stage.match {
           selector = "{job=\"apt-history\"}"
-          
-          stage.regex {
-            expression = "(?i)(?P<action>install|upgrade|remove):.*(?P<packages>.*)"
-          }
           
           stage.labels {
             values = {
