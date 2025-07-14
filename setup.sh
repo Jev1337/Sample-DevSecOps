@@ -522,12 +522,11 @@ run_cleanup() {
         echo "  1) Cleanup Core Services (Jenkins, SonarQube)"
         echo "  2) Cleanup Monitoring Stack (Loki, Grafana, Alloy)"
         echo "  3) Cleanup Application Deployment"
-        echo "  4) Cleanup SIEM Security Stack (Falco, Auditd, Fail2ban)"
-        echo "  5) Cleanup Development Environment (Docker Compose)"
-        echo "  6) Cleanup Azure External Access"
-        echo "  7) Cleanup ALL"
-        echo "  8) Return to main menu"
-        read -p "Enter your choice [1-8]: " cleanup_choice
+        echo "  4) Cleanup Development Environment (Docker Compose)"
+        echo "  5) Cleanup Azure External Access"
+        echo "  6) Cleanup ALL"
+        echo "  7) Return to main menu"
+        read -p "Enter your choice [1-7]: " cleanup_choice
         
         case $cleanup_choice in
             1)
@@ -543,30 +542,24 @@ run_cleanup() {
                 log "✅ Application deployment cleanup complete." "$GREEN"
                 ;;
             4)
-                cleanup_siem_stack
-                log "✅ SIEM security stack cleanup complete." "$GREEN"
-                ;;
-            5)
                 log "Stopping Docker Compose services..." "$YELLOW"
                 docker compose down -v
                 log "✅ Development environment cleanup complete." "$GREEN"
                 ;;
-            6)
+            5)
                 log "Removing Azure LoadBalancer services..." "$YELLOW"
                 microk8s kubectl delete service jenkins-loadbalancer -n jenkins || true
                 microk8s kubectl delete service sonarqube-loadbalancer -n sonarqube || true
                 microk8s kubectl delete service grafana-loadbalancer -n monitoring || true
                 microk8s kubectl delete service flask-app-loadbalancer -n flask-app || true
-                microk8s kubectl delete service webhook-loadbalancer -n webhook || true
                 log "✅ Azure external access cleanup complete." "$GREEN"
                 ;;
-            7)
+            6)
                 cleanup_all
-                cleanup_siem_stack
                 docker compose down -v || true
                 log "✅ Full cleanup completed!" "$GREEN"
                 ;;
-            8)
+            7)
                 return 0
                 ;;
             *)
@@ -594,7 +587,6 @@ show_access_info() {
     echo "127.0.0.1 sonarqube.local"
     echo "127.0.0.1 grafana.local"
     echo "127.0.0.1 flask-app.local"
-    echo "127.0.0.1 webhook.local"
     echo ""
     
     log "🌐 Local Access URLs:" "$CYAN"
@@ -602,39 +594,12 @@ show_access_info() {
     log "   - Jenkins:   http://jenkins.local (admin/${JENKINS_PASS})" "$CYAN"
     log "   - SonarQube: http://sonarqube.local (admin/admin)" "$CYAN"
     log "   - Grafana:   http://grafana.local (admin/admin123)" "$CYAN"
-    log "   - Webhook:   http://webhook.local/webhook (SIEM Events)" "$CYAN"
     echo ""
     
-    log "�️  SIEM Security Access:" "$YELLOW"
-    log "   - Security Dashboard: Available in Grafana" "$CYAN"
-    log "   - System Audit Dashboard: Available in Grafana" "$CYAN"
-    log "   - Falco Runtime Security: kubectl logs -f daemonset/falco -n security" "$CYAN"
-    log "   - System Logs: Available through Alloy → Loki → Grafana" "$CYAN"
-    echo ""
-    
-    log "�🛠️  CI/CD Pipeline Setup:" "$YELLOW"
+    log "🛠️  CI/CD Pipeline Setup:" "$YELLOW"
     log "   1. Configure a new 'Pipeline' job in Jenkins" "$YELLOW"
     log "   2. Point it to your Git repository" "$YELLOW"
     log "   3. Set 'Script Path' to 'jenkins/Jenkinsfile'" "$YELLOW"
-    log "   4. Configure webhook to: http://webhook.local/webhook" "$YELLOW"
-    echo ""
-    
-    log "🔐 Security Monitoring Features:" "$YELLOW"
-    log "   - SSH login monitoring and fail2ban protection" "$CYAN"
-    log "   - Package management audit trails" "$CYAN"
-    log "   - System call auditing with auditd" "$CYAN"
-    log "   - Runtime security monitoring with Falco" "$CYAN"
-    log "   - Git webhook security analysis" "$CYAN"
-    log "   - Comprehensive SIEM dashboards" "$CYAN"
-    echo ""
-    
-    log "📊 Dashboard Import Instructions:" "$YELLOW"
-    log "   1. Access Grafana at http://grafana.local" "$CYAN"
-    log "   2. Go to '+' → Import" "$CYAN"
-    log "   3. Import dashboards from siem/dashboards/" "$CYAN"
-    log "   4. Available dashboards:" "$CYAN"
-    log "      - SIEM Security Dashboard (UID: siem-security-dashboard)" "$CYAN"
-    log "      - System Audit Dashboard (UID: system-audit-dashboard)" "$CYAN"
 }
 
 # Main menu function
@@ -650,18 +615,14 @@ show_main_menu() {
         echo "  5) Deploy Core Services (Jenkins, SonarQube)"
         echo "  6) Deploy Monitoring Stack (Loki, Grafana, Alloy)"
         echo "  7) Deploy Flask Application"
-        echo "  8) Deploy SIEM Security Stack (Falco, Auditd, Fail2ban)"
-        echo "  9) Configure Azure External Access"
-        echo " 10) Configure SIEM External Access"
-        echo " 11) Install SIEM Dashboards"
-        echo " 12) Full Production Setup (3-7)"
-        echo " 13) Full SIEM Setup (3-8, 10-11)"
-        echo " 14) Development Mode (Docker Compose)"
-        echo " 15) Cleanup Options"
-        echo " 16) Show Access Information"
-        echo " 17) Exit"
+        echo "  8) Configure Azure External Access"
+        echo "  9) Full Production Setup (3-7)"
+        echo " 10) Development Mode (Docker Compose)"
+        echo " 11) Cleanup Options"
+        echo " 12) Show Access Information"
+        echo " 13) Exit"
         echo ""
-        read -p "Enter your choice [1-17]: " choice
+        read -p "Enter your choice [1-13]: " choice
         
         case $choice in
             1)
@@ -686,18 +647,9 @@ show_main_menu() {
                 deploy_application
                 ;;
             8)
-                deploy_siem_stack
-                ;;
-            9)
                 configure_azure_access
                 ;;
-            10)
-                configure_siem_external_access
-                ;;
-            11)
-                install_siem_dashboards
-                ;;
-            12)
+            9)
                 log "🚀 Starting Full Production Setup..." "$PURPLE"
                 check_prerequisites
                 setup_microk8s
@@ -708,30 +660,16 @@ show_main_menu() {
                 show_access_info
                 log "✅ Full production setup completed!" "$GREEN"
                 ;;
-            13)
-                log "🛡️  Starting Full SIEM Setup..." "$PURPLE"
-                check_prerequisites
-                setup_microk8s
-                build_jenkins_image
-                deploy_core_services
-                deploy_monitoring_stack
-                deploy_application
-                deploy_siem_stack
-                configure_siem_external_access
-                install_siem_dashboards
-                show_access_info
-                log "✅ Full SIEM setup completed!" "$GREEN"
-                ;;
-            14)
+            10)
                 run_development_mode
                 ;;
-            15)
+            11)
                 run_cleanup
                 ;;
-            16)
+            12)
                 show_access_info
                 ;;
-            17)
+            13)
                 log "👋 Exiting DevSecOps Setup. Goodbye!" "$GREEN"
                 exit 0
                 ;;
@@ -792,277 +730,6 @@ cleanup_all() {
     cleanup_monitoring
     cleanup_application
     cleanup_repos
-}
-
-# Function to deploy SIEM stack
-deploy_siem_stack() {
-    log "🛡️  Deploying SIEM Security Stack..." "$BLUE"
-    
-    # Install system hardening components
-    log "🔒 Installing system hardening tools..." "$YELLOW"
-    
-    # Install auditd
-    if ! command -v auditctl &> /dev/null; then
-        log "Installing auditd..." "$YELLOW"
-        sudo apt-get update
-        sudo apt-get install -y auditd audispd-plugins
-        
-        # Configure auditd rules
-        sudo cp siem/configs/auditd.rules /etc/audit/rules.d/audit.rules
-        sudo systemctl enable auditd
-        sudo systemctl restart auditd
-        log "✅ Auditd installed and configured." "$GREEN"
-    else
-        log "✅ Auditd is already installed." "$GREEN"
-    fi
-    
-    # Install and configure fail2ban
-    if ! command -v fail2ban-client &> /dev/null; then
-        log "Installing fail2ban..." "$YELLOW"
-        sudo apt-get install -y fail2ban
-        
-        # Configure fail2ban
-        sudo cp siem/configs/fail2ban-jail.conf /etc/fail2ban/jail.local
-        sudo systemctl enable fail2ban
-        sudo systemctl restart fail2ban
-        log "✅ Fail2ban installed and configured." "$GREEN"
-    else
-        log "✅ Fail2ban is already installed." "$GREEN"
-    fi
-    
-    # Setup APT security monitoring
-    log "Setting up APT package monitoring..." "$YELLOW"
-    sudo mkdir -p /var/log/apt
-    sudo cp siem/configs/apt-security-hook.sh /etc/apt/apt.conf.d/99security-audit
-    sudo chmod +x /etc/apt/apt.conf.d/99security-audit
-    
-    # Create log directories
-    sudo mkdir -p /var/log/webhook
-    sudo mkdir -p /var/log/fail2ban
-    sudo mkdir -p /var/log/audit
-    
-    # Ensure proper permissions
-    sudo chown -R alloy:alloy /var/log/ 2>/dev/null || true
-    
-    log "✅ System hardening components configured." "$GREEN"
-    
-    # Deploy Falco for runtime security
-    log "🔍 Deploying Falco runtime security..." "$YELLOW"
-    
-    # Add Falco Helm repository
-    if ! microk8s helm3 repo list | grep -q "falcosecurity"; then
-        log "Adding Falco Helm repository..." "$YELLOW"
-        microk8s helm3 repo add falcosecurity https://falcosecurity.github.io/charts
-        microk8s helm3 repo update
-    else
-        log "✅ Falco Helm repository already exists." "$GREEN"
-    fi
-    
-    # Create security namespace
-    microk8s kubectl get ns security >/dev/null 2>&1 || microk8s kubectl create ns security
-    
-    # Deploy Falco
-    if ! microk8s helm3 status falco -n security &> /dev/null; then
-        log "Deploying Falco via Helm..." "$YELLOW"
-        microk8s helm3 install falco falcosecurity/falco -n security -f helm/falco/values.yaml
-    else
-        log "✅ Falco is already deployed." "$GREEN"
-    fi
-    
-    # Upgrade existing Alloy deployment with SIEM configuration
-    log "🔄 Upgrading Alloy with SIEM configuration..." "$YELLOW"
-    if microk8s helm3 status alloy -n monitoring &> /dev/null; then
-        microk8s helm3 upgrade alloy grafana/alloy -n monitoring -f helm/alloy/values.yaml
-    else
-        log "⚠️  Alloy not found. Please deploy monitoring stack first." "$YELLOW"
-    fi
-    
-    # Deploy webhook security receiver
-    log "🌐 Deploying webhook security receiver..." "$YELLOW"
-    
-    # Build webhook image
-    docker build -t webhook-security:latest ./webhook
-    docker tag webhook-security:latest localhost:32000/webhook-security:latest
-    docker push localhost:32000/webhook-security:latest
-    
-    # Create webhook namespace
-    microk8s kubectl get ns webhook >/dev/null 2>&1 || microk8s kubectl create ns webhook
-    
-    # Deploy webhook receiver
-    cat <<EOF | microk8s kubectl apply -f -
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: webhook-security
-  namespace: webhook
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: webhook-security
-  template:
-    metadata:
-      labels:
-        app: webhook-security
-    spec:
-      containers:
-      - name: webhook
-        image: localhost:32000/webhook-security:latest
-        ports:
-        - containerPort: 5000
-        env:
-        - name: WEBHOOK_SECRET
-          value: "siem-webhook-secret-2024"
-        - name: LOKI_URL
-          value: "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
-        - name: ENABLE_SIGNATURE_VERIFICATION
-          value: "true"
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 256Mi
-        volumeMounts:
-        - name: webhook-logs
-          mountPath: /var/log/webhook
-      volumes:
-      - name: webhook-logs
-        emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: webhook-security-service
-  namespace: webhook
-spec:
-  selector:
-    app: webhook-security
-  ports:
-  - port: 5000
-    targetPort: 5000
-  type: ClusterIP
-EOF
-    
-    log "⏳ Waiting for SIEM components to be ready..." "$YELLOW"
-    microk8s kubectl rollout status statefulset/falco -n security --timeout=5m || true
-    microk8s kubectl rollout status deployment/webhook-security -n webhook --timeout=3m
-    microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=5m
-    
-    log "✅ SIEM security stack deployed successfully." "$GREEN"
-}
-
-# Function to configure SIEM external access
-configure_siem_external_access() {
-    log "🌐 Configuring SIEM External Access..." "$BLUE"
-    
-    # Get external IP
-    EXTERNAL_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com)
-    log "✅ External IP detected: $EXTERNAL_IP" "$GREEN"
-    
-    # Create webhook LoadBalancer
-    cat <<EOF | microk8s kubectl apply -f -
-apiVersion: v1
-kind: Service
-metadata:
-  name: webhook-loadbalancer
-  namespace: webhook
-spec:
-  type: LoadBalancer
-  ports:
-  - port: 5000
-    targetPort: 5000
-    name: http
-  selector:
-    app: webhook-security
-EOF
-    
-    # Create webhook Ingress
-    cat <<EOF | microk8s kubectl apply -f -
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: webhook-external
-  namespace: webhook
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-spec:
-  ingressClassName: public
-  rules:
-  - host: webhook.${EXTERNAL_IP}.nip.io
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: webhook-security-service
-            port:
-              number: 5000
-EOF
-    
-    log "✅ SIEM external access configured!" "$GREEN"
-    log "🔗 Webhook URL: http://webhook.$EXTERNAL_IP.nip.io/webhook" "$CYAN"
-}
-
-# Function to install SIEM dashboards
-install_siem_dashboards() {
-    log "📊 Installing SIEM Dashboards..." "$BLUE"
-    
-    # Create ConfigMaps for dashboards
-    microk8s kubectl create configmap siem-security-dashboard \
-        --from-file=siem/dashboards/siem-security-dashboard.json \
-        -n monitoring --dry-run=client -o yaml | microk8s kubectl apply -f -
-    
-    microk8s kubectl create configmap system-audit-dashboard \
-        --from-file=siem/dashboards/system-audit-dashboard.json \
-        -n monitoring --dry-run=client -o yaml | microk8s kubectl apply -f -
-    
-    # Label ConfigMaps for Grafana discovery
-    microk8s kubectl label configmap siem-security-dashboard grafana_dashboard=1 -n monitoring
-    microk8s kubectl label configmap system-audit-dashboard grafana_dashboard=1 -n monitoring
-    
-    log "✅ SIEM dashboards installed." "$GREEN"
-    log "📝 Import the following dashboards manually in Grafana:" "$YELLOW"
-    log "   - SIEM Security Dashboard (UID: siem-security-dashboard)" "$CYAN"
-    log "   - System Audit Dashboard (UID: system-audit-dashboard)" "$CYAN"
-}
-
-# SIEM cleanup functions
-cleanup_siem_stack() {
-    log "🛡️  Cleaning up SIEM stack..." "$YELLOW"
-    
-    # Cleanup Falco
-    microk8s helm3 uninstall falco -n security || true
-    microk8s kubectl delete ns security --ignore-not-found
-    
-    # Cleanup webhook receiver
-    microk8s kubectl delete deployment webhook-security -n webhook || true
-    microk8s kubectl delete service webhook-security-service -n webhook || true
-    microk8s kubectl delete service webhook-loadbalancer -n webhook || true
-    microk8s kubectl delete ingress webhook-external -n webhook || true
-    microk8s kubectl delete ns webhook --ignore-not-found
-    
-    # Cleanup system hardening
-    sudo systemctl stop fail2ban || true
-    sudo systemctl disable fail2ban || true
-    sudo systemctl stop auditd || true
-    sudo systemctl disable auditd || true
-    
-    # Remove configurations
-    sudo rm -f /etc/fail2ban/jail.local
-    sudo rm -f /etc/audit/rules.d/audit.rules
-    sudo rm -f /etc/apt/apt.conf.d/99security-audit
-    
-    # Cleanup dashboards
-    microk8s kubectl delete configmap siem-security-dashboard -n monitoring || true
-    microk8s kubectl delete configmap system-audit-dashboard -n monitoring || true
-    
-    # Remove Docker images
-    docker rmi webhook-security:latest localhost:32000/webhook-security:latest || true
-    
-    log "✅ SIEM stack cleanup completed." "$GREEN"
 }
 
 # Start the script
