@@ -132,10 +132,37 @@ loki.process "k8s_audit" {
 		expressions = {
 			kind = "kind",
 			verb = "verb", 
-			user = "user.username",
-			resource = "objectRef.resource",
-			namespace = "objectRef.namespace",
-			timestamp = "requestReceivedTimestamp",
+			user_username = "user.username",
+			user_groups = "user.groups",
+			objectRef_resource = "objectRef.resource",
+			objectRef_namespace = "objectRef.namespace",
+			responseStatus_code = "responseStatus.code",
+			requestURI = "requestURI",
+			sourceIPs = "sourceIPs",
+			userAgent = "userAgent",
+			requestReceivedTimestamp = "requestReceivedTimestamp",
+			stageTimestamp = "stageTimestamp",
+			auditID = "auditID",
+			level = "level",
+		}
+	}
+	
+	// Handle cases where user field is a string instead of object
+	stage.match {
+		selector = "{job=\"kubernetes-audit\"} |~ \".*user.*username.*\""
+		pipeline_name = "extract_user_from_string"
+		
+		stage.regex {
+			expression = ".*\"user\":\\s*\"([^\"]+)\".*"
+			source = "__line__"
+		}
+		
+		stage.json {
+			source = "user"
+			expressions = {
+				user_username = "username",
+				user_groups = "groups",
+			}
 		}
 	}
 	
@@ -145,6 +172,33 @@ loki.process "k8s_audit" {
 			verb = "",
 			resource = "",
 			level = "info",
+			service_name = "kubernetes-audit",
+		}
+	}
+	
+	// Mark suspicious activities
+	stage.match {
+		selector = "{job=\"kubernetes-audit\"} |~ \".*403.*\""
+		pipeline_name = "mark_forbidden"
+		
+		stage.labels {
+			values = {
+				level = "warning",
+				event_type = "access_denied",
+			}
+		}
+	}
+	
+	// Mark anonymous user activities
+	stage.match {
+		selector = "{job=\"kubernetes-audit\"} |~ \".*system:anonymous.*\""
+		pipeline_name = "mark_anonymous"
+		
+		stage.labels {
+			values = {
+				level = "warning",
+				event_type = "anonymous_access",
+			}
 		}
 	}
 }

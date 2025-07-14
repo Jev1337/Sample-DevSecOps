@@ -70,7 +70,7 @@
         },
         "targets": [
           {
-            "expr": "{job=\"node-logs\"} |~ \"Failed password|authentication failure|Invalid user\" | json | line_format \"{{.timestamp}} {{.message}}\"",
+            "expr": "{job=\"node-logs\"} |~ \"Failed password|authentication failure|Invalid user\" | line_format \"{{.timestamp}} - {{.__line__}}\"",
             "refId": "A",
             "datasource": {
               "type": "loki",
@@ -95,7 +95,7 @@
         },
         "targets": [
           {
-            "expr": "{job=\"kubernetes-audit\"} | json | line_format \"{{.timestamp}} {{.verb}} {{.objectRef.resource}} by {{.user.username}}\"",
+            "expr": "{job=\"kubernetes-audit\"} | json | line_format \"{{.stageTimestamp}} - {{.verb}} {{.objectRef_resource}} by {{if .user_username}}{{.user_username}}{{else}}{{.user}}{{end}} ({{.responseStatus_code}})\"",
             "refId": "A",
             "datasource": {
               "type": "loki",
@@ -120,7 +120,7 @@
         },
         "targets": [
           {
-            "expr": "{job=\"webhook-receiver\"} | json | line_format \"{{.timestamp}} {{.event_type}} from {{.source_ip}}\"",
+            "expr": "{job=\"webhook-receiver\"} | line_format \"{{.__timestamp__}} - {{.__line__}}\"",
             "refId": "A",
             "datasource": {
               "type": "loki",
@@ -171,7 +171,7 @@
         },
         "targets": [
           {
-            "expr": "{job=~\".*\"} |~ \"(?i)(failed|error|denied|unauthorized|forbidden|attack|breach|malware|virus|intrusion)\"",
+            "expr": "{job=~\".*\"} |~ \"(?i)(Failed password|authentication failure|Invalid user|403|denied|unauthorized|forbidden)\" != \"TemplateFormatErr\"",
             "refId": "A",
             "datasource": {
               "type": "loki",
@@ -196,7 +196,7 @@
         },
         "targets": [
           {
-            "expr": "{job=\"kubernetes-audit\"} | json | line_format \"{{.user.username}} {{.verb}} {{.objectRef.resource}}\" | pattern \"<user> <action> <resource>\" | label_format user=\"{{.user}}\", action=\"{{.action}}\", resource=\"{{.resource}}\"",
+            "expr": "{job=\"kubernetes-audit\"} | json | line_format \"{{if .user_username}}{{.user_username}}{{else}}system:unknown{{end}} - {{.verb}} - {{.objectRef_resource}}\" | pattern \"<username> - <action> - <resource>\" | label_format username=\"{{.username}}\", action=\"{{.action}}\", resource=\"{{.resource}}\"",
             "refId": "A",
             "datasource": {
               "type": "loki",

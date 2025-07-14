@@ -1,0 +1,362 @@
+// Enhanced Alloy configuration for SIEM log processing
+// This configuration handles various log formats and ensures proper field extraction
+
+// File-based log collection for SIEM sample data
+loki.source.file "siem_sample_logs" {
+	targets = [
+		{__path__ = "/var/log/auth.log", job = "node-logs", log_type = "auth"},
+		{__path__ = "/var/log/secure", job = "node-logs", log_type = "auth"},
+		{__path__ = "/var/log/kubernetes/audit.log", job = "kubernetes-audit", log_type = "k8s_audit"},
+		{__path__ = "/var/log/audit/audit.log", job = "kubernetes-audit", log_type = "k8s_audit"},
+		{__path__ = "/var/log/webhook.log", job = "webhook-receiver", log_type = "webhook"},
+	]
+	forward_to = [loki.process.siem_logs.receiver]
+}
+
+// Main SIEM log processing pipeline
+loki.process "siem_logs" {
+	forward_to = [loki.write.default.receiver]
+	
+	// Route processing based on job type
+	stage.match {
+		selector = "{job=\"node-logs\"}"
+		pipeline_name = "auth_logs"
+		
+		// Parse authentication log format
+		stage.regex {
+			expression = "(?P<timestamp>\\w+\\s+\\d+\\s+\\d+:\\d+:\\d+)\\s+(?P<hostname>\\S+)\\s+(?P<service>\\S+)\\[?(?P<pid>\\d+)?\\]?:\\s*(?P<message>.*)"
+		}
+		
+		// Extract failed login details
+		stage.match {
+			selector = "{job=\"node-logs\"} |~ \"(?i)(failed password|authentication failure|invalid user)\""
+			pipeline_name = "failed_auth"
+			
+			stage.regex {
+				expression = ".*(?i)(failed password|authentication failure).*\\s+(?P<username>\\S+)\\s+from\\s+(?P<source_ip>[0-9.]+)"
+				source = "message"
+			}
+			
+			stage.regex {
+				expression = ".*(?i)invalid user\\s+(?P<username>\\S+)\\s+from\\s+(?P<source_ip>[0-9.]+)"
+				source = "message"
+			}
+			
+			stage.labels {
+				values = {
+					level = "warning",
+					event_type = "auth_failure",
+					detected_level = "warning",
+				}
+			}
+		}
+		
+		// Extract successful login details
+		stage.match {
+			selector = "{job=\"node-logs\"} |~ \"(?i)(accepted|successful)\""
+			pipeline_name = "successful_auth"
+			
+			stage.regex {
+				expression = ".*(?i)(accepted|successful).*\\s+(?P<username>\\S+)\\s+from\\s+(?P<source_ip>[0-9.]+)"
+				source = "message"
+			}
+			
+			stage.labels {
+				values = {
+					level = "info",
+					event_type = "auth_success",
+					detected_level = "info",
+				}
+			}
+		}
+		
+		stage.labels {
+			values = {
+				job = "node-logs",
+				service = "",
+				level = "info",
+				service_name = "system-auth",
+			}
+		}
+	}
+	
+	// Process Kubernetes audit logs
+	stage.match {
+		selector = "{job=\"kubernetes-audit\"}"
+		pipeline_name = "k8s_audit"
+		
+		// First try to parse as JSON
+		stage.json {
+			expressions = {
+				kind = "kind",
+				apiVersion = "apiVersion",
+				level = "level",
+				auditID = "auditID",
+				stage = "stage",
+				requestURI = "requestURI",
+				verb = "verb",
+				user_json = "user",
+				sourceIPs = "sourceIPs[0]",
+				userAgent = "userAgent",
+				objectRef_resource = "objectRef.resource",
+				objectRef_namespace = "objectRef.namespace",
+				objectRef_apiVersion = "objectRef.apiVersion",
+				responseStatus_code = "responseStatus.code",
+				requestReceivedTimestamp = "requestReceivedTimestamp",
+				stageTimestamp = "stageTimestamp",
+			}
+		}
+		
+		// Extract username from user object (handle both object and string cases)
+		stage.match {
+			selector = "{job=\"kubernetes-audit\"}"
+			pipeline_name = "extract_username"
+			
+			// Try to parse user as JSON object
+			stage.json {
+				source = "user_json"
+				expressions = {
+					user_username = "username",
+					user_groups = "groups",
+				}
+			}
+			
+			// Fallback: extract username from string representation
+			stage.regex {
+				expression = ".*\"username\":\\s*\"([^\"]+)\""
+				source = "__line__"
+			}
+			
+			stage.template {
+				source = "user_username"
+				template = "{{if .user_username}}{{.user_username}}{{else}}{{if .user_json}}system:serviceaccount{{else}}system:unknown{{end}}{{end}}"
+			}
+		}
+		
+		// Mark suspicious activities
+		stage.match {
+			selector = "{job=\"kubernetes-audit\"} |~ \".*403.*\""
+			pipeline_name = "mark_access_denied"
+			
+			stage.labels {
+				values = {
+					level = "warning",
+					event_type = "access_denied",
+					detected_level = "warning",
+				}
+			}
+		}
+		
+		// Mark anonymous access
+		stage.match {
+			selector = "{job=\"kubernetes-audit\"} |~ \".*system:anonymous.*\""
+			pipeline_name = "mark_anonymous"
+			
+			stage.labels {
+				values = {
+					level = "warning",
+					event_type = "anonymous_access",
+					detected_level = "warning",
+				}
+			}
+		}
+		
+		// Extract levels based on response codes
+		stage.match {
+			selector = "{job=\"kubernetes-audit\"} |~ \".*200.*\""
+			pipeline_name = "success_response"
+			
+			stage.labels {
+				values = {
+					level = "info",
+					detected_level = "info",
+				}
+			}
+		}
+		
+		stage.match {
+			selector = "{job=\"kubernetes-audit\"} |~ \".*40[0-9].*\""
+			pipeline_name = "client_error"
+			
+			stage.labels {
+				values = {
+					level = "warning",
+					detected_level = "warning",
+				}
+			}
+		}
+		
+		stage.match {
+			selector = "{job=\"kubernetes-audit\"} |~ \".*50[0-9].*\""
+			pipeline_name = "server_error"
+			
+			stage.labels {
+				values = {
+					level = "error",
+					detected_level = "error",
+				}
+			}
+		}
+		
+		stage.labels {
+			values = {
+				job = "kubernetes-audit",
+				verb = "",
+				resource = "",
+				level = "info",
+				service_name = "kubernetes-audit",
+				level_extracted = "",
+			}
+		}
+	}
+	
+	// Process webhook logs
+	stage.match {
+		selector = "{job=\"webhook-receiver\"}"
+		pipeline_name = "webhook_logs"
+		
+		// Parse webhook log format
+		stage.regex {
+			expression = "(?P<timestamp>\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d+\\+\\d{2}:\\d{2})\\s+(?P<event_type>\\S+)\\s+(?P<action>\\S+)\\s+from\\s+(?P<source_ip>[0-9.]+)"
+		}
+		
+		stage.labels {
+			values = {
+				job = "webhook-receiver",
+				level = "info",
+				service_name = "webhook-receiver",
+				detected_level = "info",
+			}
+		}
+	}
+	
+	// Global error handling - prevent template format errors
+	stage.match {
+		selector = "{job=~\".*\"}"
+		pipeline_name = "error_prevention"
+		
+		// Ensure all required fields have default values
+		stage.template {
+			source = "user_username"
+			template = "{{if .user_username}}{{.user_username}}{{else}}system:unknown{{end}}"
+		}
+		
+		stage.template {
+			source = "verb"
+			template = "{{if .verb}}{{.verb}}{{else}}unknown{{end}}"
+		}
+		
+		stage.template {
+			source = "objectRef_resource"
+			template = "{{if .objectRef_resource}}{{.objectRef_resource}}{{else}}unknown{{end}}"
+		}
+		
+		stage.template {
+			source = "responseStatus_code"
+			template = "{{if .responseStatus_code}}{{.responseStatus_code}}{{else}}0{{end}}"
+		}
+	}
+	
+	// Add common labels for all logs
+	stage.labels {
+		values = {
+			environment = "production",
+			log_type = "",
+		}
+	}
+}
+
+// Docker container log collection
+discovery.docker "containers" {
+	host = "unix:///var/run/docker.sock"
+	refresh_interval = "5s"
+}
+
+discovery.relabel "docker_containers" {
+	targets = discovery.docker.containers.targets
+	
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex = "(webhook|flask-app|jenkins|sonarqube).*"
+		action = "keep"
+	}
+	
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		target_label = "container"
+	}
+	
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		target_label = "job"
+		regex = "webhook.*"
+		replacement = "webhook-receiver"
+	}
+	
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		target_label = "job"
+		regex = "flask-app.*"
+		replacement = "flask-app"
+	}
+	
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		target_label = "job"
+		regex = "jenkins.*"
+		replacement = "jenkins"
+	}
+	
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		target_label = "job"
+		regex = "sonarqube.*"
+		replacement = "sonarqube"
+	}
+}
+
+loki.source.docker "containers" {
+	host = "unix:///var/run/docker.sock"
+	targets = discovery.relabel.docker_containers.output
+	forward_to = [loki.process.docker_logs.receiver]
+	refresh_interval = "5s"
+}
+
+loki.process "docker_logs" {
+	forward_to = [loki.write.default.receiver]
+	
+	// Parse JSON logs from applications
+	stage.json {
+		expressions = {
+			timestamp = "timestamp",
+			level = "level", 
+			message = "message",
+			event_type = "event_type",
+			source_ip = "source_ip",
+			method = "method",
+			status_code = "status_code",
+		}
+	}
+	
+	// Add labels for Docker logs
+	stage.labels {
+		values = {
+			environment = "docker",
+			service_name = "",
+			detected_level = "info",
+		}
+	}
+}
+
+// Send all logs to Loki
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+	
+	// Add external labels
+	external_labels = {
+		cluster = "devsecops-demo",
+		environment = "production",
+	}
+}
