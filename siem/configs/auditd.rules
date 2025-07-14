@@ -1,0 +1,111 @@
+# Auditd Rules for Security Monitoring
+# DevSecOps environment audit configuration
+
+# Remove any existing rules
+-D
+
+# Buffer size
+-b 8192
+
+# Failure mode (0=silent, 1=printk, 2=panic)
+-f 1
+
+# Time format
+-t 1
+
+## System calls audit rules
+
+# Monitor file access and modifications
+-w /etc/passwd -p wa -k identity
+-w /etc/group -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/sudoers -p wa -k identity
+-w /etc/sudoers.d/ -p wa -k identity
+
+# Monitor authentication files
+-w /etc/ssh/sshd_config -p wa -k ssh_config
+-w /etc/pam.d/ -p wa -k pam
+-w /etc/security/ -p wa -k security_config
+
+# Monitor network configuration
+-w /etc/hosts -p wa -k network_config
+-w /etc/hostname -p wa -k network_config
+-w /etc/resolv.conf -p wa -k network_config
+-w /etc/network/ -p wa -k network_config
+
+# Monitor system configuration
+-w /etc/fstab -p wa -k filesystem_config
+-w /etc/crontab -p wa -k cron
+-w /etc/cron.allow -p wa -k cron
+-w /etc/cron.deny -p wa -k cron
+-w /var/spool/cron/ -p wa -k cron
+
+# Monitor kernel modules
+-w /sbin/insmod -p x -k modules
+-w /sbin/rmmod -p x -k modules
+-w /sbin/modprobe -p x -k modules
+-a always,exit -F arch=b64 -S init_module -S delete_module -k modules
+
+# Monitor system administration
+-w /usr/bin/passwd -p x -k passwd_modification
+-w /usr/bin/sudo -p x -k sudo_usage
+-w /usr/bin/su -p x -k su_usage
+
+# Monitor file operations
+-a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access
+-a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access
+
+# Monitor privilege escalation
+-a always,exit -F arch=b64 -S setuid -S setgid -S setreuid -S setregid -k privilege_escalation
+-a always,exit -F arch=b64 -S setuid -S setgid -S setreuid -S setregid -F exit=-EPERM -k privilege_escalation_failed
+
+# Monitor network connections
+-a always,exit -F arch=b64 -S socket -S bind -S connect -S listen -k network_connections
+
+# Monitor Docker and container operations
+-w /usr/bin/docker -p x -k docker
+-w /var/run/docker.sock -p wa -k docker_socket
+-w /etc/docker/ -p wa -k docker_config
+-w /usr/bin/kubectl -p x -k kubernetes
+-w /root/.kube/ -p wa -k kubernetes_config
+
+# Monitor package management
+-w /usr/bin/apt -p x -k package_management
+-w /usr/bin/apt-get -p x -k package_management
+-w /usr/bin/dpkg -p x -k package_management
+-w /var/log/dpkg.log -p wa -k package_management
+-w /var/log/apt/ -p wa -k package_management
+
+# Monitor Jenkins operations
+-w /var/lib/jenkins/ -p wa -k jenkins_files
+-w /etc/default/jenkins -p wa -k jenkins_config
+
+# Monitor critical system directories
+-w /bin/ -p wa -k system_binaries
+-w /sbin/ -p wa -k system_binaries
+-w /usr/bin/ -p wa -k system_binaries
+-w /usr/sbin/ -p wa -k system_binaries
+
+# Monitor log files
+-w /var/log/auth.log -p wa -k auth_logs
+-w /var/log/syslog -p wa -k system_logs
+-w /var/log/messages -p wa -k system_logs
+
+# Monitor system calls that could indicate compromise
+-a always,exit -F arch=b64 -S mount -k filesystem_mount
+-a always,exit -F arch=b64 -S umount2 -k filesystem_umount
+-a always,exit -F arch=b64 -S ptrace -k tracing
+-a always,exit -F arch=b64 -S personality -k personality_change
+
+# Monitor process execution
+-a always,exit -F arch=b64 -S execve -k process_execution
+
+# Monitor time changes
+-a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time_change
+-w /etc/localtime -p wa -k time_change
+
+# Monitor system locale changes
+-a always,exit -F arch=b64 -S sethostname -S setdomainname -k system_locale
+
+# Enable the audit system
+-e 1

@@ -1,0 +1,235 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: siem-alerting-rules
+  namespace: monitoring
+  labels:
+    app: siem
+    component: alerting
+data:
+  siem-rules.yml: |
+    groups:
+    - name: siem_security_alerts
+      rules:
+      # SSH Security Alerts
+      - alert: HighFailedSSHAttempts
+        expr: increase(loki_lines_total{job="alloy/logs", level="warning", service="ssh"}[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          category: authentication
+          component: ssh
+        annotations:
+          summary: "High number of failed SSH attempts detected"
+          description: "More than 10 failed SSH attempts in 5 minutes. Possible brute force attack."
+          runbook_url: "https://example.com/runbooks/ssh-brute-force"
+
+      - alert: RootLoginAttempt
+        expr: increase(loki_lines_total{job="alloy/logs", level="error", user="root", service="ssh"}[1m]) > 0
+        for: 0m
+        labels:
+          severity: high
+          category: authentication
+          component: ssh
+        annotations:
+          summary: "Root login attempt detected"
+          description: "Direct root login attempt via SSH detected from {{ $labels.remote_ip }}"
+          runbook_url: "https://example.com/runbooks/root-login"
+
+      # System Security Alerts
+      - alert: SuspiciousProcessExecution
+        expr: increase(loki_lines_total{job="alloy/logs", level="warning", rule_type="security"}[5m]) > 5
+        for: 1m
+        labels:
+          severity: high
+          category: runtime_security
+          component: falco
+        annotations:
+          summary: "Suspicious process execution detected"
+          description: "Multiple suspicious processes detected by Falco runtime security"
+          runbook_url: "https://example.com/runbooks/suspicious-process"
+
+      - alert: PrivilegeEscalation
+        expr: increase(loki_lines_total{job="alloy/logs", level="critical", rule_type="privilege_escalation"}[1m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          category: runtime_security
+          component: falco
+        annotations:
+          summary: "Privilege escalation attempt detected"
+          description: "Potential privilege escalation detected in container or system"
+          runbook_url: "https://example.com/runbooks/privilege-escalation"
+
+      # Network Security Alerts
+      - alert: UnauthorizedNetworkConnection
+        expr: increase(loki_lines_total{job="alloy/logs", level="warning", rule_type="network"}[5m]) > 3
+        for: 2m
+        labels:
+          severity: medium
+          category: network_security
+          component: falco
+        annotations:
+          summary: "Unauthorized network connections detected"
+          description: "Multiple unauthorized network connections detected"
+          runbook_url: "https://example.com/runbooks/network-security"
+
+      # File System Security Alerts
+      - alert: SensitiveFileAccess
+        expr: increase(loki_lines_total{job="alloy/logs", level="warning", rule_type="file_access"}[5m]) > 2
+        for: 1m
+        labels:
+          severity: high
+          category: file_security
+          component: audit
+        annotations:
+          summary: "Sensitive file access detected"
+          description: "Access to sensitive files detected in system audit logs"
+          runbook_url: "https://example.com/runbooks/file-access"
+
+      # Package Management Alerts
+      - alert: UnauthorizedPackageInstallation
+        expr: increase(loki_lines_total{job="alloy/logs", operation="install", source="package_audit"}[10m]) > 5
+        for: 3m
+        labels:
+          severity: medium
+          category: package_security
+          component: apt
+        annotations:
+          summary: "High package installation activity"
+          description: "More than 5 packages installed in 10 minutes"
+          runbook_url: "https://example.com/runbooks/package-security"
+
+      # Application Security Alerts
+      - alert: SecurityVulnerabilityInCommit
+        expr: increase(loki_lines_total{job="alloy/logs", risk_level="high", source="webhook"}[1m]) > 0
+        for: 0m
+        labels:
+          severity: high
+          category: application_security
+          component: webhook
+        annotations:
+          summary: "Security vulnerability detected in code commit"
+          description: "High-risk security patterns detected in recent code commits"
+          runbook_url: "https://example.com/runbooks/code-security"
+
+      - alert: ApplicationSecurityEvent
+        expr: increase(loki_lines_total{job="alloy/logs", level="error", component="flask"}[5m]) > 10
+        for: 2m
+        labels:
+          severity: medium
+          category: application_security
+          component: flask
+        annotations:
+          summary: "Application security events detected"
+          description: "Multiple security-related errors in Flask application"
+          runbook_url: "https://example.com/runbooks/app-security"
+
+      # System Health Alerts
+      - alert: SIEMComponentDown
+        expr: up{job=~"alloy|loki|grafana"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+          component: siem
+        annotations:
+          summary: "SIEM component is down"
+          description: "{{ $labels.job }} component is not responding"
+          runbook_url: "https://example.com/runbooks/siem-infrastructure"
+
+      - alert: HighLogIngestionRate
+        expr: rate(loki_ingester_samples_received_total[5m]) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+          component: loki
+        annotations:
+          summary: "High log ingestion rate"
+          description: "Loki is receiving logs at an unusually high rate: {{ $value }} logs/second"
+          runbook_url: "https://example.com/runbooks/log-ingestion"
+
+    - name: siem_compliance_alerts
+      rules:
+      # Compliance and Audit Alerts
+      - alert: AuditLogGap
+        expr: time() - loki_ingester_oldest_unshipped_timestamp > 3600
+        for: 5m
+        labels:
+          severity: high
+          category: compliance
+          component: audit
+        annotations:
+          summary: "Audit log gap detected"
+          description: "Gap in audit log ingestion detected, potential compliance issue"
+          runbook_url: "https://example.com/runbooks/audit-compliance"
+
+      - alert: FailedComplianceCheck
+        expr: increase(loki_lines_total{job="alloy/logs", compliance_status="failed"}[1h]) > 0
+        for: 0m
+        labels:
+          severity: medium
+          category: compliance
+          component: audit
+        annotations:
+          summary: "Compliance check failed"
+          description: "System compliance check has failed"
+          runbook_url: "https://example.com/runbooks/compliance"
+
+  notification-config.yml: |
+    # Sample notification configuration
+    # Integrate with your notification system (Slack, PagerDuty, email, etc.)
+    
+    route:
+      group_by: ['alertname', 'severity']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+      receiver: 'web.hook'
+      routes:
+      - match:
+          severity: critical
+        receiver: 'critical-alerts'
+        group_wait: 0s
+        repeat_interval: 5m
+      - match:
+          category: authentication
+        receiver: 'security-team'
+      - match:
+          category: runtime_security
+        receiver: 'security-team'
+      - match:
+          category: compliance
+        receiver: 'compliance-team'
+
+    receivers:
+    - name: 'web.hook'
+      webhook_configs:
+      - url: 'http://webhook.example.com/alerts'
+        send_resolved: true
+
+    - name: 'critical-alerts'
+      webhook_configs:
+      - url: 'http://webhook.example.com/critical'
+        send_resolved: true
+      # Add your critical notification methods here
+
+    - name: 'security-team'
+      webhook_configs:
+      - url: 'http://webhook.example.com/security'
+        send_resolved: true
+      # Add security team notification methods here
+
+    - name: 'compliance-team'
+      webhook_configs:
+      - url: 'http://webhook.example.com/compliance'
+        send_resolved: true
+      # Add compliance team notification methods here
+
+    inhibit_rules:
+    - source_match:
+        severity: 'critical'
+      target_match:
+        severity: 'warning'
+      equal: ['alertname', 'cluster', 'service']
