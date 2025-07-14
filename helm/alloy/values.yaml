@@ -102,7 +102,6 @@ alloy:
           
           stage.labels {
             values = {
-              program = "",
               job = "system-auth",
               event_type = "auth_event",
             }
@@ -116,8 +115,6 @@ alloy:
           
           stage.labels {
             values = {
-              invalid_user = "",
-              source_ip = "",
               event_type = "ssh_invalid_user",
             }
           }
@@ -130,8 +127,6 @@ alloy:
           
           stage.labels {
             values = {
-              failed_user = "",
-              source_ip = "",
               event_type = "auth_failure",
             }
           }
@@ -144,7 +139,6 @@ alloy:
           
           stage.labels {
             values = {
-              user = "",
               event_type = "successful_login",
             }
           }
@@ -157,10 +151,6 @@ alloy:
           
           stage.labels {
             values = {
-              sudo_user = "",
-              target_user = "",
-              command = "",
-              tty = "",
               event_type = "sudo_usage",
             }
           }
@@ -173,8 +163,6 @@ alloy:
           
           stage.labels {
             values = {
-              sudo_user = "",
-              sudo_result = "",
               event_type = "sudo_failure",
             }
           }
@@ -195,8 +183,6 @@ alloy:
           
           stage.labels {
             values = {
-              action = "",
-              package = "",
               job = "package-install",
               event_type = "package_change",
             }
@@ -213,7 +199,6 @@ alloy:
           
           stage.labels {
             values = {
-              action = "",
               job = "apt-history",
               event_type = "apt_action",
             }
