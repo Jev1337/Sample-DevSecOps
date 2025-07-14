@@ -87,7 +87,7 @@ alloy:
 
       // Process real system authentication logs
       loki.process "system_logs" {
-        // Process auth logs
+        // First parse the basic log structure for all auth logs
         stage.match {
           selector = "{job=\"system-auth\"}"
           
@@ -103,21 +103,24 @@ alloy:
           stage.labels {
             values = {
               job = "system-auth",
-              event_type = "auth_event",
+              hostname = "",
+              program = "",
             }
           }
         }
         
-        // Extract SSH invalid user attempts
+        // Extract SSH invalid user attempts - matches: "Disconnected from invalid user sql 139.59.21.115"
         stage.match {
           selector = "{job=\"system-auth\"}"
           stage.regex {
-            expression = "(?i).*(disconnected from invalid user|invalid user) (?P<invalid_user>\\S+) (from )?(?P<source_ip>\\S+).*"
+            expression = ".*Disconnected from invalid user (?P<invalid_user>\\S+) (?P<source_ip>\\d+\\.\\d+\\.\\d+\\.\\d+).*"
           }
           
           stage.labels {
             values = {
               event_type = "ssh_invalid_user",
+              invalid_user = "",
+              source_ip = "",
             }
           }
         }
@@ -126,40 +129,63 @@ alloy:
         stage.match {
           selector = "{job=\"system-auth\"}"
           stage.regex {
-            expression = "(?i).*(authentication failure|failed password).*user[=:]?\\s*(?P<failed_user>\\S+).*(rhost|from)[=:]?\\s*(?P<source_ip>\\S+).*"
+            expression = ".*Failed password for (?P<failed_user>\\S+) from (?P<source_ip>\\d+\\.\\d+\\.\\d+\\.\\d+).*"
           }
           
           stage.labels {
             values = {
-              event_type = "auth_failure", 
+              event_type = "auth_failure",
+              failed_user = "",
+              source_ip = "",
             }
           }
         }
         
-        // Extract successful logins
+        // Extract authentication failures (PAM)
         stage.match {
           selector = "{job=\"system-auth\"}"
           stage.regex {
-            expression = "(?i).*(session opened|accepted|login).*user[=:]?\\s*(?P<user>\\S+).*"
+            expression = ".*authentication failure.*user=(?P<failed_user>\\S+).*rhost=(?P<source_ip>\\S+).*"
+          }
+          
+          stage.labels {
+            values = {
+              event_type = "auth_failure",
+              failed_user = "",
+              source_ip = "",
+            }
+          }
+        }
+        
+        // Extract successful logins - matches: "session opened for user"
+        stage.match {
+          selector = "{job=\"system-auth\"}"
+          stage.regex {
+            expression = ".*session opened for user (?P<user>\\S+).*by (?P<login_user>\\S+).*"
           }
           
           stage.labels {
             values = {
               event_type = "successful_login",
+              user = "",
+              login_user = "",
             }
           }
         }
         
-        // Extract sudo usage
+        // Extract sudo usage - matches: "sudo: azureuser : TTY=pts/0 ; PWD=/home/azureuser/Sample-DevSecOps ; USER=root ; COMMAND=/usr/bin/tail"
         stage.match {
           selector = "{job=\"system-auth\"}"
           stage.regex {
-            expression = "(?i)sudo:\\s+(?P<sudo_user>\\S+)\\s+:\\s+TTY=(?P<tty>\\S+)\\s+;\\s+PWD=(?P<pwd>\\S+)\\s+;\\s+USER=(?P<target_user>\\S+)\\s+;\\s+COMMAND=(?P<command>.*)"
+            expression = ".*sudo: (?P<sudo_user>\\S+) : TTY=(?P<tty>\\S+) ; PWD=(?P<pwd>\\S+) ; USER=(?P<target_user>\\S+) ; COMMAND=(?P<command>.*)"
           }
           
           stage.labels {
             values = {
               event_type = "sudo_usage",
+              sudo_user = "",
+              target_user = "",
+              command = "",
             }
           }
         }
@@ -168,12 +194,26 @@ alloy:
         stage.match {
           selector = "{job=\"system-auth\"}"
           stage.regex {
-            expression = "(?i)sudo:.*(authentication failure|incorrect password|user NOT in sudoers).*"
+            expression = ".*sudo.*(?:authentication failure|incorrect password|user NOT in sudoers).*"
           }
           
           stage.labels {
             values = {
               event_type = "sudo_failure",
+            }
+          }
+        }
+        
+        // Catch-all for other auth events that don't match specific patterns
+        stage.match {
+          selector = "{job=\"system-auth\"}"
+          stage.regex {
+            expression = ".*"
+          }
+          
+          stage.labels {
+            values = {
+              event_type = "auth_event",
             }
           }
         }
