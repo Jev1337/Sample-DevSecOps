@@ -42,12 +42,10 @@ alloy:
         forward_to = [loki.process.security_logs.receiver]
       }
 
-      // Host system logs collection for SSH and authentication events
+      // SSH authentication logs for SIEM dashboard
       local.file_match "system_logs" {
         path_targets = [
-          {__path__ = "/var/log/auth.log"},
-          {__path__ = "/var/log/secure"},
-          {__path__ = "/var/log/messages"},
+          {__path__ = "/var/log/siem/auth.log", job = "node-logs"},
         ]
       }
 
@@ -56,10 +54,10 @@ alloy:
         forward_to = [loki.process.security_logs.receiver]
       }
 
-      // Kubernetes audit logs collection
+      // Kubernetes audit logs for SIEM dashboard  
       local.file_match "audit_logs" {
         path_targets = [
-          {__path__ = "/var/log/kubernetes/audit.log"},
+          {__path__ = "/var/log/siem/audit.log", job = "kubernetes-audit"},
         ]
       }
 
@@ -121,3 +119,28 @@ alloy:
           url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
         }
       }
+
+  # Volume mounts for SIEM sample logs
+  extraVolumes:
+    - name: siem-auth-logs
+      configMap:
+        name: siem-sample-logs
+        items:
+          - key: auth.log
+            path: auth.log
+    - name: siem-audit-logs
+      configMap:
+        name: siem-sample-logs
+        items:
+          - key: audit.log
+            path: audit.log
+
+  extraVolumeMounts:
+    - name: siem-auth-logs
+      mountPath: /var/log/siem/auth.log
+      subPath: auth.log
+      readOnly: true
+    - name: siem-audit-logs
+      mountPath: /var/log/siem/audit.log
+      subPath: audit.log
+      readOnly: true
