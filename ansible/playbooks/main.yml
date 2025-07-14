@@ -13,6 +13,5 @@
     - ../roles/core_services
     - ../roles/monitoring_stack
     - ../roles/flask_app
-    - ../roles/siem
     - ../roles/azure_access
     - ../roles/access_info
