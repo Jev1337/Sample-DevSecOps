@@ -125,38 +125,96 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
+### 🎯 Fonctionnalités du Script Setup
+
+Le script `setup.sh` offre une interface complète pour gérer votre environnement DevSecOps :
+
+- **🔧 Gestion automatique des prérequis** - Vérification et installation d'Ansible
+- **📊 Monitoring système intégré** - Statut en temps réel des composants
+- **🎯 Déploiement modulaire** - Installation par composants ou complète
+- **🧹 Nettoyage granulaire** - Suppression sélective par service
+- **📋 Informations d'accès** - URLs et credentials centralisés
+- **🔍 Diagnostics avancés** - Logs détaillés avec couleurs
+- **☁️ Support cloud** - Configuration Azure automatisée
+- **🛡️ Mode SIEM** - Déploiement surveillance sécurité
+
 Le menu vous propose les options suivantes :
 
 ```
 🚀 DevSecOps Setup Menu
 ======================
-  1) Install Docker                    # Installation Docker automatisée
-  2) Check Prerequisites              # Vérification prérequis
-  3) Setup MicroK8s                   # Configuration cluster K8s
-  4) Build Jenkins Image              # Image Jenkins personnalisée
-  5) Deploy Core Services             # Jenkins + SonarQube
-  6) Deploy Monitoring Stack          # Loki + Grafana + Alloy
-  7) Deploy Flask Application         # Application principale
-  8) Configure Azure External Access  # Accès cloud
-  9) Full Production Setup            # Installation complète (3-7)
- 10) Development Mode                 # Docker Compose local
- 11) Cleanup Options                  # Nettoyage par composants
- 12) Show Access Information          # URLs et credentials
- 13) Exit
+  1) Check Prerequisites              # Vérification prérequis système
+  2) Install Ansible (if needed)     # Installation Ansible automatisée
+  3) Deploy Individual Components    # Déploiement composants individuels
+  4) Deploy Full Production Environment # Installation production complète
+  5) Deploy SIEM Security Monitoring # Surveillance sécurité SIEM
+  6) Development Mode (Docker Compose) # Mode développement local
+  7) Show System Status              # Affichage statut système
+  8) Show Access Information         # URLs et credentials d'accès
+  9) Cleanup Options                 # Options de nettoyage par composants
+ 10) Exit                            # Quitter le script
+```
+
+**🧩 Menu composants individuels (Option 3) :**
+
+```
+🧩 Component Deployment Menu
+============================
+  1) Prerequisites & Docker          # Prérequis et installation Docker
+  2) MicroK8s Setup                  # Configuration cluster Kubernetes
+  3) Core Services (Jenkins, SonarQube) # Services CI/CD et qualité code
+  4) Monitoring Stack (Loki, Grafana)   # Stack monitoring et logs
+  5) Flask Application              # Déploiement application Flask
+  6) SIEM Security Monitoring       # Monitoring sécurité et audit
+  7) Azure External Access          # Configuration accès cloud Azure
+  8) Return to main menu            # Retour au menu principal
 ```
 
 ### ⚡ Installation Express (Production)
 
 ```bash
 ./setup.sh
-# Choisir option 9 pour l'installation complète
+# Choisir option 4 pour l'installation production complète
 ```
 
 ### 🧪 Mode Développement Local
 
 ```bash
 ./setup.sh
-# Choisir option 10 pour Docker Compose
+# Choisir option 6 pour le mode développement Docker Compose
+```
+
+### 💡 Conseils d'Utilisation
+
+**🚀 Première installation :**
+```bash
+./setup.sh
+# 1. Option 1 : Check Prerequisites
+# 2. Option 2 : Install Ansible (si nécessaire)
+# 3. Option 4 : Deploy Full Production Environment
+```
+
+**🔧 Installation composant par composant :**
+```bash
+./setup.sh
+# Option 3 : Deploy Individual Components
+# Puis sélectionner chaque composant dans l'ordre :
+# 1 → 2 → 3 → 4 → 5 → 6 → 7
+```
+
+**📊 Surveillance et maintenance :**
+```bash
+./setup.sh
+# Option 7 : Show System Status (vérification santé)
+# Option 8 : Show Access Information (URLs/credentials)
+# Option 9 : Cleanup Options (nettoyage si besoin)
+```
+
+**🛡️ SIEM et sécurité :**
+```bash
+./setup.sh
+# Option 5 : Deploy SIEM Security Monitoring
+# Accès via Grafana → Dashboard "SIEM - Security Monitoring"
 ```
 
 ### 📋 Prérequis Système
@@ -569,7 +627,7 @@ http://VOTRE_IP:5000  # Flask App
 
 ```bash
 # Démarrer avec Docker Compose
-./setup.sh  # Option 10
+./setup.sh  # Option 6
 
 # Ou manuellement
 docker compose up -d
@@ -637,7 +695,7 @@ docker push localhost:32000/flask-k8s-app:latest
 
 ```bash
 # Configurer accès externe Azure
-./setup.sh  # Option 8
+./setup.sh  # Option 3 puis Option 7
 
 # Vérifier IP externe
 curl -s ifconfig.me
@@ -700,7 +758,7 @@ kubectl top nodes
 microk8s inspect
 
 # Solution : Augmenter ressources ou nettoyer
-./setup.sh  # Option 11 pour cleanup
+./setup.sh  # Option 9 pour cleanup
 ```
 
 **2. Images Docker non trouvées :**
@@ -710,7 +768,7 @@ microk8s inspect
 docker images | grep localhost:32000
 
 # Rebuilder si nécessaire
-./setup.sh  # Option 4 puis 7
+./setup.sh  # Option 3 puis Options 3 et 5
 ```
 
 **3. Services inaccessibles :**
@@ -763,10 +821,10 @@ kubectl get svc,endpoints -A
 
 ```bash
 # Cleanup par composants
-./setup.sh  # Option 11
+./setup.sh  # Option 9
 
 # Reset complet
-./setup.sh  # Option 11 -> Option 6
+./setup.sh  # Option 9 -> puis choisir cleanup complet
 
 # Reset MicroK8s complet
 microk8s reset
@@ -777,7 +835,7 @@ sudo snap remove microk8s
 
 | Problème | Solution | Documentation |
 |----------|----------|---------------|
-| **Setup Issues** | Relancer `./setup.sh` option 2 | [Prerequisites](#-installation-rapide) |
+| **Setup Issues** | Relancer `./setup.sh` option 1 puis 2 | [Prerequisites](#-installation-rapide) |
 | **Network Problems** | Vérifier firewall et DNS | [Troubleshooting](#-troubleshooting) |
 | **Performance** | Augmenter ressources VM | [Architecture](#️-architecture) |
 | **Security Scans** | Vérifier config SonarQube/Trivy | [Sécurité](#-sécurité) |
