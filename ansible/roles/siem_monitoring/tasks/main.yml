@@ -1,4 +1,21 @@
 ---
+- name: Ensure Grafana Helm repository is added
+  shell: |
+    microk8s helm3 repo add grafana https://grafana.github.io/helm-charts || true
+    microk8s helm3 repo update
+  ignore_errors: yes
+
+- name: Wait for Grafana service to be ready
+  shell: |
+    microk8s kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=grafana -n monitoring --timeout=300s
+  ignore_errors: yes
+
+- name: Get Grafana service port
+  shell: |
+    microk8s kubectl get svc grafana -n monitoring -o jsonpath='{.spec.ports[0].nodePort}'
+  register: grafana_nodeport
+  ignore_errors: yes
+
 - name: Create Grafana dashboard directory
   file:
     path: /tmp/grafana-dashboards
@@ -9,39 +26,18 @@
     src: "{{ inventory_dir }}/../monitoring/grafana/dashboards/siem-security.json"
     dest: /tmp/grafana-dashboards/siem-security.json
 
-- name: Import SIEM dashboard to Grafana
-  uri:
-    url: "http://grafana.monitoring.svc.cluster.local/api/dashboards/db"
-    method: POST
-    body_format: json
-    body: "{{ lookup('file', '/tmp/grafana-dashboards/siem-security.json') | from_json }}"
-    headers:
-      Authorization: "Bearer {{ grafana_api_key | default('admin:admin123') }}"
-      Content-Type: "application/json"
-    status_code: 200
-  ignore_errors: yes
-
-- name: Configure Grafana data source for SIEM logs
-  uri:
-    url: "http://grafana.monitoring.svc.cluster.local/api/datasources"
-    method: POST
-    body_format: json
-    body:
-      name: "Loki-SIEM"
-      type: "loki"
-      url: "http://loki.monitoring.svc.cluster.local:3100"
-      access: "proxy"
-      isDefault: false
-    headers:
-      Authorization: "Bearer {{ grafana_api_key | default('admin:admin123') }}"
-      Content-Type: "application/json"
-    status_code: [200, 409]
+- name: Configure SIEM dashboard via kubectl ConfigMap
+  shell: |
+    microk8s kubectl create configmap siem-dashboard-config \
+      --from-file={{ inventory_dir }}/../monitoring/grafana/dashboards/siem-security.json \
+      -n monitoring --dry-run=client -o yaml | microk8s kubectl apply -f -
   ignore_errors: yes
 
 - name: Update Alloy configuration for SIEM log collection
   shell: |
     microk8s helm3 upgrade alloy grafana/alloy -n monitoring -f {{ inventory_dir }}/../helm/alloy/values.yaml
   register: alloy_upgrade
+  ignore_errors: yes
 
 - name: Restart Alloy to apply new configuration
   shell: |

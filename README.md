@@ -44,15 +44,16 @@ Une solution complète de déploiement sécurisé d'applications Flask sur Kuber
 
 ### 🎪 Nouveautés de cette version
 
-- ✅ **Setup interactif** avec menu complet
+- ✅ **Setup simplifié** avec menu interactif Ansible-driven
 - ✅ **Installation Docker** automatisée
 - ✅ **Support Azure** intégré avec accès externe
 - ✅ **Mode développement** Docker Compose standalone
-- ✅ **Cleanup intelligent** par composants
+- ✅ **Cleanup intelligent** par composants avec tags Ansible
 - ✅ **SIEM intégré** avec monitoring sécurité temps réel
 - ✅ **Webhook receiver** pour événements Git/SCM
 - ✅ **Audit logging K8s** avec policies sécurisées
-- ✅ **Multi-environnements** (dev, staging, prod)
+- ✅ **Automation complète** via playbooks Ansible
+- ✅ **Architecture modulaire** avec roles réutilisables
 
 ## 🏗️ Architecture
 
