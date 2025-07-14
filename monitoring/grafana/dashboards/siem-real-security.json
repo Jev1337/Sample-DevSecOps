@@ -23,7 +23,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (event_type) (count_over_time({job=\"system-auth\"} [5m]))",
+          "expr": "sum by (event_type) (count_over_time({job=~\"system-auth|webhook-receiver\"} [5m]))",
           "refId": "A",
           "legendFormat": "{{event_type}}",
           "datasource": {
@@ -83,7 +83,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-auth\", event_type=\"ssh_invalid_user\"} | line_format \"{{.__timestamp__}} | Invalid User: {{.invalid_user}} from IP: {{.source_ip}} | {{.__line__}}\"",
+          "expr": "{job=\"system-auth\"} |~ \"(?i)invalid user\" | json | line_format \"{{.__timestamp__}} | Invalid User: {{.invalid_user | default \\\"unknown\\\"}} from IP: {{.source_ip | default \\\"unknown\\\"}} | {{.__line__}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -118,7 +118,7 @@
       },
       "targets": [
         {
-          "expr": "topk(10, sum by (source_ip) (count_over_time({job=\"system-auth\", event_type=\"ssh_invalid_user\"} [1h])))",
+          "expr": "topk(10, sum by (source_ip) (count_over_time({job=\"system-auth\"} |~ \"(?i)(invalid user|failed password|authentication failure)\" [1h])))",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -172,7 +172,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-auth\", event_type=\"sudo_usage\"} | line_format \"{{.__timestamp__}} | User: {{.sudo_user}} → {{.target_user}} | Command: {{.command}} | TTY: {{.tty}}\"",
+          "expr": "{job=\"system-auth\"} |~ \"sudo:\" | json | line_format \"{{.__timestamp__}} | User: {{.sudo_user | default \\\"unknown\\\"}} → {{.target_user | default \\\"unknown\\\"}} | Command: {{.command | default \\\"unknown\\\"}} | TTY: {{.tty | default \\\"unknown\\\"}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -207,7 +207,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"package-install\"} | line_format \"{{.__timestamp__}} | {{.action}}: {{.package}} ({{.old_version}} → {{.new_version}})\"",
+          "expr": "{job=~\"package-install|apt-history|system-auth\"} |~ \"(?i)(install|upgrade|remove)\" | json | line_format \"{{.__timestamp__}} | {{.action | default \\\"package-action\\\"}}: {{.package | default \\\"unknown\\\"}} ({{.old_version | default \\\"N/A\\\"}} → {{.new_version | default \\\"N/A\\\"}})\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -242,7 +242,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (sudo_user, event_type) (count_over_time({job=\"system-auth\", event_type=~\"sudo_usage|successful_login\"} [1h]))",
+          "expr": "sum by (sudo_user, event_type) (count_over_time({job=\"system-auth\"} |~ \"(?i)(sudo|session opened)\" | json [1h]))",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -300,7 +300,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"webhook-receiver\"} | json | line_format \"{{.__timestamp__}} | Event: {{.event_type}} | Source: {{.source}} | Level: {{.level}} | Details: {{.__line__}}\"",
+          "expr": "{job=\"webhook-receiver\"} | json | line_format \"{{.__timestamp__}} | Event: {{.event_type}} | Source: {{.source}} | Repository: {{.repository}} | Actor: {{.actor}} | Level: {{.level}} | {{if .pr_action}}PR Action: {{.pr_action}} | {{end}}{{if .issue_action}}Issue Action: {{.issue_action}} | {{end}}{{if .workflow_status}}Workflow: {{.workflow_name}} ({{.workflow_status}}) | {{end}}Details: {{.message}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -335,7 +335,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (event_type) (rate({job=\"system-auth\"} [1m]))",
+          "expr": "sum by (event_type) (rate({job=~\"system-auth|webhook-receiver\"} [1m]))",
           "refId": "A",
           "legendFormat": "{{event_type}}",
           "datasource": {
