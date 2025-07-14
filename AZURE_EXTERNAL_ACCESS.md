@@ -3,8 +3,9 @@
 [![Azure](https://img.shields.io/badge/Azure-Cloud%20Ready-blue)](https://azure.microsoft.com/)
 [![LoadBalancer](https://img.shields.io/badge/LoadBalancer-Configured-green)](#loadbalancer-services)
 [![Security](https://img.shields.io/badge/Security-Network%20Policies-red)](#security-configuration)
+[![Ansible](https://img.shields.io/badge/Automation-Ansible-red)](https://www.ansible.com/)
 
-This guide provides comprehensive instructions for configuring external access to your DevSecOps stack on Azure Virtual Machines, including security best practices and monitoring setup.
+This guide provides comprehensive instructions for configuring external access to your DevSecOps stack on Azure Virtual Machines, including security best practices, monitoring setup, and automated deployment.
 
 ## 📋 Table of Contents
 

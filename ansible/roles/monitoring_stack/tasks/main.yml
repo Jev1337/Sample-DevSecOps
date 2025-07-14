@@ -1,21 +1,6 @@
 ---
-# Deploy- name: Deploy Loki via Helm
-  ansible.builtin.shell: |
-    microk8s helm3 status loki -n monitoring || microk8s helm3 install loki grafana/loki -n monitoring -f {{ inventory_dir }}/../helm/loki/values.yaml
-  args:
-    executable: /bin/bash
+# Deploy Loki, Grafana, and Alloy using Helm
 
-- name: Deploy Grafana via Helm
-  ansible.builtin.shell: |
-    microk8s helm3 status grafana -n monitoring || microk8s helm3 install grafana grafana/grafana -n monitoring -f {{ inventory_dir }}/../helm/grafana/values.yaml
-  args:
-    executable: /bin/bash
-
-- name: Deploy Alloy via Helm
-  ansible.builtin.shell: |
-    microk8s helm3 status alloy -n monitoring || microk8s helm3 install alloy grafana/alloy -n monitoring -f {{ inventory_dir }}/../helm/alloy/values.yaml
-  args:
-    executable: /bin/bashnd Alloy using Helm
 - name: Create monitoring namespace
   ansible.builtin.shell: microk8s kubectl get ns monitoring || microk8s kubectl create ns monitoring
   args:
@@ -29,19 +14,19 @@
 
 - name: Deploy Loki via Helm
   ansible.builtin.shell: |
-    microk8s helm3 status loki -n monitoring || microk8s helm3 install loki grafana/loki -n monitoring -f {{ playbook_dir }}/../../helm/loki/values.yaml
+    microk8s helm3 status loki -n monitoring || microk8s helm3 install loki grafana/loki -n monitoring -f {{ playbook_dir }}/../helm/loki/values.yaml
   args:
     executable: /bin/bash
 
 - name: Deploy Grafana via Helm
   ansible.builtin.shell: |
-    microk8s helm3 status grafana -n monitoring || microk8s helm3 install grafana grafana/grafana -n monitoring -f {{ playbook_dir }}/../../helm/grafana/values.yaml
+    microk8s helm3 status grafana -n monitoring || microk8s helm3 install grafana grafana/grafana -n monitoring -f {{ playbook_dir }}/../helm/grafana/values.yaml
   args:
     executable: /bin/bash
 
 - name: Deploy Alloy via Helm
   ansible.builtin.shell: |
-    microk8s helm3 status alloy -n monitoring || microk8s helm3 install alloy grafana/alloy -n monitoring -f {{ playbook_dir }}/../../helm/alloy/values.yaml
+    microk8s helm3 status alloy -n monitoring || microk8s helm3 install alloy grafana/alloy -n monitoring -f {{ playbook_dir }}/../helm/alloy/values.yaml
   args:
     executable: /bin/bash
 

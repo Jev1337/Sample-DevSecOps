@@ -89,11 +89,97 @@ Ce projet vise à mettre en place une solution complète de déploiement sécuri
 | **Logs** | Loki + Alloy | **Architecture moderne et efficacité :** Cette stack est conçue pour être économique en ressources et nativement intégrée à Kubernetes. Loki indexe uniquement les métadonnées, réduisant les coûts de stockage, tandis que Grafana Alloy est le collecteur de télémétrie unifié de nouvelle génération, assurant une solution d'avenir. |
 
 
-## Architecture générale
+### 7. Infrastructure as Code et Automation
 
+| Solution | Type | Avantages | Inconvénients | Cas d'usage | Complexité |
+|----------|------|-----------|---------------|-------------|------------|
+| **Ansible** | Configuration Management | - Agentless<br>- Syntax YAML simple<br>- Idempotent<br>- Large écosystème modules | - Performance sur gros inventaires<br>- Debugging parfois difficile<br>- Pas de state management | Configuration serveurs<br>Déploiement applications<br>Orchestration | Faible |
+| **Terraform** | Infrastructure Provisioning | - Multi-cloud<br>- State management<br>- Plan/Apply workflow<br>- Écosystème providers riche | - Courbe d'apprentissage<br>- State file management<br>- Pas pour configuration OS | Provisioning cloud<br>Infrastructure immutable<br>Multi-environnements | Moyenne |
+| **Kubernetes Manifests** | Container Orchestration | - Déclaratif natif<br>- Contrôle granulaire<br>- Pas de dépendances<br>- Standard Kubernetes | - Verbose<br>- Duplication configuration<br>- Maintenance complexe | Déploiement K8s simple<br>Contrôle total<br>Debugging | Faible |
+| **Helm Charts** | Package Management K8s | - Templating puissant<br>- Gestion versions<br>- Écosystème charts<br>- Release management | - Complexité templates<br>- Debugging difficile<br>- Courbe apprentissage | Applications complexes<br>Réutilisabilité<br>Paramétrage multi-env | Moyenne |
+
+### 8. SIEM et Monitoring de Sécurité
+
+| Solution | Type | Avantages | Inconvénients | Coût | Intégration |
+|----------|------|-----------|---------------|------|-------------|
+| **ELK Stack** | SIEM Complet | - Recherche puissante<br>- Scalabilité<br>- Écosystème riche<br>- Visualisations avancées | - Ressources importantes<br>- Complexité configuration<br>- Coût infrastructure | Gratuit/Payant | Complexe |
+| **Splunk** | SIEM Entreprise | - Fonctionnalités complètes<br>- Performance<br>- Support professionnel<br>- Intégrations nombreuses | - Coût très élevé<br>- Courbe apprentissage<br>- Vendor lock-in | Payant (cher) | Moyenne |
+| **Grafana Loki + Alloy** | Log Aggregation + SIEM | - Économique ressources<br>- Intégration native K8s<br>- Configuration simple<br>- Stack unifié | - Fonctionnalités SIEM limitées<br>- Recherche full-text réduite<br>- Moins mature | Gratuit | Simple |
+| **Security Onion** | SIEM Open Source | - Suite complète gratuite<br>- Network monitoring<br>- IDS/IPS intégré<br>- Prêt à l'emploi | - Ressources importantes<br>- Configuration complexe<br>- Interface dépassée | Gratuit | Complexe |
+
+### 9. Recommandations Mises à Jour (2025)
+
+| Composant | Recommandation | Justification Mise à Jour |
+|-----------|----------------|---------------------------|
+| **Automation** | Ansible | **Simplicité et adoption :** Ansible reste le choix optimal pour l'automation grâce à sa syntaxe YAML accessible, son approche agentless et sa capacité à gérer aussi bien l'infrastructure que les applications. Idéal pour les équipes DevOps de toutes tailles. |
+| **SIEM** | Loki + Alloy + Custom Dashboard | **Approche pragmatique :** Pour la plupart des projets, une solution basée sur Loki avec Grafana Alloy offre un excellent rapport coût/bénéfice. Le dashboard SIEM personnalisé apporte les fonctionnalités essentielles sans la complexité des solutions entreprise. |
+| **IaC Cloud** | Terraform + Ansible | **Complémentarité :** Terraform pour le provisioning d'infrastructure cloud (immutable) et Ansible pour la configuration des services (mutable). Cette approche hybride maximise les avantages de chaque outil. |
+| **Package Management** | Helm (confirmé) | **Maturité croissante :** Helm 3.x a résolu les problèmes de sécurité de Tiller et reste l'standard pour Kubernetes. L'écosystème de charts continue de croître. |
+| **Observabilité** | Loki + Grafana + Alloy | **Stack moderne :** Grafana Alloy (successeur de Promtail) offre une collecte unifiée logs/métriques/traces. Cette stack est désormais mature et recommandée pour les nouveaux projets. |
+
+## Architecture générale mise à jour (2025)
+
+```mermaid
+graph TB
+    subgraph "Development"
+        DEV[Developer] --> GIT[Git Repository]
+        GIT --> WEBHOOK[Webhook Events]
+    end
+    
+    subgraph "Infrastructure (Terraform + Ansible)"
+        TERRA[Terraform<br/>Infrastructure Provisioning]
+        ANSIBLE[Ansible<br/>Configuration Management]
+        TERRA --> ANSIBLE
+    end
+    
+    subgraph "Kubernetes Cluster (MicroK8s)"
+        APP[Flask Application<br/>+ Helm Chart]
+        JENKINS[Jenkins CI/CD<br/>+ Pipeline]
+        SONAR[SonarQube<br/>Code Analysis]
+    end
+    
+    subgraph "Security Pipeline"
+        TRIVY[Trivy<br/>Vulnerability Scan]
+        AUDIT[Security Audit<br/>K8s Policies]
+        JENKINS --> TRIVY
+        JENKINS --> SONAR
+        JENKINS --> AUDIT
+    end
+    
+    subgraph "SIEM & Monitoring (Loki Stack)"
+        ALLOY[Grafana Alloy<br/>Unified Collector]
+        LOKI[Loki<br/>Log Storage]
+        GRAFANA[Grafana<br/>Dashboards + SIEM]
+        ALERTS[Alert Manager<br/>Notifications]
+        
+        ALLOY --> LOKI
+        LOKI --> GRAFANA
+        GRAFANA --> ALERTS
+    end
+    
+    GIT --> JENKINS
+    WEBHOOK --> ALLOY
+    TERRAFORM --> APP
+    ANSIBLE --> APP
+    APP --> ALLOY
+    JENKINS --> ALLOY
+    SONAR --> ALLOY
+    AUDIT --> ALLOY
 ```
-Application → Kubernetes → Pipeline DevSecOps → Monitoring & Logs
-     ↓              ↓              ↓                    ↓
-   Docker      Pod/Service    Security Scan      Loki + Grafana
-              Deployment      + Dashboard        + Dashboards
-```
+
+### Stack technologique finale retenue
+
+| Couche | Technologie | Version | Rôle |
+|--------|-------------|---------|------|
+| **Application** | Flask + Gunicorn | 2.3+ | API REST, métriques |
+| **Containerisation** | Docker + BuildKit | 24.0+ | Images sécurisées |
+| **Orchestration** | MicroK8s | 1.30+ | Cluster Kubernetes |
+| **Package Management** | Helm | 3.8+ | Déploiement K8s |
+| **CI/CD** | Jenkins | 2.452+ | Pipeline automatisé |
+| **Code Quality** | SonarQube Community | Latest | Analyse statique |
+| **Security Scan** | Trivy | Latest | Vulnérabilités |
+| **Log Management** | Loki + Alloy | 3.0+ | Logs centralisés |
+| **Monitoring** | Grafana | 10.0+ | Dashboards + SIEM |
+| **Infrastructure** | Terraform | 1.5+ | Provisioning cloud |
+| **Configuration** | Ansible | 2.15+ | Automation |
+| **Cloud Platform** | Azure | - | Infrastructure cloud |

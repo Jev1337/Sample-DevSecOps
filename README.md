@@ -1,19 +1,13 @@
-# 🚀 Flask K8s - [🔒 Sécurité](#-sécu| **📊 Monitoring Complet** | Logs centralisés et dashboards temps réel | Loki, Grafana, Alloy |
-| **🛡️ SIEM Intégré** | Surveillance sécurité et détection d'événements | SSH audit, K8s audit, Webhooks |
-| **🔐 Sécurité Intégrée** | Scans vulnérabilités et qualité code | Trivy, SonarQube |é)
-- [🛡️ SIEM](#️-siem)
-- [📊 Monitoring](#-monitoring)
-- [🤖 Automation avec Ansible](#-automation-avec-ansible)
-- [☁️ Infrastructure Terraform (Azure)](#️-infrastructure-terraform-azure)
-- [🛠️ Développement](#️-développement)
-- [🔧 Troubleshooting](#-troubleshooting)Ops - Complete CI/CD Security Pipeline
+# 🚀 Flask K8s DevSecOps - Complete CI/CD Security Pipeline
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/Docker-20.10%2B-blue)](https://www.docker.com/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.30%2B-326ce5)](https://kubernetes.io/)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-green)](https://www.python.org/)
+[![Ansible](https://img.shields.io/badge/Ansible-2.15%2B-red)](https://www.ansible.com/)
+[![Terraform](https://img.shields.io/badge/Terraform-1.5%2B-purple)](https://www.terraform.io/)
 
-Une solution complète de déploiement sécurisé d'applications Flask sur Kubernetes avec pipeline DevSecOps intégré, monitoring avancé et centralisation des logs.
+Une solution complète de déploiement sécurisé d'applications Flask sur Kubernetes avec pipeline DevSecOps intégré, monitoring avancé, SIEM et automation complète.
 
 ## 📋 Table des Matières
 
@@ -22,11 +16,14 @@ Une solution complète de déploiement sécurisé d'applications Flask sur Kuber
 - [⚡ Installation Rapide](#-installation-rapide)
 - [🧩 Composants](#-composants)
 - [🔒 Sécurité](#-sécurité)
-- [📊 Monitoring](#-monitoring)
-- [� Automation avec Ansible](#-automation-avec-ansible)
+- [�️ SIEM](#️-siem)
+- [�📊 Monitoring](#-monitoring)
+- [🤖 Automation avec Ansible](#-automation-avec-ansible)
 - [☁️ Infrastructure Terraform (Azure)](#️-infrastructure-terraform-azure)
 - [🛠️ Développement](#️-développement)
 - [🔧 Troubleshooting](#-troubleshooting)
+- [📚 Documentation](#-documentation)
+- [📜 Licence](#-licence)
 
 ## 🎯 Vue d'ensemble
 
@@ -38,8 +35,8 @@ Une solution complète de déploiement sécurisé d'applications Flask sur Kuber
 | **🔄 Pipeline DevSecOps** | CI/CD automatisé avec scans sécurisés | Jenkins, SonarQube, Trivy |
 | **📦 Orchestration K8s** | Déploiement, scaling et gestion automatique | MicroK8s, Helm Charts |
 | **📊 Monitoring Complet** | Logs centralisés et dashboards temps réel | Loki, Grafana, Alloy |
-| **�️ SIEM Intégré** | Surveillance sécurité et événements système | SIEM Dashboard, Audit logs |
-| **�🔐 Sécurité Intégrée** | Scans vulnérabilités et qualité code | Trivy, SonarQube |
+| **🛡️ SIEM Intégré** | Surveillance sécurité et événements système | SIEM Dashboard, Audit logs, Webhook receiver |
+| **🔐 Sécurité Intégrée** | Scans vulnérabilités et qualité code | Trivy, SonarQube, Audit logs |
 | **☁️ Cloud Ready** | Support Azure avec accès externe | LoadBalancer, Ingress |
 
 ### 🎪 Nouveautés de cette version
@@ -807,16 +804,17 @@ sudo snap remove microk8s
 - ✅ Respect des conventions de nommage
 - ✅ Scans sécurité passants
 
-## � Documentation Complète
+## 📚 Documentation
 
 - 📖 [**Documentation Projet**](PROJECT_DOCUMENTATION.md) - Guide technique détaillé
 - 🛡️ [**Documentation SIEM**](SIEM_DOCUMENTATION.md) - Guide complet de surveillance sécurité
 - 🔧 [**Documentation Ansible**](ansible/README.md) - Automatisation et déploiement
 - ☁️ [**Documentation Terraform**](terraform/README.md) - Infrastructure Azure
+- ☁️ [**Azure External Access**](AZURE_EXTERNAL_ACCESS.md) - Configuration accès cloud
 - 🚀 [**Setup Script**](setup.sh) - Script d'installation interactif
-- 🔗 [**Configuration Webhook**](configure-webhook.sh) - Integration Git SIEM
+- 📊 [**Architecture Comparison**](comparaison.md) - Analyse comparative des technologies
 
-## �📜 Licence
+## 📜 Licence
 
 Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
@@ -824,12 +822,12 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
 
 <div align="center">
 
-**🚀 Créé avec ❤️ pour mon stage de TeamWill Consulting**
+**🚀 Plateforme DevSecOps complète - Janvier 2025**
 
 [![Stars](https://img.shields.io/github/stars/Jev1337/Sample-DevSecOps?style=social)](https://github.com/Jev1337/Sample-DevSecOps)
 [![Forks](https://img.shields.io/github/forks/Jev1337/Sample-DevSecOps?style=social)](https://github.com/Jev1337/Sample-DevSecOps)
-[![Issues](https://img.shields.io/github/issues/Jev1337/Sample-DevSecOps)](https://github.com/username/Jev1337/Sample-DevSecOps)
+[![Issues](https://img.shields.io/github/issues/Jev1337/Sample-DevSecOps)](https://github.com/Jev1337/Sample-DevSecOps/issues)
 
-[🐛 Reporter un Bug](https://github.com/Jev1337/repo/issues) • [💡 Demander une Fonctionnalité](https://github.com/Jev1337/Sample-DevSecOps/issues) • [📖 Documentation](PROJECT_DOCUMENTATION.md) • [🛡️ SIEM Guide](SIEM_DOCUMENTATION.md)
+[🐛 Reporter un Bug](https://github.com/Jev1337/Sample-DevSecOps/issues) • [💡 Demander une Fonctionnalité](https://github.com/Jev1337/Sample-DevSecOps/issues) • [📖 Documentation](PROJECT_DOCUMENTATION.md) • [🛡️ SIEM Guide](SIEM_DOCUMENTATION.md)
 
 </div>
