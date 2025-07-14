@@ -1,18 +1,33 @@
 {
-  "dashboard": {
-    "id": null,
-    "title": "SIEM - Security Monitoring Dashboard",
-    "tags": ["siem", "security", "monitoring"],
-    "timezone": "browser",
+  "id": null,
+  "title": "SIEM - Security Monitoring Dashboard",
+  "tags": ["siem", "security", "monitoring"],
+  "timezone": "browser",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "style": "dark",
+  "schemaVersion": 30,
+  "version": 1,
     "panels": [
       {
         "id": 1,
         "title": "SSH Authentication Events",
         "type": "stat",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
         "targets": [
           {
             "expr": "count by (level) (rate({job=\"node-logs\"} |~ \"ssh|SSH|sshd\" [5m]))",
-            "refId": "A"
+            "refId": "A",
+            "datasource": {
+              "type": "loki",
+              "uid": "loki"
+            }
           }
         ],
         "fieldConfig": {
@@ -49,10 +64,18 @@
         "id": 2,
         "title": "Failed SSH Attempts",
         "type": "table",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
         "targets": [
           {
             "expr": "{job=\"node-logs\"} |~ \"Failed password|authentication failure|Invalid user\" | json | line_format \"{{.timestamp}} {{.message}}\"",
-            "refId": "A"
+            "refId": "A",
+            "datasource": {
+              "type": "loki",
+              "uid": "loki"
+            }
           }
         ],
         "gridPos": {
@@ -66,10 +89,18 @@
         "id": 3,
         "title": "Kubernetes API Audit Events",
         "type": "logs",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
         "targets": [
           {
             "expr": "{job=\"kubernetes-audit\"} | json | line_format \"{{.timestamp}} {{.verb}} {{.objectRef.resource}} by {{.user.username}}\"",
-            "refId": "A"
+            "refId": "A",
+            "datasource": {
+              "type": "loki",
+              "uid": "loki"
+            }
           }
         ],
         "gridPos": {
@@ -83,10 +114,18 @@
         "id": 4,
         "title": "Webhook Events",
         "type": "logs",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
         "targets": [
           {
             "expr": "{job=\"webhook-receiver\"} | json | line_format \"{{.timestamp}} {{.event_type}} from {{.source_ip}}\"",
-            "refId": "A"
+            "refId": "A",
+            "datasource": {
+              "type": "loki",
+              "uid": "loki"
+            }
           }
         ],
         "gridPos": {
@@ -99,12 +138,20 @@
       {
         "id": 5,
         "title": "Security Events Timeline",
-        "type": "graph",
+        "type": "timeseries",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
         "targets": [
           {
             "expr": "rate({job=~\"node-logs|kubernetes-audit|webhook-receiver\"} [5m])",
             "refId": "A",
-            "legendFormat": "{{job}}"
+            "legendFormat": "{{job}}",
+            "datasource": {
+              "type": "loki",
+              "uid": "loki"
+            }
           }
         ],
         "gridPos": {
@@ -117,11 +164,19 @@
       {
         "id": 6,
         "title": "Critical Security Events",
-        "type": "alert-list",
+        "type": "logs",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
         "targets": [
           {
             "expr": "{job=~\".*\"} |~ \"(?i)(failed|error|denied|unauthorized|forbidden|attack|breach|malware|virus|intrusion)\"",
-            "refId": "A"
+            "refId": "A",
+            "datasource": {
+              "type": "loki",
+              "uid": "loki"
+            }
           }
         ],
         "gridPos": {
@@ -135,10 +190,18 @@
         "id": 7,
         "title": "User Activity",
         "type": "table",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
         "targets": [
           {
             "expr": "{job=\"kubernetes-audit\"} | json | line_format \"{{.user.username}} {{.verb}} {{.objectRef.resource}}\" | pattern \"<user> <action> <resource>\" | label_format user=\"{{.user}}\", action=\"{{.action}}\", resource=\"{{.resource}}\"",
-            "refId": "A"
+            "refId": "A",
+            "datasource": {
+              "type": "loki",
+              "uid": "loki"
+            }
           }
         ],
         "gridPos": {
@@ -149,10 +212,16 @@
         }
       }
     ],
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": []
+    },
     "time": {
       "from": "now-1h",
       "to": "now"
     },
+    "timepicker": {},
     "refresh": "30s"
-  }
 }

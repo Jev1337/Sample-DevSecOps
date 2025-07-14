@@ -1,0 +1,157 @@
+// Alloy configuration for Docker Compose environment
+// This config collects logs from Docker containers for SIEM monitoring
+
+// Discover all Docker containers
+discovery.docker "containers" {
+	host = "unix:///var/run/docker.sock"
+	refresh_interval = "5s"
+}
+
+// Relabel Docker containers for log collection
+discovery.relabel "docker_containers" {
+	targets = discovery.docker.containers.targets
+	
+	// Only collect logs from containers with specific labels
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex = "(webhook|flask-app|jenkins|sonarqube).*"
+		action = "keep"
+	}
+	
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		target_label = "container"
+	}
+	
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		target_label = "job"
+		regex = "webhook.*"
+		replacement = "webhook-receiver"
+	}
+	
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		target_label = "job"
+		regex = "flask-app.*"
+		replacement = "flask-app"
+	}
+}
+
+// Collect Docker container logs
+loki.source.docker "containers" {
+	host = "unix:///var/run/docker.sock"
+	targets = discovery.relabel.docker_containers.output
+	forward_to = [loki.process.docker_logs.receiver]
+	refresh_interval = "5s"
+}
+
+// Process Docker container logs
+loki.process "docker_logs" {
+	forward_to = [loki.write.default.receiver]
+	
+	// Parse JSON logs if possible
+	stage.json {
+		expressions = {
+			timestamp = "timestamp",
+			level = "level", 
+			message = "message",
+			event_type = "event_type",
+			source_ip = "source_ip",
+		}
+	}
+	
+	// Add default labels
+	stage.labels {
+		values = {
+			level = "",
+			environment = "docker",
+		}
+	}
+}
+
+// Generate sample SSH authentication events for SIEM dashboard
+loki.source.file "host_auth_logs" {
+	targets = [
+		{__path__ = "/var/log/auth.log", job = "node-logs"},
+		{__path__ = "/var/log/secure", job = "node-logs"},
+	]
+	forward_to = [loki.process.auth_logs.receiver]
+}
+
+// Process authentication logs
+loki.process "auth_logs" {
+	forward_to = [loki.write.default.receiver]
+	
+	// Parse common auth log patterns
+	stage.regex {
+		expression = "(?P<timestamp>\\w+\\s+\\d+\\s+\\d+:\\d+:\\d+)\\s+(?P<hostname>\\S+)\\s+(?P<service>\\S+):\\s*(?P<message>.*)"
+	}
+	
+	stage.labels {
+		values = {
+			job = "node-logs",
+			service = "",
+			level = "info",
+		}
+	}
+	
+	// Mark failed SSH attempts
+	stage.match {
+		selector = "{job=\"node-logs\"}"
+		pipeline_name = "ssh_failures"
+		
+		stage.regex {
+			expression = ".*(?i)(failed password|authentication failure|invalid user).*"
+			source = "message"
+		}
+		
+		stage.labels {
+			values = {
+				level = "warning",
+				event_type = "auth_failure",
+			}
+		}
+	}
+}
+
+// Generate sample Kubernetes audit events
+loki.source.file "k8s_audit_logs" {
+	targets = [
+		{__path__ = "/var/log/kubernetes/audit.log", job = "kubernetes-audit"},
+		{__path__ = "/var/log/audit/audit.log", job = "kubernetes-audit"},
+	]
+	forward_to = [loki.process.k8s_audit.receiver]
+}
+
+loki.process "k8s_audit" {
+	forward_to = [loki.write.default.receiver]
+	
+	// Parse Kubernetes audit JSON
+	stage.json {
+		expressions = {
+			kind = "kind",
+			verb = "verb", 
+			user = "user.username",
+			resource = "objectRef.resource",
+			namespace = "objectRef.namespace",
+			timestamp = "requestReceivedTimestamp",
+		}
+	}
+	
+	stage.labels {
+		values = {
+			job = "kubernetes-audit",
+			verb = "",
+			resource = "",
+			level = "info",
+		}
+	}
+}
+
+// Send logs to Loki
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+}

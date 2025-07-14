@@ -77,6 +77,8 @@ services:
       - ./monitoring/alloy/docker-config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /tmp/siem-logs:/var/log:ro  # Mount sample log directory
+      - /var/log:/host/var/log:ro   # Mount host logs (if available)
     networks:
       - monitoring
     depends_on:
