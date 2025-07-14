@@ -62,6 +62,8 @@ alloy:
       local.file_match "system_logs" {
         path_targets = [
           {__path__ = "/var/log/auth.log", job = "system-auth"},
+          {__path__ = "/var/log/dpkg.log", job = "package-install"},
+          {__path__ = "/var/log/apt/history.log", job = "apt-history"},
         ]
       }
 
@@ -85,30 +87,136 @@ alloy:
 
       // Process real system authentication logs
       loki.process "system_logs" {
-        // Only process auth logs, skip noisy syslog
+        // Process auth logs
         stage.match {
           selector = "{job=\"system-auth\"}"
           
           stage.regex {
-            expression = "^(?P<timestamp>\\S+ \\S+) (?P<hostname>\\S+) (?P<program>\\S+)(\\[(?P<pid>\\d+)\\])?: (?P<message>.*)"
+            expression = "^(?P<timestamp>\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d+\\+\\d{2}:\\d{2}) (?P<hostname>\\S+) (?P<program>\\S+)(\\[(?P<pid>\\d+)\\])?: (?P<message>.*)"
           }
           
           stage.timestamp {
             source = "timestamp"
-            format = "Jan 02 15:04:05"
+            format = "2006-01-02T15:04:05.000000+07:00"
           }
           
           stage.labels {
             values = {
               program = "",
               job = "system-auth",
+              event_type = "auth_event",
             }
           }
           
-          // Filter for security-related events only
+          // Extract user and IP for failed SSH attempts
           stage.regex {
-            expression = "(?i).*(ssh|sudo|su|failed|error|denied|unauthorized|forbidden|authentication|login|logout|session).*"
+            expression = "(?i).*invalid user (?P<invalid_user>\\S+) from (?P<source_ip>\\S+).*"
             source = "message"
+          }
+          
+          stage.labels {
+            values = {
+              invalid_user = "",
+              source_ip = "",
+              event_type = "ssh_invalid_user",
+            }
+          }
+          
+          // Extract failed password attempts
+          stage.regex {
+            expression = "(?i).*authentication failure.*user=(?P<failed_user>\\S+).*rhost=(?P<source_ip>\\S+).*"
+            source = "message"
+          }
+          
+          stage.labels {
+            values = {
+              failed_user = "",
+              source_ip = "",
+              event_type = "auth_failure",
+            }
+          }
+          
+          // Extract successful logins
+          stage.regex {
+            expression = "(?i).*(session opened|accepted|login).*user (?P<user>\\S+).*"
+            source = "message"
+          }
+          
+          stage.labels {
+            values = {
+              user = "",
+              event_type = "successful_login",
+            }
+          }
+          
+          // Extract sudo usage
+          stage.regex {
+            expression = "(?i)sudo:\\s+(?P<sudo_user>\\S+)\\s+:\\s+TTY=(?P<tty>\\S+)\\s+;\\s+PWD=(?P<pwd>\\S+)\\s+;\\s+USER=(?P<target_user>\\S+)\\s+;\\s+COMMAND=(?P<command>.*)"
+            source = "message"
+          }
+          
+          stage.labels {
+            values = {
+              sudo_user = "",
+              target_user = "",
+              command = "",
+              tty = "",
+              event_type = "sudo_usage",
+            }
+          }
+          
+          // Extract sudo authentication failures
+          stage.regex {
+            expression = "(?i)sudo:.*(?P<sudo_user>\\S+)\\s+:\\s+(?P<sudo_result>.*authentication failure|incorrect password|user NOT in sudoers).*"
+            source = "message"
+          }
+          
+          stage.labels {
+            values = {
+              sudo_user = "",
+              sudo_result = "",
+              event_type = "sudo_failure",
+            }
+          }
+        }
+        
+        // Process package installation logs
+        stage.match {
+          selector = "{job=\"package-install\"}"
+          
+          stage.regex {
+            expression = "^(?P<timestamp>\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}) (?P<action>\\S+) (?P<package>\\S+) (?P<old_version>\\S+) (?P<new_version>\\S+)"
+          }
+          
+          stage.timestamp {
+            source = "timestamp"
+            format = "2006-01-02 15:04:05"
+          }
+          
+          stage.labels {
+            values = {
+              action = "",
+              package = "",
+              job = "package-install",
+              event_type = "package_change",
+            }
+          }
+        }
+        
+        // Process APT history logs
+        stage.match {
+          selector = "{job=\"apt-history\"}"
+          
+          stage.regex {
+            expression = "(?i)(?P<action>install|upgrade|remove):.*(?P<packages>.*)"
+          }
+          
+          stage.labels {
+            values = {
+              action = "",
+              job = "apt-history",
+              event_type = "apt_action",
+            }
           }
         }
         
