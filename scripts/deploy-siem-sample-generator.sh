@@ -11,40 +11,26 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 echo "🔒 SIEM Sample Data Generator Deployment"
 echo "========================================="
 
-# Function to check if kubectl is available
-check_kubectl() {
-    if command -v microk8s >/dev/null 2>&1; then
-        alias kubectl="microk8s kubectl"
-        alias helm="microk8s helm3"
-        echo "✅ Using MicroK8s kubectl"
-    elif command -v kubectl >/dev/null 2>&1; then
-        echo "✅ Using system kubectl"
-    else
-        echo "❌ kubectl not found. Please install Kubernetes tools."
-        exit 1
-    fi
-}
-
 # Create namespace if it doesn't exist
 create_namespace() {
     echo "📦 Creating monitoring namespace..."
-    kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+    microk8s kubectl create namespace monitoring --dry-run=client -o yaml | microk8s kubectl apply -f -
 }
 
 # Create ConfigMap with the sample data generator script
 create_configmap() {
     echo "📝 Creating sample data generator ConfigMap..."
-    kubectl create configmap siem-sample-data-generator \
+    microk8s kubectl create configmap siem-sample-data-generator \
         --from-file="$PROJECT_ROOT/scripts/generate-siem-sample-data.py" \
         -n monitoring \
-        --dry-run=client -o yaml | kubectl apply -f -
+        --dry-run=client -o yaml | microk8s kubectl apply -f -
 }
 
 # Create deployment for the sample data generator
 create_deployment() {
     echo "🚀 Creating sample data generator deployment..."
     
-    cat <<EOF | kubectl apply -f -
+    cat <<EOF | microk8s kubectl apply -f -
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -97,13 +83,12 @@ EOF
 main() {
     echo "Starting SIEM sample data generator deployment..."
     
-    check_kubectl
     create_namespace
     create_configmap
     create_deployment
     
     echo "⏳ Waiting for deployment to be ready..."
-    kubectl wait --for=condition=Available deployment/siem-sample-data-generator -n monitoring --timeout=300s
+    microk8s kubectl wait --for=condition=Available deployment/siem-sample-data-generator -n monitoring --timeout=300s
     
     echo "✅ SIEM sample data generator deployed successfully!"
     echo ""
@@ -116,10 +101,10 @@ main() {
     echo "📈 Check your Grafana dashboard to see the generated data!"
     echo ""
     echo "To view logs:"
-    echo "   kubectl logs -f deployment/siem-sample-data-generator -n monitoring"
+    echo "   microk8s kubectl logs -f deployment/siem-sample-data-generator -n monitoring"
     echo ""
     echo "To stop the generator:"
-    echo "   kubectl delete deployment siem-sample-data-generator -n monitoring"
+    echo "   microk8s kubectl delete deployment siem-sample-data-generator -n monitoring"
 }
 
 # Run main function
