@@ -602,103 +602,7 @@ show_access_info() {
     log "   3. Set 'Script Path' to 'jenkins/Jenkinsfile'" "$YELLOW"
 }
 
-
-# SIEM deployment and system hardening
-deploy_siem_stack() {
-    log "🛡️ Deploying SIEM Stack and System Hardening..." "$BLUE"
-
-    # 1. Install and configure auditd, rsyslog, fail2ban
-    log "🔒 Installing auditd, rsyslog, fail2ban..." "$YELLOW"
-    sudo apt-get update
-    sudo apt-get install -y auditd rsyslog fail2ban
-
-    # 2. Configure auditd for system call and file access monitoring
-    log "🔧 Configuring auditd rules..." "$YELLOW"
-    sudo auditctl -e 1
-    sudo auditctl -w /etc/passwd -p wa -k passwd_changes
-    sudo auditctl -w /etc/shadow -p wa -k shadow_changes
-    sudo auditctl -w /etc/sudoers -p wa -k sudoers_changes
-    sudo auditctl -w /var/log/auth.log -p r -k authlog_reads
-    sudo auditctl -a always,exit -F arch=b64 -S execve -k exec_calls
-    sudo auditctl -w /var/log/apt/history.log -p r -k apt_history
-
-    # 3. Configure rsyslog for forwarding logs to Alloy
-    log "🔧 Configuring rsyslog for enhanced logging..." "$YELLOW"
-    sudo sed -i '/^\$FileCreateMode/c\$FileCreateMode 0640' /etc/rsyslog.conf
-    sudo systemctl restart rsyslog
-
-    # 4. Configure fail2ban for SSH login monitoring
-    log "🔧 Configuring fail2ban for SSH monitoring..." "$YELLOW"
-    sudo systemctl enable fail2ban
-    sudo systemctl start fail2ban
-
-    # 5. Configure apt logs monitoring
-    log "🔧 Ensuring apt logs are available..." "$YELLOW"
-    sudo touch /var/log/apt/history.log /var/log/apt/term.log
-    sudo chmod 644 /var/log/apt/history.log /var/log/apt/term.log
-
-    # 6. Update Alloy config for security log sources
-    log "🔧 Updating Alloy config for SIEM sources..." "$YELLOW"
-    # Example: add sources for auditd, auth.log, apt logs, fail2ban
-    ALLOY_CONFIG="/etc/alloy/config.yaml"
-    if [ -f "$ALLOY_CONFIG" ]; then
-        sudo tee -a "$ALLOY_CONFIG" > /dev/null <<EOF
-  - type: file
-    include: [/var/log/auth.log, /var/log/syslog, /var/log/kern.log, /var/log/audit/audit.log, /var/log/apt/history.log, /var/log/fail2ban.log]
-    labels:
-      source: security
-EOF
-        sudo systemctl restart alloy || true
-    else
-        log "⚠️ Alloy config not found, please update manually if needed." "$YELLOW"
-    fi
-
-    # 7. Configure Loki for security log streams and labels
-    log "🔧 Configuring Loki for security log streams..." "$YELLOW"
-    # This is typically done via Helm values.yaml, ensure helm/loki/values.yaml includes security labels and streams
-
-    # 8. Create Grafana dashboards for security monitoring
-    log "📊 Creating Grafana security dashboards..." "$YELLOW"
-    # Place example dashboards in monitoring/grafana/dashboards/security.json
-    if [ -f "monitoring/grafana/dashboards/security.json" ]; then
-        log "✅ Security dashboard template found." "$GREEN"
-    else
-        cat > monitoring/grafana/dashboards/security.json <<EOF
-{
-  "dashboard": "Security Events",
-  "panels": [
-    {"type": "logs", "title": "SSH Logins", "targets": [{"expr": "{source=\"security\"} |~ \"sshd\""}]},
-    {"type": "logs", "title": "Auditd Events", "targets": [{"expr": "{source=\"security\"} |~ \"audit\""}]},
-    {"type": "logs", "title": "APT Changes", "targets": [{"expr": "{source=\"security\"} |~ \"apt\""}]}
-  ]
-}
-EOF
-        log "✅ Security dashboard created." "$GREEN"
-    fi
-
-    # 9. Set up webhook receiver for Git events
-    log "🔧 Deploying webhook receiver for Git events..." "$YELLOW"
-    if [ -f "webhook/app.py" ]; then
-        docker build -t webhook-security:latest ./webhook
-        docker tag webhook-security:latest localhost:32000/webhook-security:latest
-        docker push localhost:32000/webhook-security:latest
-        microk8s kubectl get ns webhook >/dev/null 2>&1 || microk8s kubectl create ns webhook
-        # Example deployment (user should provide k8s manifest for webhook)
-        if [ -f "k8s/webhook-deployment.yaml" ]; then
-            microk8s kubectl apply -f k8s/webhook-deployment.yaml
-        else
-            log "⚠️ Please create k8s/webhook-deployment.yaml for webhook deployment." "$YELLOW"
-        fi
-    fi
-
-    # 10. Configure RBAC, volume mounts, security contexts (assume Helm values updated)
-    log "🔧 Ensure RBAC, volumes, security contexts are set in Helm values and manifests." "$YELLOW"
-
-    log "✅ SIEM stack deployed and system hardening applied." "$GREEN"
-    log "🔗 Access Grafana security dashboard at: http://grafana.","$EXTERNAL_IP",".nip.io" "$CYAN"
-}
-
-# ...existing code...
+# Main menu function
 show_main_menu() {
     while true; do
         echo ""
@@ -714,13 +618,12 @@ show_main_menu() {
         echo "  8) Configure Azure External Access"
         echo "  9) Full Production Setup (3-7)"
         echo " 10) Development Mode (Docker Compose)"
-        echo " 11) Deploy SIEM Stack & System Hardening"
-        echo " 12) Cleanup Options"
-        echo " 13) Show Access Information"
-        echo " 14) Exit"
+        echo " 11) Cleanup Options"
+        echo " 12) Show Access Information"
+        echo " 13) Exit"
         echo ""
-        read -p "Enter your choice [1-14]: " choice
-
+        read -p "Enter your choice [1-13]: " choice
+        
         case $choice in
             1)
                 install_docker
@@ -761,15 +664,12 @@ show_main_menu() {
                 run_development_mode
                 ;;
             11)
-                deploy_siem_stack
-                ;;
-            12)
                 run_cleanup
                 ;;
-            13)
+            12)
                 show_access_info
                 ;;
-            14)
+            13)
                 log "👋 Exiting DevSecOps Setup. Goodbye!" "$GREEN"
                 exit 0
                 ;;
