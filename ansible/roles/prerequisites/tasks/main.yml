@@ -19,30 +19,46 @@
 
 - name: Kill any hanging apt processes
   ansible.builtin.shell: |
+    # Stop unattended-upgrades service
+    systemctl stop unattended-upgrades || true
+    systemctl disable unattended-upgrades || true
+    
+    # Kill any hanging processes
     killall -9 apt-get || true
     killall -9 apt || true
     killall -9 dpkg || true
+    killall -9 unattended-upgrade || true
+    
+    # Wait a moment for processes to die
+    sleep 3
   become: true
   ignore_errors: true
   changed_when: false
 
-- name: Remove apt locks
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
+- name: Remove apt locks and configure dpkg
+  ansible.builtin.shell: |
+    # Remove lock files
+    rm -f /var/lib/dpkg/lock
+    rm -f /var/lib/dpkg/lock-frontend
+    rm -f /var/cache/apt/archives/lock
+    rm -f /var/lib/apt/lists/lock
+    
+    # Configure dpkg
+    dpkg --configure -a || true
   become: true
-  loop:
-    - /var/lib/dpkg/lock
-    - /var/lib/dpkg/lock-frontend
-    - /var/cache/apt/archives/lock
   ignore_errors: true
+  changed_when: false
 
 - name: Update apt cache
-  ansible.builtin.apt:
-    update_cache: yes
+  ansible.builtin.shell: |
+    apt-get clean
+    apt-get update
   become: true
-  retries: 3
-  delay: 10
+  retries: 5
+  delay: 15
+  register: apt_update_result
+  until: apt_update_result.rc == 0
+  ignore_errors: false
 
 - name: Ensure snapd is installed
   ansible.builtin.package:
