@@ -752,50 +752,28 @@ data:
     }
 EOF
     
-    # Update Alloy deployment to use new config and mount host volumes
-    microk8s kubectl patch deployment alloy -n monitoring --type='merge' -p='
-    {
-      "spec": {
-        "template": {
-          "spec": {
-            "containers": [
-              {
-                "name": "alloy",
-                "volumeMounts": [
-                  {
-                    "name": "config",
-                    "mountPath": "/etc/alloy"
-                  },
-                  {
-                    "name": "var-log",
-                    "mountPath": "/host/var/log",
-                    "readOnly": true
-                  }
-                ],
-                "securityContext": {
-                  "privileged": true,
-                  "runAsUser": 0
-                }
-              }
-            ],
-            "volumes": [
-              {
-                "name": "config",
-                "configMap": {
-                  "name": "alloy-security-config"
-                }
-              },
-              {
-                "name": "var-log",
-                "hostPath": {
-                  "path": "/var/log"
-                }
-              }
-            ]
-          }
-        }
-      }
-    }'
+    # Check if Alloy is already deployed and upgrade it with SIEM configuration
+    if microk8s helm3 status alloy -n monitoring &> /dev/null; then
+        log "Upgrading existing Alloy deployment with SIEM configuration..." "$YELLOW"
+        
+        # Upgrade Alloy with the enhanced security configuration
+        if microk8s helm3 upgrade alloy grafana/alloy -n monitoring -f helm/alloy/values-siem.yaml; then
+            log "✅ Alloy upgraded with security configuration." "$GREEN"
+        else
+            log "⚠️ Alloy upgrade failed, keeping current configuration..." "$YELLOW"
+            log "The Alloy security ConfigMap has been created and can be used manually." "$YELLOW"
+        fi
+    else
+        log "Alloy not found. Deploying with SIEM configuration..." "$YELLOW"
+        
+        # Deploy Alloy with the enhanced security configuration
+        if microk8s helm3 install alloy grafana/alloy -n monitoring -f helm/alloy/values-siem.yaml; then
+            log "✅ Alloy deployed with security configuration." "$GREEN"
+        else
+            log "❌ Failed to deploy Alloy with SIEM configuration." "$RED"
+            return 1
+        fi
+    fi
     
     log "✅ Alloy configuration updated for security logging." "$GREEN"
 }
