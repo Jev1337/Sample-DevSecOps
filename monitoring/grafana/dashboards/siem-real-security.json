@@ -23,9 +23,9 @@
       },
       "targets": [
         {
-          "expr": "sum by (event_type) (count_over_time({job=~\"system-auth|webhook-receiver\"} [5m]))",
+          "expr": "sum by (job) (rate({job=~\"system-auth|webhook-receiver|package-install\"} [5m]))",
           "refId": "A",
-          "legendFormat": "{{event_type}}",
+          "legendFormat": "{{job}}",
           "datasource": {
             "type": "loki",
             "uid": "loki"
@@ -83,7 +83,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-auth\"} |~ \"(?i)(invalid user|disconnected.*invalid)\" | line_format \"{{if .invalid_user}}{{.__timestamp__}} | Invalid User: {{.invalid_user}} from IP: {{.source_ip}}{{else}}{{.__timestamp__}} | {{.__line__}}{{end}}\"",
+          "expr": "{job=\"system-auth\"} |~ \"(?i)invalid user\" | regexp \"invalid user (?P<username>\\\\S+) from (?P<source_ip>[0-9.]+)\" | line_format \"{{.__timestamp__}} | Invalid User: {{.username}} from IP: {{.source_ip}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -118,7 +118,7 @@
       },
       "targets": [
         {
-          "expr": "topk(10, sum by (source_ip) (count_over_time({job=\"system-auth\"} |~ \"(?i)(invalid user|failed password|disconnected.*root)\" | regexp \"(?P<source_ip>[0-9.]+)\" [1h])))",
+          "expr": "topk(10, sum by (source_ip) (count_over_time({job=\"system-auth\"} |~ \"(?i)(invalid user|failed password|authentication failure)\" | regexp \"from (?P<source_ip>[0-9.]+)\" [1h])))",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -149,11 +149,50 @@
           "color": {
             "mode": "thresholds"
           }
-        }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "source_ip"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Source IP Address"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Failed Attempts"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "showHeader": true
       },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "source_ip": "Source IP Address",
+              "Value": "Failed Attempts"
+            }
+          }
+        }
+      ],
       "pluginVersion": "9.0.0",
       "gridPos": {
         "h": 8,
@@ -172,7 +211,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-auth\"} |~ \"sudo:\" | line_format \"{{.__timestamp__}} | {{.__line__}}\"",
+          "expr": "{job=\"system-auth\"} |~ \"sudo:\" != \"sudo: unable to resolve host\" | line_format \"{{.__timestamp__}} | {{.__line__}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -207,7 +246,7 @@
       },
       "targets": [
         {
-          "expr": "{job=~\"package-install|apt-history|system-auth\"} |~ \"(?i)(install|upgrade|remove)\" | json | line_format \"{{.__timestamp__}} | {{.action | default \\\"package-action\\\"}}: {{.package | default \\\"unknown\\\"}} ({{.old_version | default \\\"N/A\\\"}} → {{.new_version | default \\\"N/A\\\"}})\"",
+          "expr": "{job=\"package-install\"} |~ \"(?i)(install|upgrade|remove)\" | regexp \"status (?P<action>\\\\S+) (?P<package>[^:]+):\" | line_format \"{{.__timestamp__}} | {{.action | title}}: {{.package}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -242,7 +281,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (user) (count_over_time({job=\"system-auth\"} |~ \"(?i)(sudo|session opened)\" [1h]))",
+          "expr": "sum by (user) (count_over_time({job=\"system-auth\"} |~ \"(?i)(sudo|session opened)\" | regexp \"(?:sudo:.*USER=(?P<user>\\\\S+)|session opened for user (?P<user>\\\\S+))\" [1h]))",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -277,11 +316,50 @@
           "color": {
             "mode": "thresholds"
           }
-        }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "user"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Username"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Activity Count"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "showHeader": true
       },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "user": "Username",
+              "Value": "Activity Count"
+            }
+          }
+        }
+      ],
       "pluginVersion": "9.0.0",
       "gridPos": {
         "h": 8,
@@ -335,9 +413,9 @@
       },
       "targets": [
         {
-          "expr": "sum by (event_type) (rate({job=~\"system-auth|webhook-receiver\"} [1m]))",
+          "expr": "sum by (job) (rate({job=~\"system-auth|webhook-receiver|package-install\"} [1m]))",
           "refId": "A",
-          "legendFormat": "{{event_type}}",
+          "legendFormat": "{{job}}",
           "datasource": {
             "type": "loki",
             "uid": "loki"
@@ -405,6 +483,41 @@
         "w": 24,
         "x": 0,
         "y": 32
+      }
+    },
+    {
+      "id": 9,
+      "title": "User Command History (Click on user to drill down)",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"system-auth\"} |~ \"sudo:.*COMMAND=\" | regexp \"sudo:.*USER=(?P<user>\\\\S+).*COMMAND=(?P<command>.*)$\" | line_format \"{{.__timestamp__}} | User: {{.user}} executed: {{.command}}\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "exact",
+        "sortOrder": "Descending"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 40
       }
     }
   ],
