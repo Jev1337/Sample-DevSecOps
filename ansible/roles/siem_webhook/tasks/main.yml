@@ -1,7 +1,7 @@
 ---
 - name: Build webhook receiver Docker image
   shell: |
-    cd {{ playbook_dir }}/../webhook
+    cd {{ inventory_dir }}/../webhook
     docker build -t webhook-receiver:latest .
     docker tag webhook-receiver:latest localhost:32000/webhook-receiver:latest
     docker push localhost:32000/webhook-receiver:latest
@@ -9,7 +9,7 @@
 
 - name: Deploy webhook receiver to Kubernetes
   shell: |
-    microk8s kubectl apply -f {{ playbook_dir }}/../webhook/webhook-deployment.yaml
+    microk8s kubectl apply -f {{ inventory_dir }}/../webhook/webhook-deployment.yaml
   register: webhook_deploy
 
 - name: Wait for webhook deployment to be ready

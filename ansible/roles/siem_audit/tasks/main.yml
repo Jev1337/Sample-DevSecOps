@@ -7,7 +7,7 @@
 
 - name: Copy Kubernetes audit policy
   copy:
-    src: "{{ playbook_dir }}/../siem/configs/audit-policy.yaml"
+    src: "{{ inventory_dir }}/../siem/configs/audit-policy.yaml"
     dest: /etc/kubernetes/siem/audit-policy.yaml
     mode: '0644'
 

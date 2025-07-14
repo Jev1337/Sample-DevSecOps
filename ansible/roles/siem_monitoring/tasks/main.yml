@@ -6,7 +6,7 @@
 
 - name: Copy SIEM dashboard
   copy:
-    src: "{{ playbook_dir }}/../monitoring/grafana/dashboards/siem-security.json"
+    src: "{{ inventory_dir }}/../monitoring/grafana/dashboards/siem-security.json"
     dest: /tmp/grafana-dashboards/siem-security.json
 
 - name: Import SIEM dashboard to Grafana
@@ -40,7 +40,7 @@
 
 - name: Update Alloy configuration for SIEM log collection
   shell: |
-    microk8s helm3 upgrade alloy grafana/alloy -n monitoring -f {{ playbook_dir }}/../helm/alloy/values.yaml
+    microk8s helm3 upgrade alloy grafana/alloy -n monitoring -f {{ inventory_dir }}/../helm/alloy/values.yaml
   register: alloy_upgrade
 
 - name: Restart Alloy to apply new configuration

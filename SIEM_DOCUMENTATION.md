@@ -59,7 +59,7 @@ This document describes the Security Information and Event Management (SIEM) cap
 ### Manual Deployment with Ansible
 ```bash
 cd ansible
-ansible-playbook -i inventory playbooks/siem.yml
+ansible-playbook -i inventory siem.yml
 ```
 
 ### Manual Deployment Steps

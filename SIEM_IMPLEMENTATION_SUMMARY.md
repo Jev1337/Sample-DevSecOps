@@ -28,7 +28,7 @@
 - **Access**: Available in Grafana as "SIEM - Security Monitoring Dashboard"
 
 ### 5. Ansible Automation
-- **Playbook**: `ansible/playbooks/siem.yml`
+- **Playbook**: `ansible/siem.yml`
 - **Roles**: 
   - `siem_audit` - Kubernetes audit logging setup
   - `siem_webhook` - Webhook service deployment
@@ -106,7 +106,7 @@
 ### Ansible Deployment
 ```bash
 cd ansible
-ansible-playbook -i inventory playbooks/siem.yml
+ansible-playbook -i inventory siem.yml
 ```
 
 ### Manual Testing
@@ -194,7 +194,7 @@ ansible/
 
 - **Main Documentation**: `SIEM_DOCUMENTATION.md`
 - **Setup Guide**: `README.md` (updated with SIEM sections)
-- **Ansible Playbooks**: `ansible/playbooks/siem.yml`
+- **Ansible Playbooks**: `ansible/siem.yml`
 - **Configuration Examples**: Individual component files
 
 This SIEM implementation provides comprehensive security monitoring for the DevSecOps environment while maintaining ease of deployment and management through automation.

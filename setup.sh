@@ -282,7 +282,7 @@ deploy_siem_stack() {
     log "Running SIEM playbook..." "$YELLOW"
     if command -v ansible-playbook &> /dev/null; then
         cd "$SCRIPT_DIR/ansible"
-        ansible-playbook -i inventory playbooks/siem.yml
+        ansible-playbook -i inventory siem.yml
         cd "$SCRIPT_DIR"
     else
         log "⚠️  Ansible not found. Running manual SIEM deployment..." "$YELLOW"
