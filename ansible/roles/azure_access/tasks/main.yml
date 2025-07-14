@@ -7,7 +7,7 @@
 
 - name: Create Jenkins LoadBalancer service
   ansible.builtin.template:
-    src: "{{ playbook_dir }}/../templates/jenkins-loadbalancer.yaml.j2"
+    src: "../../templates/jenkins-loadbalancer.yaml.j2"
     dest: /tmp/jenkins-loadbalancer.yaml
   vars:
     external_ip: "{{ external_ip_result.stdout }}"
@@ -17,7 +17,7 @@
 
 - name: Create SonarQube LoadBalancer service
   ansible.builtin.template:
-    src: "{{ playbook_dir }}/../templates/sonarqube-loadbalancer.yaml.j2"
+    src: "../../templates/sonarqube-loadbalancer.yaml.j2"
     dest: /tmp/sonarqube-loadbalancer.yaml
   vars:
     external_ip: "{{ external_ip_result.stdout }}"
@@ -27,7 +27,7 @@
 
 - name: Create Grafana LoadBalancer service
   ansible.builtin.template:
-    src: "{{ playbook_dir }}/../templates/grafana-loadbalancer.yaml.j2"
+    src: "../../templates/grafana-loadbalancer.yaml.j2"
     dest: /tmp/grafana-loadbalancer.yaml
   vars:
     external_ip: "{{ external_ip_result.stdout }}"
@@ -37,7 +37,7 @@
 
 - name: Create Flask App LoadBalancer service
   ansible.builtin.template:
-    src: "{{ playbook_dir }}/../templates/flask-app-loadbalancer.yaml.j2"
+    src: "../../templates/flask-app-loadbalancer.yaml.j2"
     dest: /tmp/flask-app-loadbalancer.yaml
   vars:
     external_ip: "{{ external_ip_result.stdout }}"
@@ -47,7 +47,7 @@
 
 - name: Create Jenkins Ingress
   ansible.builtin.template:
-    src: "{{ playbook_dir }}/../templates/jenkins-ingress.yaml.j2"
+    src: "../../templates/jenkins-ingress.yaml.j2"
     dest: /tmp/jenkins-ingress.yaml
   vars:
     external_ip: "{{ external_ip_result.stdout }}"
@@ -57,7 +57,7 @@
 
 - name: Create SonarQube Ingress
   ansible.builtin.template:
-    src: "{{ playbook_dir }}/../templates/sonarqube-ingress.yaml.j2"
+    src: "../../templates/sonarqube-ingress.yaml.j2"
     dest: /tmp/sonarqube-ingress.yaml
   vars:
     external_ip: "{{ external_ip_result.stdout }}"
@@ -67,7 +67,7 @@
 
 - name: Create Grafana Ingress
   ansible.builtin.template:
-    src: "{{ playbook_dir }}/../templates/grafana-ingress.yaml.j2"
+    src: "../../templates/grafana-ingress.yaml.j2"
     dest: /tmp/grafana-ingress.yaml
   vars:
     external_ip: "{{ external_ip_result.stdout }}"
@@ -77,7 +77,7 @@
 
 - name: Create Flask App Ingress
   ansible.builtin.template:
-    src: "{{ playbook_dir }}/../templates/flask-app-ingress.yaml.j2"
+    src: "../../templates/flask-app-ingress.yaml.j2"
     dest: /tmp/flask-app-ingress.yaml
   vars:
     external_ip: "{{ external_ip_result.stdout }}"
