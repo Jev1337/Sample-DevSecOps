@@ -112,8 +112,7 @@ alloy:
         stage.match {
           selector = "{job=\"system-auth\"}"
           stage.regex {
-            expression = "(?i).*invalid user (?P<invalid_user>\\S+) from (?P<source_ip>\\S+).*"
-            source = "message"
+            expression = "(?i).*(disconnected from invalid user|invalid user) (?P<invalid_user>\\S+) (from )?(?P<source_ip>\\S+).*"
           }
           
           stage.labels {
@@ -127,8 +126,7 @@ alloy:
         stage.match {
           selector = "{job=\"system-auth\"}"
           stage.regex {
-            expression = "(?i).*authentication failure.*user=(?P<failed_user>\\S+).*rhost=(?P<source_ip>\\S+).*"
-            source = "message"
+            expression = "(?i).*(authentication failure|failed password).*user[=:]?\\s*(?P<failed_user>\\S+).*(rhost|from)[=:]?\\s*(?P<source_ip>\\S+).*"
           }
           
           stage.labels {
@@ -142,8 +140,7 @@ alloy:
         stage.match {
           selector = "{job=\"system-auth\"}"
           stage.regex {
-            expression = "(?i).*(session opened|accepted|login).*user (?P<user>\\S+).*"
-            source = "message"
+            expression = "(?i).*(session opened|accepted|login).*user[=:]?\\s*(?P<user>\\S+).*"
           }
           
           stage.labels {
@@ -158,7 +155,6 @@ alloy:
           selector = "{job=\"system-auth\"}"
           stage.regex {
             expression = "(?i)sudo:\\s+(?P<sudo_user>\\S+)\\s+:\\s+TTY=(?P<tty>\\S+)\\s+;\\s+PWD=(?P<pwd>\\S+)\\s+;\\s+USER=(?P<target_user>\\S+)\\s+;\\s+COMMAND=(?P<command>.*)"
-            source = "message"
           }
           
           stage.labels {
@@ -172,8 +168,7 @@ alloy:
         stage.match {
           selector = "{job=\"system-auth\"}"
           stage.regex {
-            expression = "(?i)sudo:.*(?P<sudo_user>\\S+)\\s+:\\s+(?P<sudo_result>.*authentication failure|incorrect password|user NOT in sudoers).*"
-            source = "message"
+            expression = "(?i)sudo:.*(authentication failure|incorrect password|user NOT in sudoers).*"
           }
           
           stage.labels {
