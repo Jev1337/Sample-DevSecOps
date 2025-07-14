@@ -112,20 +112,21 @@ data:
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 10,
+                "fillOpacity": 0,
                 "gradientMode": "none",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
                   "vis": false
                 },
+                "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineWidth": 1,
                 "pointSize": 5,
                 "scaleDistribution": {
                   "type": "linear"
                 },
-                "showPoints": "never",
+                "showPoints": "auto",
                 "spanNulls": false,
                 "stacking": {
                   "group": "A",
@@ -135,21 +136,7 @@ data:
                   "mode": "off"
                 }
               },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "short"
+              "mappings": []
             },
             "overrides": []
           },
@@ -179,72 +166,19 @@ data:
                 "uid": "loki"
               },
               "editorMode": "code",
-              "expr": "sum(rate({namespace=\"flask-app\"} | json | __error__=\"\" [$__interval])) by (pod)",
-              "legendFormat": "{{pod}}",
+              "expr": "sum(rate({namespace=\"flask-app\"} | json | __error__=\"\" [$__rate_interval])) by (level)",
+              "legendFormat": "{{level}}",
               "queryType": "",
               "refId": "A"
             }
           ],
-          "title": "Log Rate by Pod",
+          "title": "Log Rate by Level",
           "type": "timeseries"
         },
         {
           "datasource": {
             "type": "loki",
             "uid": "loki"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "bars",
-                "fillOpacity": 100,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "vis": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "normal"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": []
           },
           "gridPos": {
             "h": 8,
@@ -253,46 +187,6 @@ data:
             "y": 8
           },
           "id": 3,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "editorMode": "code",
-              "expr": "sum(count_over_time({namespace=\"flask-app\"} | json | __error__=\"\" | status_code>=400 [$__interval])) by (status_code)",
-              "legendFormat": "{{status_code}}",
-              "queryType": "",
-              "refId": "A"
-            }
-          ],
-          "title": "HTTP Error Status Codes",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "gridPos": {
-            "h": 12,
-            "w": 24,
-            "x": 0,
-            "y": 16
-          },
-          "id": 4,
           "options": {
             "dedupStrategy": "none",
             "enableLogDetails": true,
@@ -310,7 +204,7 @@ data:
                 "uid": "loki"
               },
               "editorMode": "code",
-              "expr": "{namespace=\"flask-app\"}",
+              "expr": "{namespace=\"flask-app\"} | json | __error__=\"\"",
               "queryType": "",
               "refId": "A"
             }
@@ -319,13 +213,12 @@ data:
           "type": "logs"
         }
       ],
-      "refresh": "5s",
-      "schemaVersion": 38,
-      "style": "dark",
+      "refresh": "10s",
+      "schemaVersion": 39,
       "tags": [
         "flask",
-        "application",
-        "logs"
+        "logs",
+        "application"
       ],
       "templating": {
         "list": []
@@ -338,400 +231,6 @@ data:
       "timezone": "",
       "title": "Flask Application Logs",
       "uid": "flask-app-logs",
-      "version": 1,
-      "weekStart": ""
-    }
-  auth-monitoring.json: |
-    {
-      "annotations": {
-        "list": [
-          {
-            "builtIn": 1,
-            "datasource": {
-              "type": "grafana",
-              "uid": "-- Grafana --"
-            },
-            "enable": true,
-            "hide": true,
-            "iconColor": "rgba(0, 211, 255, 1)",
-            "name": "Annotations & Alerts",
-            "type": "dashboard"
-          }
-        ]
-      },
-      "description": "Authentication and Access Monitoring Dashboard",
-      "editable": true,
-      "fiscalYearStartMonth": 0,
-      "graphTooltip": 0,
-      "id": null,
-      "links": [],
-      "liveNow": false,
-      "panels": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": "auto",
-                "displayMode": "auto",
-                "inspect": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "src_ip"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 150
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "user"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 100
-                  }
-                ]
-              }
-            ]
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 24,
-            "x": 0,
-            "y": 0
-          },
-          "id": 1,
-          "options": {
-            "showHeader": true,
-            "sortBy": [
-              {
-                "desc": true,
-                "displayName": "Time"
-              }
-            ]
-          },
-          "pluginVersion": "9.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "expr": "{job=\"auth-logs\"} |~ \"Failed password|authentication failure\" | json | line_format \"{{.timestamp}} | {{.src_ip}} | {{.user}} | {{.message}}\"",
-              "refId": "A"
-            }
-          ],
-          "title": "Failed Login Attempts",
-          "type": "table"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": "auto",
-                "displayMode": "auto",
-                "inspect": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 24,
-            "x": 0,
-            "y": 8
-          },
-          "id": 2,
-          "options": {
-            "showHeader": true,
-            "sortBy": [
-              {
-                "desc": true,
-                "displayName": "Time"
-              }
-            ]
-          },
-          "pluginVersion": "9.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "expr": "{job=\"auth-logs\"} |~ \"Accepted password|session opened\" | json | line_format \"{{.timestamp}} | {{.user}} | {{.message}}\"",
-              "refId": "A"
-            }
-          ],
-          "title": "Successful Login Sessions",
-          "type": "table"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": "auto",
-                "displayMode": "auto",
-                "inspect": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "sudo_user"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 120
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "command"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 400
-                  }
-                ]
-              }
-            ]
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 24,
-            "x": 0,
-            "y": 16
-          },
-          "id": 3,
-          "options": {
-            "showHeader": true,
-            "sortBy": [
-              {
-                "desc": true,
-                "displayName": "Time"
-              }
-            ]
-          },
-          "pluginVersion": "9.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "expr": "{job=\"auth-logs\"} |~ \"sudo.*USER=\" | json | line_format \"{{.timestamp}} | {{.sudo_user}} | {{.command}}\"",
-              "refId": "A"
-            }
-          ],
-          "title": "Sudo Command Executions",
-          "type": "table"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "vis": false
-                }
-              },
-              "mappings": []
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 24
-          },
-          "id": 4,
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "pieType": "pie",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "9.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "expr": "count by (src_ip) ({job=\"auth-logs\"} |= \"authentication failure\" | json | src_ip != \"\")",
-              "legendFormat": "{{src_ip}}",
-              "refId": "A"
-            }
-          ],
-          "title": "Top Failed Login Sources",
-          "type": "piechart"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "vis": false
-                }
-              },
-              "mappings": []
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 24
-          },
-          "id": 5,
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "pieType": "pie",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "9.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "expr": "count by (user) ({job=\"auth-logs\"} |= \"authentication failure\" | json | user != \"\")",
-              "legendFormat": "{{user}}",
-              "refId": "A"
-            }
-          ],
-          "title": "Top Failed Login Users",
-          "type": "piechart"
-        }
-      ],
-      "refresh": "5s",
-      "schemaVersion": 36,
-      "style": "dark",
-      "tags": ["security", "authentication", "siem"],
-      "templating": {
-        "list": []
-      },
-      "time": {
-        "from": "now-1h",
-        "to": "now"
-      },
-      "timepicker": {},
-      "timezone": "",
-      "title": "Authentication Monitoring",
-      "uid": "auth-monitoring",
       "version": 1,
       "weekStart": ""
     }
@@ -885,12 +384,12 @@ data:
                 "uid": "loki"
               },
               "editorMode": "code",
-              "expr": "sum(count_over_time({namespace=\"flask-app\"} | json | __error__=\"\" | status_code>=400 [$__interval]))",
+              "expr": "sum(count_over_time({namespace=\"flask-app\"} | json | __error__=\"\" | status_code=~\"4..\" [$__interval]))",
               "queryType": "",
               "refId": "A"
             }
           ],
-          "title": "HTTP Errors",
+          "title": "4xx Errors",
           "type": "stat"
         },
         {
@@ -949,12 +448,12 @@ data:
                 "uid": "loki"
               },
               "editorMode": "code",
-              "expr": "sum(count_over_time({namespace=\"flask-app\"} | json | __error__=\"\" | level=\"ERROR\" or message=~\".*(?i)(error|exception|fail).*\" [$__interval]))",
+              "expr": "sum(count_over_time({namespace=\"flask-app\"} | json | __error__=\"\" | status_code=~\"5..\" [$__interval]))",
               "queryType": "",
               "refId": "A"
             }
           ],
-          "title": "Application Errors",
+          "title": "5xx Errors",
           "type": "stat"
         },
         {
@@ -967,18 +466,7 @@ data:
               "color": {
                 "mode": "thresholds"
               },
-              "mappings": [
-                {
-                  "options": {
-                    "0": {
-                      "color": "green",
-                      "index": 0,
-                      "text": "Secure"
-                    }
-                  },
-                  "type": "value"
-                }
-              ],
+              "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -987,11 +475,16 @@ data:
                     "value": null
                   },
                   {
+                    "color": "yellow",
+                    "value": 100
+                  },
+                  {
                     "color": "red",
-                    "value": 1
+                    "value": 1000
                   }
                 ]
-              }
+              },
+              "unit": "reqps"
             },
             "overrides": []
           },
@@ -1010,7 +503,7 @@ data:
             "reduceOptions": {
               "values": false,
               "calcs": [
-                "sum"
+                "lastNotNull"
               ],
               "fields": ""
             },
@@ -1024,12 +517,12 @@ data:
                 "uid": "loki"
               },
               "editorMode": "code",
-              "expr": "sum(count_over_time({namespace=\"flask-app\"} | json | __error__=\"\" | message=~\".*(?i)(attack|injection|xss|csrf).*\" [$__interval]))",
+              "expr": "sum(rate({namespace=\"flask-app\"} | json | __error__=\"\" [$__rate_interval]))",
               "queryType": "",
               "refId": "A"
             }
           ],
-          "title": "Security Threats",
+          "title": "Request Rate",
           "type": "stat"
         },
         {
@@ -1049,20 +542,21 @@ data:
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 10,
+                "fillOpacity": 0,
                 "gradientMode": "none",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
                   "vis": false
                 },
+                "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineWidth": 1,
                 "pointSize": 5,
                 "scaleDistribution": {
                   "type": "linear"
                 },
-                "showPoints": "never",
+                "showPoints": "auto",
                 "spanNulls": false,
                 "stacking": {
                   "group": "A",
@@ -1072,21 +566,7 @@ data:
                   "mode": "off"
                 }
               },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "short"
+              "mappings": []
             },
             "overrides": []
           },
@@ -1116,13 +596,13 @@ data:
                 "uid": "loki"
               },
               "editorMode": "code",
-              "expr": "sum(rate({namespace=\"flask-app\"} | json | __error__=\"\" | status_code>=400 [$__interval])) by (status_code)",
+              "expr": "sum(rate({namespace=\"flask-app\"} | json | __error__=\"\" [$__rate_interval])) by (status_code)",
               "legendFormat": "{{status_code}}",
               "queryType": "",
               "refId": "A"
             }
           ],
-          "title": "Security Events Timeline",
+          "title": "HTTP Status Codes Over Time",
           "type": "timeseries"
         },
         {
@@ -1136,10 +616,34 @@ data:
                 "mode": "palette-classic"
               },
               "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
                   "vis": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
                 }
               },
               "mappings": []
@@ -1155,17 +659,10 @@ data:
           "id": 6,
           "options": {
             "legend": {
+              "calcs": [],
               "displayMode": "list",
               "placement": "bottom",
               "showLegend": true
-            },
-            "pieType": "pie",
-            "reduceOptions": {
-              "values": false,
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": ""
             },
             "tooltip": {
               "mode": "single",
@@ -1179,14 +676,14 @@ data:
                 "uid": "loki"
               },
               "editorMode": "code",
-              "expr": "topk(10, sum(count_over_time({namespace=\"flask-app\"} | json | __error__=\"\" | user_agent!=\"\" [$__interval])) by (user_agent))",
-              "legendFormat": "{{user_agent}}",
+              "expr": "topk(10, sum(rate({namespace=\"flask-app\"} | json | __error__=\"\" [$__rate_interval])) by (client_ip))",
+              "legendFormat": "{{client_ip}}",
               "queryType": "",
               "refId": "A"
             }
           ],
-          "title": "Top User Agents",
-          "type": "piechart"
+          "title": "Top Client IPs",
+          "type": "timeseries"
         },
         {
           "datasource": {
@@ -1194,7 +691,7 @@ data:
             "uid": "loki"
           },
           "gridPos": {
-            "h": 12,
+            "h": 8,
             "w": 24,
             "x": 0,
             "y": 16
@@ -1217,22 +714,21 @@ data:
                 "uid": "loki"
               },
               "editorMode": "code",
-              "expr": "{namespace=\"flask-app\"} | json | __error__=\"\" | level=~\"ERROR|WARNING\" or status_code>=400",
+              "expr": "{namespace=\"flask-app\"} | json | __error__=\"\" | status_code=~\"[45]..\" or level=\"ERROR\"",
               "queryType": "",
               "refId": "A"
             }
           ],
-          "title": "Security and Error Logs",
+          "title": "Security Events & Errors",
           "type": "logs"
         }
       ],
-      "refresh": "30s",
-      "schemaVersion": 38,
-      "style": "dark",
+      "refresh": "5s",
+      "schemaVersion": 39,
       "tags": [
         "security",
         "devsecops",
-        "flask"
+        "monitoring"
       ],
       "templating": {
         "list": []
@@ -1414,134 +910,6 @@ data:
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 1
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 6,
-            "x": 12,
-            "y": 0
-          },
-          "id": 3,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "9.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "expr": "count(count by (sudo_user) ({job=\"auth-logs\"} |~ \"sudo.*USER=\" | json | sudo_user != \"\"))",
-              "refId": "A"
-            }
-          ],
-          "title": "Sudo Commands",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "blue",
-                    "value": 1
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 6,
-            "x": 18,
-            "y": 0
-          },
-          "id": 4,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "9.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "expr": "count({job=\"package-logs\"} |= \"install\")",
-              "refId": "A"
-            }
-          ],
-          "title": "Package Installations",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
                 "mode": "palette-classic"
               },
               "custom": {
@@ -1592,7 +960,7 @@ data:
           },
           "gridPos": {
             "h": 8,
-            "w": 12,
+            "w": 24,
             "x": 0,
             "y": 8
           },
@@ -1640,7 +1008,52 @@ data:
           ],
           "title": "Security Events Over Time",
           "type": "timeseries"
-        },
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 36,
+      "style": "dark",
+      "tags": ["security", "siem"],
+      "templating": {
+        "list": []
+      },
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "SIEM Overview",
+      "uid": "siem-overview",
+      "version": 1,
+      "weekStart": ""
+    }
+  auth-monitoring.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": {
+              "type": "grafana",
+              "uid": "-- Grafana --"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "description": "Authentication and Access Monitoring Dashboard",
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "liveNow": false,
+      "panels": [
         {
           "datasource": {
             "type": "loki",
@@ -1672,13 +1085,19 @@ data:
           },
           "gridPos": {
             "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 8
+            "w": 24,
+            "x": 0,
+            "y": 0
           },
-          "id": 6,
+          "id": 1,
           "options": {
-            "showHeader": true
+            "showHeader": true,
+            "sortBy": [
+              {
+                "desc": true,
+                "displayName": "Time"
+              }
+            ]
           },
           "pluginVersion": "9.0.0",
           "targets": [
@@ -1687,18 +1106,18 @@ data:
                 "type": "loki",
                 "uid": "loki"
               },
-              "expr": "{job=\"auth-logs\"} |= \"authentication failure\" | json | src_ip != \"\"",
+              "expr": "{job=\"auth-logs\"} |~ \"Failed password|authentication failure\" | json | line_format \"{{.timestamp}} | {{.src_ip}} | {{.user}} | {{.message}}\"",
               "refId": "A"
             }
           ],
-          "title": "Recent Failed Authentications",
+          "title": "Failed Login Attempts",
           "type": "table"
         }
       ],
       "refresh": "5s",
       "schemaVersion": 36,
       "style": "dark",
-      "tags": ["security", "siem"],
+      "tags": ["security", "authentication", "siem"],
       "templating": {
         "list": []
       },
@@ -1708,8 +1127,8 @@ data:
       },
       "timepicker": {},
       "timezone": "",
-      "title": "SIEM Overview",
-      "uid": "siem-overview",
+      "title": "Authentication Monitoring",
+      "uid": "auth-monitoring",
       "version": 1,
       "weekStart": ""
     }
@@ -1797,364 +1216,6 @@ data:
           ],
           "title": "System Audit Events",
           "type": "table"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": "auto",
-                "displayMode": "auto",
-                "inspect": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 8
-          },
-          "id": 2,
-          "options": {
-            "showHeader": true,
-            "sortBy": [
-              {
-                "desc": true,
-                "displayName": "Time"
-              }
-            ]
-          },
-          "pluginVersion": "9.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "expr": "{job=\"package-logs\"} |~ \"install|remove|upgrade\" | json | line_format \"{{.timestamp}} | {{.message}}\"",
-              "refId": "A"
-            }
-          ],
-          "title": "Package Management Activities",
-          "type": "table"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": "auto",
-                "displayMode": "auto",
-                "inspect": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "banned_ip"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 150
-                  }
-                ]
-              }
-            ]
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 8
-          },
-          "id": 3,
-          "options": {
-            "showHeader": true,
-            "sortBy": [
-              {
-                "desc": true,
-                "displayName": "Time"
-              }
-            ]
-          },
-          "pluginVersion": "9.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "expr": "{job=\"fail2ban-logs\"} |~ \"Ban|Unban\" | json | line_format \"{{.timestamp}} | {{.banned_ip}} | {{.message}}\"",
-              "refId": "A"
-            }
-          ],
-          "title": "Fail2Ban Activities",
-          "type": "table"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": "auto",
-                "displayMode": "auto",
-                "inspect": false
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 24,
-            "x": 0,
-            "y": 16
-          },
-          "id": 4,
-          "options": {
-            "showHeader": true,
-            "sortBy": [
-              {
-                "desc": true,
-                "displayName": "Time"
-              }
-            ]
-          },
-          "pluginVersion": "9.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "expr": "{job=\"security-logs\"} |~ \"THREAT_DETECTED|SUSPICIOUS_ACTIVITY|FILE_INTEGRITY\" | json",
-              "refId": "A"
-            }
-          ],
-          "title": "Custom Security Events",
-          "type": "table"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "vis": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 24
-          },
-          "id": 5,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "9.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "expr": "rate({job=\"audit-logs\"}[5m])",
-              "legendFormat": "Audit Events",
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "expr": "rate({job=\"package-logs\"}[5m])",
-              "legendFormat": "Package Events", 
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "expr": "rate({job=\"security-logs\"}[5m])",
-              "legendFormat": "Security Events",
-              "refId": "C"
-            }
-          ],
-          "title": "System Activity Over Time",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "vis": false
-                }
-              },
-              "mappings": []
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 24
-          },
-          "id": 6,
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "pieType": "pie",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "9.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "loki",
-                "uid": "loki"
-              },
-              "expr": "count by (security_event) ({security_event!=\"\"})",
-              "legendFormat": "{{security_event}}",
-              "refId": "A"
-            }
-          ],
-          "title": "Security Event Distribution",
-          "type": "piechart"
         }
       ],
       "refresh": "5s",
