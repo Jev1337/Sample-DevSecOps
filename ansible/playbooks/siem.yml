@@ -1,0 +1,263 @@
+---
+# Ansible playbook for SIEM deployment
+- name: Deploy SIEM Security Stack
+  hosts: localhost
+  become: false
+  vars_files:
+    - ../vars/main.yml
+  tasks:
+    - name: Create security namespace
+      kubernetes.core.k8s:
+        name: security
+        api_version: v1
+        kind: Namespace
+        state: present
+
+    - name: Deploy security monitoring DaemonSet
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: DaemonSet
+          metadata:
+            name: security-monitor
+            namespace: security
+            labels:
+              app: security-monitor
+          spec:
+            selector:
+              matchLabels:
+                app: security-monitor
+            template:
+              metadata:
+                labels:
+                  app: security-monitor
+              spec:
+                serviceAccountName: security-monitor
+                automountServiceAccountToken: true
+                hostNetwork: true
+                hostPID: true
+                containers:
+                - name: security-monitor
+                  image: python:3.11-slim
+                  command: ["/bin/bash"]
+                  args:
+                    - -c
+                    - |
+                      apt-get update && apt-get install -y procps net-tools
+                      cd /app
+                      pip install -r requirements.txt
+                      python monitor.py
+                  env:
+                  - name: NODE_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: spec.nodeName
+                  - name: LOKI_URL
+                    value: "http://loki.monitoring.svc.cluster.local:3100"
+                  volumeMounts:
+                  - name: app-code
+                    mountPath: /app
+                  - name: host-etc
+                    mountPath: /host/etc
+                    readOnly: true
+                  - name: host-proc
+                    mountPath: /host/proc
+                    readOnly: true
+                  resources:
+                    limits:
+                      memory: 256Mi
+                      cpu: 200m
+                    requests:
+                      memory: 128Mi
+                      cpu: 100m
+                  securityContext:
+                    privileged: true
+                    runAsUser: 0
+                volumes:
+                - name: app-code
+                  configMap:
+                    name: security-monitor-config
+                    defaultMode: 0755
+                - name: host-etc
+                  hostPath:
+                    path: /etc
+                - name: host-proc
+                  hostPath:
+                    path: /proc
+                tolerations:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: Exists
+                  effect: NoSchedule
+                - operator: "Exists"
+                  effect: "NoExecute"
+                - operator: "Exists"
+                  effect: "NoSchedule"
+
+    - name: Install system hardening packages
+      become: true
+      apt:
+        name:
+          - auditd
+          - audispd-plugins
+          - fail2ban
+        state: present
+        update_cache: yes
+
+    - name: Configure auditd rules for SIEM
+      become: true
+      copy:
+        dest: /etc/audit/rules.d/siem.rules
+        content: |
+          # SIEM Security Monitoring Rules
+          
+          # Monitor authentication events
+          -w /var/log/auth.log -p wa -k authentication
+          -w /var/log/secure -p wa -k authentication
+          -w /etc/passwd -p wa -k passwd_changes
+          -w /etc/shadow -p wa -k shadow_changes
+          -w /etc/group -p wa -k group_changes
+          -w /etc/gshadow -p wa -k gshadow_changes
+          
+          # Monitor sudo usage
+          -w /var/log/sudo.log -p wa -k sudo_log
+          -w /etc/sudoers -p wa -k sudoers_changes
+          
+          # Monitor SSH configuration
+          -w /etc/ssh/sshd_config -p wa -k ssh_config
+          
+          # Monitor package management
+          -w /var/log/dpkg.log -p wa -k package_changes
+          -w /var/log/apt/ -p wa -k apt_logs
+          
+          # Monitor system calls for suspicious activity
+          -a always,exit -F arch=b64 -S execve -k exec_monitoring
+          -a always,exit -F arch=b32 -S execve -k exec_monitoring
+          
+          # Monitor file access in sensitive directories
+          -w /etc/ -p wa -k etc_changes
+          -w /bin/ -p wa -k bin_changes
+          -w /sbin/ -p wa -k sbin_changes
+          -w /usr/bin/ -p wa -k usr_bin_changes
+          -w /usr/sbin/ -p wa -k usr_sbin_changes
+          
+          # Monitor network configuration
+          -w /etc/hosts -p wa -k network_config
+          -w /etc/hostname -p wa -k network_config
+          -w /etc/network/ -p wa -k network_config
+          
+          # Lock configuration
+          -e 2
+      notify: restart auditd
+
+    - name: Configure fail2ban
+      become: true
+      copy:
+        dest: /etc/fail2ban/jail.local
+        content: |
+          [DEFAULT]
+          bantime = 3600
+          findtime = 600
+          maxretry = 5
+          backend = systemd
+          
+          [sshd]
+          enabled = true
+          port = ssh
+          logpath = /var/log/auth.log
+          maxretry = 3
+          bantime = 7200
+          
+          [nginx-http-auth]
+          enabled = true
+          filter = nginx-http-auth
+          port = http,https
+          logpath = /var/log/nginx/error.log
+          maxretry = 3
+          
+          [webhook-security]
+          enabled = true
+          filter = webhook-security
+          port = http,https
+          logpath = /var/log/webhook-security.log
+          maxretry = 5
+          bantime = 1800
+      notify: restart fail2ban
+
+    - name: Create fail2ban webhook filter
+      become: true
+      copy:
+        dest: /etc/fail2ban/filter.d/webhook-security.conf
+        content: |
+          [Definition]
+          failregex = ^.*\[security\].*suspicious webhook attempt from <HOST>.*$
+                      ^.*\[security\].*invalid signature from <HOST>.*$
+                      ^.*\[security\].*rate limit exceeded from <HOST>.*$
+          ignoreregex =
+      notify: restart fail2ban
+
+    - name: Configure rsyslog for security logging
+      become: true
+      copy:
+        dest: /etc/rsyslog.d/90-siem.conf
+        content: |
+          # SIEM Security Logging Configuration
+          
+          # Create separate log files for security events
+          :msg, contains, "authentication failure" /var/log/security/auth-failures.log
+          :msg, contains, "sudo:" /var/log/security/sudo.log
+          :msg, contains, "ssh" /var/log/security/ssh.log
+          :msg, contains, "fail2ban" /var/log/security/fail2ban.log
+          
+          # APT package monitoring
+          :programname, isequal, "dpkg" /var/log/security/package-changes.log
+          :programname, contains, "apt" /var/log/security/apt.log
+          
+          # Stop processing these messages after logging
+          :msg, contains, "authentication failure" stop
+          :msg, contains, "sudo:" stop
+          :msg, contains, "ssh" stop
+          :msg, contains, "fail2ban" stop
+          :programname, isequal, "dpkg" stop
+          :programname, contains, "apt" stop
+      notify: restart rsyslog
+
+    - name: Create security log directories
+      become: true
+      file:
+        path: /var/log/security
+        state: directory
+        mode: '0755'
+
+    - name: Enable and start auditd
+      become: true
+      systemd:
+        name: auditd
+        enabled: yes
+        state: started
+
+    - name: Enable and start fail2ban
+      become: true
+      systemd:
+        name: fail2ban
+        enabled: yes
+        state: started
+
+  handlers:
+    - name: restart auditd
+      become: true
+      systemd:
+        name: auditd
+        state: restarted
+
+    - name: restart fail2ban
+      become: true
+      systemd:
+        name: fail2ban
+        state: restarted
+
+    - name: restart rsyslog
+      become: true
+      systemd:
+        name: rsyslog
+        state: restarted
