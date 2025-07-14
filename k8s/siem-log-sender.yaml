@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: siem-log-sender
+  namespace: monitoring
+  labels:
+    app: siem-log-sender
+spec:
+  restartPolicy: Always
+  containers:
+  - name: log-sender
+    image: curlimages/curl:8.5.0
+    command: ["/bin/sh"]
+    args:
+      - -c
+      - |
+        while true; do
+          # Send SSH authentication failure logs with job="node-logs"
+          TIMESTAMP=$(date +%s%N)
+          curl -X POST http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"streams\": [
+                {
+                  \"stream\": {
+                    \"job\": \"node-logs\",
+                    \"level\": \"warning\",
+                    \"host\": \"host-001\"
+                  },
+                  \"values\": [
+                    [\"$TIMESTAMP\", \"$(date '+%b %d %H:%M:%S') host-001 sshd[$(( RANDOM % 10000 + 10000 ))]: Failed password for invalid user admin from 192.168.1.$(( RANDOM % 255 + 1 )) port $(( RANDOM % 50000 + 10000 )) ssh2\"]
+                  ]
+                }
+              ]
+            }" || echo "Failed to send SSH log"
+          
+          # Send Kubernetes audit logs with job="kubernetes-audit"
+          TIMESTAMP=$(date +%s%N)
+          AUDIT_ID="audit-$(date +%s)-$(( RANDOM % 1000 ))"
+          curl -X POST http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"streams\": [
+                {
+                  \"stream\": {
+                    \"job\": \"kubernetes-audit\",
+                    \"level\": \"info\",
+                    \"verb\": \"list\",
+                    \"resource\": \"pods\"
+                  },
+                  \"values\": [
+                    [\"$TIMESTAMP\", \"{\\\"kind\\\":\\\"Event\\\",\\\"apiVersion\\\":\\\"audit.k8s.io/v1\\\",\\\"level\\\":\\\"Metadata\\\",\\\"auditID\\\":\\\"$AUDIT_ID\\\",\\\"stage\\\":\\\"ResponseComplete\\\",\\\"requestURI\\\":\\\"/api/v1/namespaces/default/pods\\\",\\\"verb\\\":\\\"list\\\",\\\"user\\\":{\\\"username\\\":\\\"system:anonymous\\\",\\\"groups\\\":[\\\"system:unauthenticated\\\"]},\\\"sourceIPs\\\":[\\\"203.0.113.$(( RANDOM % 255 + 1 ))\\\"],\\\"userAgent\\\":\\\"suspicious-client/1.0\\\",\\\"objectRef\\\":{\\\"resource\\\":\\\"pods\\\",\\\"namespace\\\":\\\"default\\\",\\\"apiVersion\\\":\\\"v1\\\"},\\\"responseStatus\\\":{\\\"metadata\\\":{},\\\"code\\\":403},\\\"requestReceivedTimestamp\\\":\\\"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\\\",\\\"stageTimestamp\\\":\\\"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\\\"}\"]
+                  ]
+                }
+              ]
+            }" || echo "Failed to send audit log"
+          
+          echo "Sent SIEM test data at $(date)"
+          sleep 60
+        done
+    resources:
+      requests:
+        memory: "32Mi"
+        cpu: "10m"
+      limits:
+        memory: "64Mi"
+        cpu: "50m"
