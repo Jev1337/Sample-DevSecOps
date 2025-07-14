@@ -113,7 +113,6 @@ alloy:
           // SSH invalid user attempts
           stage.regex {
             expression = ".*Disconnected from invalid user (?P<invalid_user>\\S+) (?P<source_ip>\\d+\\.\\d+\\.\\d+\\.\\d+).*"
-            action = "replace"
           }
           
           stage.labels {
@@ -127,7 +126,6 @@ alloy:
           // Failed password attempts  
           stage.regex {
             expression = ".*Failed password for (?P<failed_user>\\S+) from (?P<source_ip>\\d+\\.\\d+\\.\\d+\\.\\d+).*"
-            action = "replace"
           }
           
           stage.labels {
@@ -141,7 +139,6 @@ alloy:
           // Successful logins
           stage.regex {
             expression = ".*session opened for user (?P<user>\\S+).*by (?P<login_user>\\S+).*"
-            action = "replace"
           }
           
           stage.labels {
@@ -155,7 +152,6 @@ alloy:
           // Sudo usage
           stage.regex {
             expression = ".*sudo: (?P<sudo_user>\\S+) : TTY=(?P<tty>\\S+) ; PWD=(?P<pwd>\\S+) ; USER=(?P<target_user>\\S+) ; COMMAND=(?P<command>.*)"
-            action = "replace"
           }
           
           stage.labels {
