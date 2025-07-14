@@ -83,7 +83,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-auth\"} |~ \"(?i)invalid user\" | json | line_format \"{{.__timestamp__}} | Invalid User: {{.invalid_user | default \\\"unknown\\\"}} from IP: {{.source_ip | default \\\"unknown\\\"}} | {{.__line__}}\"",
+          "expr": "{job=\"system-auth\"} |~ \"(?i)(invalid user|disconnected.*invalid)\" | line_format \"{{if .invalid_user}}{{.__timestamp__}} | Invalid User: {{.invalid_user}} from IP: {{.source_ip}}{{else}}{{.__timestamp__}} | {{.__line__}}{{end}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -118,7 +118,7 @@
       },
       "targets": [
         {
-          "expr": "topk(10, sum by (source_ip) (count_over_time({job=\"system-auth\"} |~ \"(?i)(invalid user|failed password|authentication failure)\" [1h])))",
+          "expr": "topk(10, sum by (source_ip) (count_over_time({job=\"system-auth\"} |~ \"(?i)(invalid user|failed password|disconnected.*root)\" | regexp \"(?P<source_ip>[0-9.]+)\" [1h])))",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -172,7 +172,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-auth\"} |~ \"sudo:\" | json | line_format \"{{.__timestamp__}} | User: {{.sudo_user | default \\\"unknown\\\"}} → {{.target_user | default \\\"unknown\\\"}} | Command: {{.command | default \\\"unknown\\\"}} | TTY: {{.tty | default \\\"unknown\\\"}}\"",
+          "expr": "{job=\"system-auth\"} |~ \"sudo:\" | line_format \"{{.__timestamp__}} | {{.__line__}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -242,7 +242,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (sudo_user, event_type) (count_over_time({job=\"system-auth\"} |~ \"(?i)(sudo|session opened)\" | json [1h]))",
+          "expr": "sum by (user) (count_over_time({job=\"system-auth\"} |~ \"(?i)(sudo|session opened)\" [1h]))",
           "refId": "A",
           "datasource": {
             "type": "loki",

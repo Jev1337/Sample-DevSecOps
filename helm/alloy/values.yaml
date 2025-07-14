@@ -170,13 +170,17 @@ alloy:
         // Process webhook logs
         stage.match {
           selector = "{job=\"webhook-receiver\"}"
-          stage.json {
-            expressions = {
-              event_type = "event_type",
-              source = "source",
-              level = "level",
-              repository = "repository",
-              actor = "actor",
+          // Try to parse as JSON if possible, but don't fail if it's not JSON
+          stage.match {
+            selector = "{job=\"webhook-receiver\"} |~ \"^\\{\""
+            stage.json {
+              expressions = {
+                event_type = "event_type",
+                source = "source", 
+                level = "level",
+                repository = "repository",
+                actor = "actor",
+              }
             }
           }
           stage.labels {
