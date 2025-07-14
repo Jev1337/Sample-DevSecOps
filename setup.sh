@@ -237,6 +237,10 @@ deploy_monitoring_stack() {
         log "✅ Grafana is already deployed." "$GREEN"
     fi
     
+    # Deploy dashboard ConfigMap
+    log "Deploying Grafana dashboards ConfigMap..." "$YELLOW"
+    microk8s kubectl apply -f k8s/grafana-dashboards-configmap.yaml
+    
     # Deploy Alloy
     if ! microk8s helm3 status alloy -n monitoring &> /dev/null; then
         log "Deploying Alloy for log collection..." "$YELLOW"
@@ -704,6 +708,8 @@ cleanup_monitoring() {
     microk8s helm3 uninstall grafana -n monitoring || true
     log "❌ Uninstalling Alloy..." "$YELLOW"
     microk8s helm3 uninstall alloy -n monitoring || true
+    log "Deleting Grafana dashboards ConfigMap..." "$YELLOW"
+    microk8s kubectl delete configmap grafana-dashboards -n monitoring || true
     log "Deleting Monitoring namespace..." "$YELLOW"
     microk8s kubectl delete ns monitoring --ignore-not-found
 }

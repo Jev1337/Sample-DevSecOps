@@ -23,6 +23,16 @@
   args:
     executable: /bin/bash
 
+- name: Generate Grafana dashboards ConfigMap from template
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../templates/grafana-dashboards-configmap.yaml.j2"
+    dest: /tmp/grafana-dashboards-configmap.yaml
+
+- name: Deploy Grafana dashboards ConfigMap
+  ansible.builtin.shell: microk8s kubectl apply -f /tmp/grafana-dashboards-configmap.yaml
+  args:
+    executable: /bin/bash
+
 - name: Deploy Alloy via Helm
   ansible.builtin.shell: |
     microk8s helm3 status alloy -n monitoring || microk8s helm3 install alloy grafana/alloy -n monitoring -f {{ playbook_dir }}/../../helm/alloy/values.yaml

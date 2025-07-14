@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  app-logs.json: |
+{{ lookup('file', playbook_dir + '/../../monitoring/grafana/dashboards/app-logs.json') | indent(4, True) }}
+  security.json: |
+{{ lookup('file', playbook_dir + '/../../monitoring/grafana/dashboards/security.json') | indent(4, True) }}
