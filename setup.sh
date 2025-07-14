@@ -1056,7 +1056,241 @@ deploy_siem_dashboards() {
     log "   • Security Dashboard - Original security dashboard with threat detection" "$CYAN"
 }
 
+# Function to configure Azure external access (enhanced for SIEM)
+configure_azure_access() {
+    log "🌐 Configuring Azure External Access..." "$BLUE"
+    
+    # Get the external IP of the Azure VM
+    log "🔍 Detecting Azure VM external IP..." "$YELLOW"
+    EXTERNAL_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com)
+    log "✅ External IP detected: $EXTERNAL_IP" "$GREEN"
+            "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0}
+          },
+          {
+            "id": 4,
+            "title": "Fail2ban Bans",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(count_over_time({job=\"fail2ban-logs\"} |~ \"Ban\" [1h]))",
+                "refId": "A"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "thresholds"},
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "orange", "value": 1},
+                    {"color": "red", "value": 5}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0}
+          },
+          {
+            "id": 5,
+            "title": "Security Events Timeline",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "sum by (security_event) (rate({security_event=~\".+\"} [5m]))",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+          },
+          {
+            "id": 6,
+            "title": "Top Failed Login IPs",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "topk(10, sum by (src_ip) (count_over_time({job=\"auth-logs\"} | regexp \"(?P<src_ip>[0-9.]+)\" |~ \"Failed password\" [1h])))",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+          },
+          {
+            "id": 7,
+            "title": "Sudo Commands",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "sum by (sudo_user, command) (count_over_time({job=\"auth-logs\"} | regexp \"USER=(?P<sudo_user>\\\\w+).*COMMAND=(?P<command>.*)\" |~ \"sudo\" [1h]))",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+          },
+          {
+            "id": 8,
+            "title": "Package Management Activity",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "rate({job=\"package-logs\"} [5m])",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24}
+          },
+          {
+            "id": 9,
+            "title": "Git Webhook Events",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "sum by (repository, actor, action) (count_over_time({job=\"webhook-security\"} [1h]))",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32}
+          }
+        ],
+        "time": {"from": "now-1h", "to": "now"},
+        "timepicker": {},
+        "templating": {"list": []},
+        "annotations": {"list": []},
+        "refresh": "30s",
+        "schemaVersion": 16,
+        "version": 0,
+        "links": []
+      }
+    }
+  
+  audit-monitoring.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Audit Log Monitoring",
+        "tags": ["security", "audit"],
+        "style": "dark",
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "System Call Monitoring",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "rate({job=\"audit-logs\"} |~ \"type=SYSCALL\" [5m])",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "File Access Events",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "rate({job=\"audit-logs\"} |~ \"type=PATH\" [5m])",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "User Account Changes",
+            "type": "logs",
+            "targets": [
+              {
+                "expr": "{job=\"audit-logs\"} |~ \"passwd|shadow|group\"",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 12, "w": 24, "x": 0, "y": 8}
+          },
+          {
+            "id": 4,
+            "title": "Configuration Changes",
+            "type": "logs",
+            "targets": [
+              {
+                "expr": "{job=\"audit-logs\"} |~ \"/etc/\"",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 12, "w": 24, "x": 0, "y": 20}
+          }
+        ],
+        "time": {"from": "now-1h", "to": "now"},
+        "timepicker": {},
+        "templating": {"list": []},
+        "annotations": {"list": []},
+        "refresh": "30s",
+        "schemaVersion": 16,
+        "version": 0,
+        "links": []
+      }
+    }
 
+  network-security.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Network Security Monitoring",
+        "tags": ["security", "network"],
+        "style": "dark",
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Blocked IPs (Fail2ban)",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "sum by (src_ip) (count_over_time({job=\"fail2ban-logs\"} | regexp \"Ban (?P<src_ip>[0-9.]+)\" [24h]))",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 10, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "SSH Connection Attempts",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "rate({job=\"auth-logs\"} |~ \"sshd.*Connection\" [5m])",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 10, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Geographic Distribution of Failed Logins",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "topk(20, sum by (src_ip) (count_over_time({job=\"auth-logs\"} | regexp \"from (?P<src_ip>[0-9.]+)\" |~ \"Failed\" [24h])))",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 12, "w": 24, "x": 0, "y": 10}
+          }
+        ],
+        "time": {"from": "now-24h", "to": "now"},
+        "timepicker": {},
+        "templating": {"list": []},
+        "annotations": {"list": []},
+        "refresh": "1m",
+        "schemaVersion": 16,
+        "version": 0,
+        "links": []
+      }
+    }
+EOF
+    
+    log "✅ SIEM dashboards deployed." "$GREEN"
+}
 
 # Function to configure Azure external access (enhanced for SIEM)
 configure_azure_access() {
