@@ -174,9 +174,7 @@ alloy:
     extra:
       - name: var-log-audit
         mountPath: /var/log/audit
-        hostPath:
-          path: /var/log/audit
-          type: DirectoryOrCreate
+        readOnly: true
 
   volumes:
     extra:
