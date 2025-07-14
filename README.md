@@ -1,4 +1,6 @@
-# 🚀 Flask K8s - [🔒 Sécurité](#-sécurité)
+# 🚀 Flask K8s - [🔒 Sécurité](#-sécu| **📊 Monitoring Complet** | Logs centralisés et dashboards temps réel | Loki, Grafana, Alloy |
+| **🛡️ SIEM Intégré** | Surveillance sécurité et détection d'événements | SSH audit, K8s audit, Webhooks |
+| **🔐 Sécurité Intégrée** | Scans vulnérabilités et qualité code | Trivy, SonarQube |é)
 - [🛡️ SIEM](#️-siem)
 - [📊 Monitoring](#-monitoring)
 - [🤖 Automation avec Ansible](#-automation-avec-ansible)
@@ -47,7 +49,9 @@ Une solution complète de déploiement sécurisé d'applications Flask sur Kuber
 - ✅ **Support Azure** intégré avec accès externe
 - ✅ **Mode développement** Docker Compose standalone
 - ✅ **Cleanup intelligent** par composants
-- ✅ **Logs colorés** et traçabilité complète
+- ✅ **SIEM intégré** avec monitoring sécurité temps réel
+- ✅ **Webhook receiver** pour événements Git/SCM
+- ✅ **Audit logging K8s** avec policies sécurisées
 - ✅ **Multi-environnements** (dev, staging, prod)
 
 ## 🏗️ Architecture

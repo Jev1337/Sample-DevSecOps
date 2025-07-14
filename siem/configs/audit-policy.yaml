@@ -1,0 +1,78 @@
+apiVersion: audit.k8s.io/v1
+kind: Policy
+# Don't generate audit events for all requests in RequestReceived stage.
+omitStages:
+  - "RequestReceived"
+rules:
+  # Log security-sensitive events at RequestResponse level
+  - level: RequestResponse
+    resources:
+    - group: ""
+      resources: ["secrets", "serviceaccounts"]
+    - group: "rbac.authorization.k8s.io"
+      resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+  
+  # Log pod and deployment changes at Metadata level
+  - level: Metadata
+    resources:
+    - group: ""
+      resources: ["pods", "pods/exec", "pods/portforward", "pods/proxy"]
+    - group: "apps"
+      resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
+  
+  # Log ConfigMap and Secret access at Metadata level
+  - level: Metadata
+    resources:
+    - group: ""
+      resources: ["configmaps"]
+      namespaces: ["kube-system", "jenkins", "sonarqube", "monitoring"]
+  
+  # Log authentication and authorization events
+  - level: Request
+    namespaces: ["kube-system"]
+    verbs: ["create", "update", "patch", "delete"]
+    resources:
+    - group: ""
+      resources: ["endpoints", "services", "persistentvolumeclaims"]
+  
+  # Log namespace operations
+  - level: Metadata
+    resources:
+    - group: ""
+      resources: ["namespaces"]
+  
+  # Log network policy and ingress changes
+  - level: Metadata
+    resources:
+    - group: "networking.k8s.io"
+      resources: ["networkpolicies", "ingresses"]
+  
+  # Don't log requests to these resources
+  - level: None
+    resources:
+    - group: ""
+      resources: ["events", "nodes", "nodes/status"]
+  
+  # Don't log requests from system components
+  - level: None
+    users: ["system:kube-proxy"]
+    verbs: ["watch"]
+    resources:
+    - group: ""
+      resources: ["endpoints", "services"]
+  
+  # Don't log health checks and metrics
+  - level: None
+    userGroups: ["system:authenticated"]
+    nonResourceURLs:
+    - "/api*"
+    - "/version"
+    - "/healthz*"
+    - "/metrics"
+    - "/livez*"
+    - "/readyz*"
+  
+  # Catch-all rule for other requests at Metadata level
+  - level: Metadata
+    omitStages:
+      - "RequestReceived"

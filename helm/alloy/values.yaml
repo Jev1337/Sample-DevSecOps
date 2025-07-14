@@ -39,6 +39,80 @@ alloy:
 
       loki.source.kubernetes "pods" {
         targets    = discovery.relabel.kubernetes_pods.output
+        forward_to = [loki.process.security_logs.receiver]
+      }
+
+      // Host system logs collection for SSH and authentication events
+      local.file_match "system_logs" {
+        path_targets = [
+          {__path__ = "/var/log/auth.log"},
+          {__path__ = "/var/log/secure"},
+          {__path__ = "/var/log/messages"},
+        ]
+      }
+
+      loki.source.file "system_logs" {
+        targets    = local.file_match.system_logs.targets
+        forward_to = [loki.process.security_logs.receiver]
+      }
+
+      // Kubernetes audit logs collection
+      local.file_match "audit_logs" {
+        path_targets = [
+          {__path__ = "/var/log/kubernetes/audit.log"},
+        ]
+      }
+
+      loki.source.file "audit_logs" {
+        targets    = local.file_match.audit_logs.targets
+        forward_to = [loki.process.audit_logs.receiver]
+      }
+
+      // Process security-related logs
+      loki.process "security_logs" {
+        stage.json {
+          expressions = {
+            timestamp = "timestamp",
+            level = "level",
+            message = "message",
+          }
+        }
+        
+        stage.labels {
+          values = {
+            level = "",
+            job = "node-logs",
+          }
+        }
+        
+        stage.regex {
+          expression = "(?i).*(ssh|failed|error|denied|unauthorized|forbidden).*"
+          source = "message"
+        }
+        
+        forward_to = [loki.write.default.receiver]
+      }
+
+      // Process Kubernetes audit logs
+      loki.process "audit_logs" {
+        stage.json {
+          expressions = {
+            kind = "kind",
+            verb = "verb",
+            user = "user.username",
+            resource = "objectRef.resource",
+            namespace = "objectRef.namespace",
+          }
+        }
+        
+        stage.labels {
+          values = {
+            job = "kubernetes-audit",
+            verb = "",
+            resource = "",
+          }
+        }
+        
         forward_to = [loki.write.default.receiver]
       }
 

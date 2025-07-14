@@ -275,6 +275,108 @@ deploy_application() {
     
     log "✅ Flask application deployed successfully." "$GREEN"
 }
+# Function to deploy SIEM stack
+deploy_siem_stack() {
+    log "🛡️  Deploying SIEM Stack..." "$BLUE"
+    
+    log "Running SIEM playbook..." "$YELLOW"
+    if command -v ansible-playbook &> /dev/null; then
+        cd "$SCRIPT_DIR/ansible"
+        ansible-playbook -i inventory playbooks/siem.yml
+        cd "$SCRIPT_DIR"
+    else
+        log "⚠️  Ansible not found. Running manual SIEM deployment..." "$YELLOW"
+        
+        # Manual SIEM deployment
+        log "Setting up Kubernetes audit logging..." "$YELLOW"
+        sudo mkdir -p /etc/kubernetes/siem
+        sudo cp siem/configs/audit-policy.yaml /etc/kubernetes/siem/
+        sudo mkdir -p /var/log/kubernetes
+        
+        # Configure MicroK8s API server for audit logging
+        log "Configuring MicroK8s audit logging..." "$YELLOW"
+        if ! grep -q "audit-log-path" /var/snap/microk8s/current/args/kube-apiserver 2>/dev/null; then
+            echo "--audit-log-path=/var/log/kubernetes/audit.log" | sudo tee -a /var/snap/microk8s/current/args/kube-apiserver
+            echo "--audit-policy-file=/etc/kubernetes/siem/audit-policy.yaml" | sudo tee -a /var/snap/microk8s/current/args/kube-apiserver
+            echo "--audit-log-maxage=30" | sudo tee -a /var/snap/microk8s/current/args/kube-apiserver
+            echo "--audit-log-maxbackup=10" | sudo tee -a /var/snap/microk8s/current/args/kube-apiserver
+            echo "--audit-log-maxsize=100" | sudo tee -a /var/snap/microk8s/current/args/kube-apiserver
+            
+            log "Restarting MicroK8s to apply audit configuration..." "$YELLOW"
+            microk8s stop
+            sleep 10
+            microk8s start
+            microk8s status --wait-ready
+        fi
+        
+        # Build and deploy webhook receiver
+        log "Building webhook receiver..." "$YELLOW"
+        cd "$SCRIPT_DIR/webhook"
+        docker build -t webhook-receiver:latest .
+        docker tag webhook-receiver:latest localhost:32000/webhook-receiver:latest
+        docker push localhost:32000/webhook-receiver:latest
+        
+        log "Deploying webhook receiver..." "$YELLOW"
+        microk8s kubectl apply -f webhook-deployment.yaml
+        
+        # Wait for webhook deployment
+        log "Waiting for webhook deployment..." "$YELLOW"
+        microk8s kubectl rollout status deployment/webhook-receiver -n monitoring --timeout=120s
+        
+        # Create webhook ingress
+        log "Creating webhook external access..." "$YELLOW"
+        EXTERNAL_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com)
+        cat <<EOF | microk8s kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: webhook-external
+  namespace: monitoring
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: public
+  rules:
+  - host: webhook.${EXTERNAL_IP}.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: webhook-receiver-service
+            port:
+              number: 80
+EOF
+        
+        # Update Alloy configuration
+        log "Updating Alloy configuration for SIEM..." "$YELLOW"
+        microk8s helm3 upgrade alloy grafana/alloy -n monitoring -f "$SCRIPT_DIR/helm/alloy/values.yaml"
+        microk8s kubectl rollout restart daemonset/alloy -n monitoring
+        microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=120s
+        
+        cd "$SCRIPT_DIR"
+    fi
+    
+    log "✅ SIEM stack deployed successfully." "$GREEN"
+    
+    # Display SIEM access information
+    EXTERNAL_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com)
+    log "🛡️  SIEM ACCESS INFORMATION" "$CYAN"
+    log "==========================" "$CYAN"
+    log "🔗 SIEM Dashboard: http://grafana.$EXTERNAL_IP.nip.io" "$CYAN"
+    log "📡 Webhook Endpoint: http://webhook.$EXTERNAL_IP.nip.io/webhook" "$CYAN"
+    log "📊 Use Grafana Explore with Loki data source for security log queries" "$CYAN"
+    log "🔍 Available log sources:" "$YELLOW"
+    log "   - SSH authentication events (job=\"node-logs\")" "$CYAN"
+    log "   - Kubernetes audit events (job=\"kubernetes-audit\")" "$CYAN"
+    log "   - Git webhook events (job=\"webhook-receiver\")" "$CYAN"
+    log "📋 Example LogQL queries:" "$YELLOW"
+    log "   - Failed SSH: {job=\"node-logs\"} |~ \"Failed password|authentication failure\"" "$CYAN"
+    log "   - K8s secrets access: {job=\"kubernetes-audit\"} | json | objectRef_resource=\"secrets\"" "$CYAN"
+    log "   - Webhook events: {job=\"webhook-receiver\"} | json" "$CYAN"
+}
+
 # Function to configure Azure external access
 configure_azure_access() {
     log "🌐 Configuring Azure External Access..." "$BLUE"
@@ -354,6 +456,23 @@ spec:
     name: http
   selector:
     app: flask-app
+EOF
+    
+    # Webhook LoadBalancer
+    cat <<EOF | microk8s kubectl apply -f -
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-loadbalancer
+  namespace: monitoring
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 5000
+    targetPort: 5000
+    name: http
+  selector:
+    app: webhook-receiver
 EOF
     
     log "✅ LoadBalancer services created" "$GREEN"
@@ -457,6 +576,30 @@ spec:
               number: 80
 EOF
     
+    # Webhook Ingress
+    cat <<EOF | microk8s kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: webhook-external
+  namespace: monitoring
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: public
+  rules:
+  - host: webhook.${EXTERNAL_IP}.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: webhook-receiver-service
+            port:
+              number: 80
+EOF
+    
     log "✅ External ingress configurations created" "$GREEN"
     
     log "⏳ Waiting for LoadBalancer services..." "$YELLOW"
@@ -471,6 +614,7 @@ EOF
     log "   - SonarQube: http://sonarqube.$EXTERNAL_IP.nip.io" "$CYAN"
     log "   - Grafana:   http://grafana.$EXTERNAL_IP.nip.io" "$CYAN"
     log "   - Flask App: http://app.$EXTERNAL_IP.nip.io" "$CYAN"
+    log "   - Webhook:   http://webhook.$EXTERNAL_IP.nip.io/webhook" "$CYAN"
     log "🌐 Using LoadBalancer IPs:" "$YELLOW"
     log "   - Check the table below for assigned external IPs" "$CYAN"
     log "📋 LoadBalancer External IPs:" "$YELLOW"
@@ -524,9 +668,10 @@ run_cleanup() {
         echo "  3) Cleanup Application Deployment"
         echo "  4) Cleanup Development Environment (Docker Compose)"
         echo "  5) Cleanup Azure External Access"
-        echo "  6) Cleanup ALL"
-        echo "  7) Return to main menu"
-        read -p "Enter your choice [1-7]: " cleanup_choice
+        echo "  6) Cleanup SIEM Stack"
+        echo "  7) Cleanup ALL"
+        echo "  8) Return to main menu"
+        read -p "Enter your choice [1-8]: " cleanup_choice
         
         case $cleanup_choice in
             1)
@@ -552,14 +697,30 @@ run_cleanup() {
                 microk8s kubectl delete service sonarqube-loadbalancer -n sonarqube || true
                 microk8s kubectl delete service grafana-loadbalancer -n monitoring || true
                 microk8s kubectl delete service flask-app-loadbalancer -n flask-app || true
+                microk8s kubectl delete service webhook-loadbalancer -n monitoring || true
                 log "✅ Azure external access cleanup complete." "$GREEN"
                 ;;
             6)
-                cleanup_all
-                docker compose down -v || true
-                log "✅ Full cleanup completed!" "$GREEN"
+                log "Cleaning up SIEM stack..." "$YELLOW"
+                microk8s kubectl delete deployment webhook-receiver -n monitoring || true
+                microk8s kubectl delete service webhook-receiver-service -n monitoring || true
+                microk8s kubectl delete ingress webhook-external -n monitoring || true
+                docker rmi webhook-receiver:latest localhost:32000/webhook-receiver:latest || true
+                log "Removing audit logging configuration..." "$YELLOW"
+                sudo sed -i '/# BEGIN ANSIBLE MANAGED BLOCK - AUDIT LOGGING/,/# END ANSIBLE MANAGED BLOCK - AUDIT LOGGING/d' /var/snap/microk8s/current/args/kube-apiserver || true
+                log "✅ SIEM stack cleanup complete." "$GREEN"
                 ;;
             7)
+                cleanup_all
+                docker compose down -v || true
+                log "Cleaning up SIEM components..." "$YELLOW"
+                microk8s kubectl delete deployment webhook-receiver -n monitoring || true
+                microk8s kubectl delete service webhook-receiver-service -n monitoring || true
+                microk8s kubectl delete ingress webhook-external -n monitoring || true
+                docker rmi webhook-receiver:latest localhost:32000/webhook-receiver:latest || true
+                log "✅ Full cleanup completed!" "$GREEN"
+                ;;
+            8)
                 return 0
                 ;;
             *)
@@ -594,6 +755,15 @@ show_access_info() {
     log "   - Jenkins:   http://jenkins.local (admin/${JENKINS_PASS})" "$CYAN"
     log "   - SonarQube: http://sonarqube.local (admin/admin)" "$CYAN"
     log "   - Grafana:   http://grafana.local (admin/admin123)" "$CYAN"
+    log "   - Webhook:   http://webhook.local/webhook" "$CYAN"
+    echo ""
+    
+    log "🛡️  SIEM Access Information:" "$YELLOW"
+    log "   - Security Dashboard: Available in Grafana under 'SIEM - Security Monitoring'" "$CYAN"
+    log "   - LogQL Examples:" "$YELLOW"
+    log "     * SSH failures: {job=\"node-logs\"} |~ \"Failed password\"" "$CYAN"
+    log "     * K8s audit: {job=\"kubernetes-audit\"} | json" "$CYAN"
+    log "     * Git webhooks: {job=\"webhook-receiver\"} | json" "$CYAN"
     echo ""
     
     log "🛠️  CI/CD Pipeline Setup:" "$YELLOW"
@@ -616,13 +786,14 @@ show_main_menu() {
         echo "  6) Deploy Monitoring Stack (Loki, Grafana, Alloy)"
         echo "  7) Deploy Flask Application"
         echo "  8) Configure Azure External Access"
-        echo "  9) Full Production Setup (3-7)"
-        echo " 10) Development Mode (Docker Compose)"
-        echo " 11) Cleanup Options"
-        echo " 12) Show Access Information"
-        echo " 13) Exit"
+        echo "  9) Deploy SIEM Stack (Security Monitoring)"
+        echo " 10) Full Production Setup (3-7,9)"
+        echo " 11) Development Mode (Docker Compose)"
+        echo " 12) Cleanup Options"
+        echo " 13) Show Access Information"
+        echo " 14) Exit"
         echo ""
-        read -p "Enter your choice [1-13]: " choice
+        read -p "Enter your choice [1-14]: " choice
         
         case $choice in
             1)
@@ -650,26 +821,30 @@ show_main_menu() {
                 configure_azure_access
                 ;;
             9)
-                log "🚀 Starting Full Production Setup..." "$PURPLE"
+                deploy_siem_stack
+                ;;
+            10)
+                log "🚀 Starting Full Production Setup with SIEM..." "$PURPLE"
                 check_prerequisites
                 setup_microk8s
                 build_jenkins_image
                 deploy_core_services
                 deploy_monitoring_stack
                 deploy_application
+                deploy_siem_stack
                 show_access_info
-                log "✅ Full production setup completed!" "$GREEN"
-                ;;
-            10)
-                run_development_mode
+                log "✅ Full production setup with SIEM completed!" "$GREEN"
                 ;;
             11)
-                run_cleanup
+                run_development_mode
                 ;;
             12)
-                show_access_info
+                run_cleanup
                 ;;
             13)
+                show_access_info
+                ;;
+            14)
                 log "👋 Exiting DevSecOps Setup. Goodbye!" "$GREEN"
                 exit 0
                 ;;

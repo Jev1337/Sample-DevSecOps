@@ -1,0 +1,158 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "SIEM - Security Monitoring Dashboard",
+    "tags": ["siem", "security", "monitoring"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "SSH Authentication Events",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "count by (level) (rate({job=\"node-logs\"} |~ \"ssh|SSH|sshd\" [5m]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 5
+                },
+                {
+                  "color": "red",
+                  "value": 20
+                }
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "Failed SSH Attempts",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "{job=\"node-logs\"} |~ \"Failed password|authentication failure|Invalid user\" | json | line_format \"{{.timestamp}} {{.message}}\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 18,
+          "x": 6,
+          "y": 0
+        }
+      },
+      {
+        "id": 3,
+        "title": "Kubernetes API Audit Events",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{job=\"kubernetes-audit\"} | json | line_format \"{{.timestamp}} {{.verb}} {{.objectRef.resource}} by {{.user.username}}\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        }
+      },
+      {
+        "id": 4,
+        "title": "Webhook Events",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{job=\"webhook-receiver\"} | json | line_format \"{{.timestamp}} {{.event_type}} from {{.source_ip}}\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        }
+      },
+      {
+        "id": 5,
+        "title": "Security Events Timeline",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate({job=~\"node-logs|kubernetes-audit|webhook-receiver\"} [5m])",
+            "refId": "A",
+            "legendFormat": "{{job}}"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 16
+        }
+      },
+      {
+        "id": 6,
+        "title": "Critical Security Events",
+        "type": "alert-list",
+        "targets": [
+          {
+            "expr": "{job=~\".*\"} |~ \"(?i)(failed|error|denied|unauthorized|forbidden|attack|breach|malware|virus|intrusion)\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 24
+        }
+      },
+      {
+        "id": 7,
+        "title": "User Activity",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "{job=\"kubernetes-audit\"} | json | line_format \"{{.user.username}} {{.verb}} {{.objectRef.resource}}\" | pattern \"<user> <action> <resource>\" | label_format user=\"{{.user}}\", action=\"{{.action}}\", resource=\"{{.resource}}\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 24
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}

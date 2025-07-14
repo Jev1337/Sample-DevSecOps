@@ -1,0 +1,72 @@
+---
+- name: Build webhook receiver Docker image
+  shell: |
+    cd {{ playbook_dir }}/../webhook
+    docker build -t webhook-receiver:latest .
+    docker tag webhook-receiver:latest localhost:32000/webhook-receiver:latest
+    docker push localhost:32000/webhook-receiver:latest
+  register: webhook_build
+
+- name: Deploy webhook receiver to Kubernetes
+  shell: |
+    microk8s kubectl apply -f {{ playbook_dir }}/../webhook/webhook-deployment.yaml
+  register: webhook_deploy
+
+- name: Wait for webhook deployment to be ready
+  shell: |
+    microk8s kubectl rollout status deployment/webhook-receiver -n monitoring --timeout=120s
+  register: webhook_status
+
+- name: Create webhook ingress for external access
+  shell: |
+    EXTERNAL_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com)
+    cat <<EOF | microk8s kubectl apply -f -
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: webhook-external
+      namespace: monitoring
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /
+    spec:
+      ingressClassName: public
+      rules:
+      - host: webhook.${EXTERNAL_IP}.nip.io
+        http:
+          paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: webhook-receiver-service
+                port:
+                  number: 80
+    EOF
+  register: webhook_ingress
+
+- name: Create webhook LoadBalancer service
+  shell: |
+    cat <<EOF | microk8s kubectl apply -f -
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: webhook-loadbalancer
+      namespace: monitoring
+    spec:
+      type: LoadBalancer
+      ports:
+      - port: 5000
+        targetPort: 5000
+        name: http
+      selector:
+        app: webhook-receiver
+    EOF
+  register: webhook_lb
+
+- name: Display webhook access information
+  debug:
+    msg: |
+      Webhook receiver deployed successfully!
+      - Internal URL: http://webhook-receiver-service.monitoring.svc.cluster.local
+      - External URL will be available at: http://webhook.{EXTERNAL_IP}.nip.io/webhook
+      - LoadBalancer IP will be assigned automatically

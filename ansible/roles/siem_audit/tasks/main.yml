@@ -1,0 +1,58 @@
+---
+- name: Create SIEM configuration directory
+  file:
+    path: /etc/kubernetes/siem
+    state: directory
+    mode: '0755'
+
+- name: Copy Kubernetes audit policy
+  copy:
+    src: "{{ playbook_dir }}/../siem/configs/audit-policy.yaml"
+    dest: /etc/kubernetes/siem/audit-policy.yaml
+    mode: '0644'
+
+- name: Enable MicroK8s audit logging
+  shell: |
+    microk8s kubectl patch -n kube-system daemonset.apps/calico-node --type='merge' -p='{"spec":{"template":{"spec":{"tolerations":[{"operator":"Exists"}]}}}}'
+  register: audit_config
+  changed_when: false
+  ignore_errors: yes
+
+- name: Create audit log directory
+  file:
+    path: /var/log/kubernetes
+    state: directory
+    mode: '0755'
+
+- name: Configure MicroK8s API server for audit logging
+  blockinfile:
+    path: /var/snap/microk8s/current/args/kube-apiserver
+    block: |
+      --audit-log-path=/var/log/kubernetes/audit.log
+      --audit-policy-file=/etc/kubernetes/siem/audit-policy.yaml
+      --audit-log-maxage=30
+      --audit-log-maxbackup=10
+      --audit-log-maxsize=100
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - AUDIT LOGGING"
+    create: yes
+  register: apiserver_config
+
+- name: Restart MicroK8s to apply audit configuration
+  shell: |
+    microk8s stop
+    sleep 10
+    microk8s start
+    microk8s status --wait-ready
+  when: apiserver_config.changed
+
+- name: Verify audit logging is working
+  wait_for:
+    path: /var/log/kubernetes/audit.log
+    timeout: 60
+  ignore_errors: yes
+
+- name: Set proper permissions for audit log
+  file:
+    path: /var/log/kubernetes/audit.log
+    mode: '0644'
+  ignore_errors: yes
