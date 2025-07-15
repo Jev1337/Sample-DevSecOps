@@ -1,16 +1,128 @@
 // Enhanced Alloy configuration for SIEM log processing
 // This configuration handles various log formats and ensures proper field extraction
 
+// Kubernetes pod discovery for API events
+discovery.kubernetes "pods" {
+	role = "pod"
+}
+
+discovery.relabel "kubernetes_pods" {
+	targets = discovery.kubernetes.pods.targets
+	rule {
+		source_labels = ["__meta_kubernetes_pod_phase"]
+		regex = "Pending|Succeeded|Failed|Completed"
+		action = "drop"
+	}
+	rule {
+		source_labels = ["__meta_kubernetes_pod_name"]
+		target_label = "pod"
+	}
+	rule {
+		source_labels = ["__meta_kubernetes_namespace"]
+		target_label = "namespace"
+	}
+	rule {
+		source_labels = ["__meta_kubernetes_pod_container_name"]
+		target_label = "container"
+	}
+}
+
+// Kubernetes pod logs collection
+loki.source.kubernetes "pods" {
+	targets    = discovery.relabel.kubernetes_pods.output
+	forward_to = [loki.process.k8s_api_logs.receiver]
+}
+
 // File-based log collection for SIEM sample data
 loki.source.file "siem_sample_logs" {
 	targets = [
-		{__path__ = "/var/log/auth.log", job = "node-logs", log_type = "auth"},
-		{__path__ = "/var/log/secure", job = "node-logs", log_type = "auth"},
-		{__path__ = "/var/log/kubernetes/audit.log", job = "kubernetes-audit", log_type = "k8s_audit"},
-		{__path__ = "/var/log/audit/audit.log", job = "kubernetes-audit", log_type = "k8s_audit"},
+		{__path__ = "/var/log/auth.log", job = "system-auth", log_type = "auth"},
+		{__path__ = "/var/log/secure", job = "system-auth", log_type = "auth"},
+		{__path__ = "/var/log/audit/audit.log", job = "system-audit", log_type = "system_audit"},
 		{__path__ = "/var/log/webhook.log", job = "webhook-receiver", log_type = "webhook"},
+		{__path__ = "/var/log/dpkg.log", job = "package-install", log_type = "package"},
+		{__path__ = "/var/log/siem-monitor.log", job = "siem-monitor", log_type = "siem"},
 	]
 	forward_to = [loki.process.siem_logs.receiver]
+}
+
+// Process Kubernetes API logs
+loki.process "k8s_api_logs" {
+	forward_to = [loki.write.default.receiver]
+	
+	// Add Kubernetes-specific labels
+	stage.labels {
+		values = {
+			job = "loki.source.kubernetes.pods",
+			event_type = "k8s_event",
+			log_source = "kubernetes",
+		}
+	}
+	
+	// Process security-related Kubernetes events
+	stage.match {
+		selector = "{job=\"loki.source.kubernetes.pods\"}"
+		
+		// Mark error events
+		stage.match {
+			selector = "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(error|fail|exception|panic|fatal)\""
+			stage.regex {
+				expression = ".*(?P<error_type>error|fail|exception|panic|fatal).*"
+			}
+			stage.labels {
+				values = {
+					level = "error",
+					event_type = "k8s_error",
+					security_level = "high",
+				}
+			}
+		}
+		
+		// Mark access denied events
+		stage.match {
+			selector = "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(denied|unauthorized|forbidden)\""
+			stage.regex {
+				expression = ".*(?P<access_issue>denied|unauthorized|forbidden).*"
+			}
+			stage.labels {
+				values = {
+					level = "warning",
+					event_type = "k8s_access_denied",
+					security_level = "medium",
+				}
+			}
+		}
+		
+		// Mark container restart/crash events
+		stage.match {
+			selector = "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(restart|crash|killed|oom|exit|terminated)\""
+			stage.regex {
+				expression = ".*(?P<container_issue>restart|crash|killed|oom|exit|terminated).*"
+			}
+			stage.labels {
+				values = {
+					level = "warning",
+					event_type = "k8s_container_issue",
+					security_level = "medium",
+				}
+			}
+		}
+		
+		// Mark API access patterns
+		stage.match {
+			selector = "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(get|post|put|delete|patch).*(/api/|/apis/)\""
+			stage.regex {
+				expression = ".*(?P<method>GET|POST|PUT|DELETE|PATCH).*(?P<api_path>/api[^\\s]*)"
+			}
+			stage.labels {
+				values = {
+					level = "info",
+					event_type = "k8s_api_access",
+					security_level = "low",
+				}
+			}
+		}
+	}
 }
 
 // Main SIEM log processing pipeline
@@ -19,7 +131,7 @@ loki.process "siem_logs" {
 	
 	// Route processing based on job type
 	stage.match {
-		selector = "{job=\"node-logs\"}"
+		selector = "{job=\"system-auth\"}"
 		pipeline_name = "auth_logs"
 		
 		// Parse authentication log format
@@ -29,7 +141,7 @@ loki.process "siem_logs" {
 		
 		// Extract failed login details
 		stage.match {
-			selector = "{job=\"node-logs\"} |~ \"(?i)(failed password|authentication failure|invalid user)\""
+			selector = "{job=\"system-auth\"} |~ \"(?i)(failed password|authentication failure|invalid user)\""
 			pipeline_name = "failed_auth"
 			
 			stage.regex {
@@ -53,7 +165,7 @@ loki.process "siem_logs" {
 		
 		// Extract successful login details
 		stage.match {
-			selector = "{job=\"node-logs\"} |~ \"(?i)(accepted|successful)\""
+			selector = "{job=\"system-auth\"} |~ \"(?i)(accepted|successful)\""
 			pipeline_name = "successful_auth"
 			
 			stage.regex {
@@ -72,7 +184,7 @@ loki.process "siem_logs" {
 		
 		stage.labels {
 			values = {
-				job = "node-logs",
+				job = "system-auth",
 				service = "",
 				level = "info",
 				service_name = "system-auth",
@@ -80,7 +192,65 @@ loki.process "siem_logs" {
 		}
 	}
 	
-	// Process Kubernetes audit logs
+	// Process system audit logs
+	stage.match {
+		selector = "{job=\"system-audit\"}"
+		pipeline_name = "system_audit"
+		
+		// Parse audit log format
+		stage.regex {
+			expression = "^type=(?P<audit_type>\\S+) msg=audit\\((?P<audit_timestamp>[^)]+)\\): (?P<audit_message>.*)"
+		}
+		
+		// Extract user information from audit messages
+		stage.regex {
+			expression = ".*UID=\"(?P<uid>[^\"]+)\".*AUID=\"(?P<auid>[^\"]+)\""
+			source = "audit_message"
+		}
+		
+		stage.labels {
+			values = {
+				job = "system-audit",
+				audit_type = "",
+				level = "info",
+				service_name = "system-audit",
+			}
+		}
+	}
+	
+	// Process package installation logs
+	stage.match {
+		selector = "{job=\"package-install\"}"
+		pipeline_name = "package_logs"
+		
+		stage.regex {
+			expression = ".*status (?P<action>\\S+) (?P<package>[^:]+):"
+		}
+		
+		stage.labels {
+			values = {
+				job = "package-install",
+				level = "info",
+				service_name = "package-install",
+			}
+		}
+	}
+	
+	// Process SIEM monitor logs
+	stage.match {
+		selector = "{job=\"siem-monitor\"}"
+		pipeline_name = "siem_monitor_logs"
+		
+		stage.labels {
+			values = {
+				job = "siem-monitor",
+				level = "info",
+				service_name = "siem-monitor",
+			}
+		}
+	}
+	
+	// Process Kubernetes audit logs (if available)
 	stage.match {
 		selector = "{job=\"kubernetes-audit\"}"
 		pipeline_name = "k8s_audit"
@@ -205,7 +375,6 @@ loki.process "siem_logs" {
 				resource = "",
 				level = "info",
 				service_name = "kubernetes-audit",
-				level_extracted = "",
 			}
 		}
 	}
@@ -351,7 +520,7 @@ loki.process "docker_logs" {
 // Send all logs to Loki
 loki.write "default" {
 	endpoint {
-		url = "http://loki:3100/loki/api/v1/push"
+		url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
 	}
 	
 	// Add external labels

@@ -44,16 +44,74 @@ alloy:
 
       // Process Kubernetes pod logs for security events
       loki.process "k8s_logs" {
+        // Extract namespace, pod, and container information
+        stage.regex {
+          expression = "^(?P<timestamp>\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d+Z)?\\s*(?P<log_level>\\w+)?\\s*(?P<message>.*)"
+        }
+        
+        // Add Kubernetes-specific labels
         stage.labels {
           values = {
-            job = "kubernetes-pods",
+            job = "loki.source.kubernetes.pods",
             event_type = "k8s_event",
+            log_source = "kubernetes",
           }
         }
         
-        // Only forward error/security-related patterns to reduce stream count
-        stage.regex {
-          expression = "(?i).*(error|fail|denied|unauthorized|forbidden|exception|panic|fatal).*"
+        // Process security-related events
+        stage.match {
+          selector = "{job=\"loki.source.kubernetes.pods\"}"
+          
+          // Mark error events
+          stage.match {
+            selector = "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(error|fail|exception|panic|fatal)\""
+            stage.labels {
+              values = {
+                level = "error",
+                event_type = "k8s_error",
+                security_level = "high",
+              }
+            }
+          }
+          
+          // Mark access denied events
+          stage.match {
+            selector = "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(denied|unauthorized|forbidden)\""
+            stage.labels {
+              values = {
+                level = "warning",
+                event_type = "k8s_access_denied",
+                security_level = "medium",
+              }
+            }
+          }
+          
+          // Mark container restart/crash events
+          stage.match {
+            selector = "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(restart|crash|killed|oom|exit|terminated)\""
+            stage.labels {
+              values = {
+                level = "warning",
+                event_type = "k8s_container_issue",
+                security_level = "medium",
+              }
+            }
+          }
+          
+          // Mark API access patterns
+          stage.match {
+            selector = "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(get|post|put|delete|patch).*(/api/|/apis/)\""
+            stage.regex {
+              expression = "(?P<method>GET|POST|PUT|DELETE|PATCH).*(?P<api_path>/api[^\\s]*)"
+            }
+            stage.labels {
+              values = {
+                level = "info",
+                event_type = "k8s_api_access",
+                security_level = "low",
+              }
+            }
+          }
         }
         
         forward_to = [loki.write.default.receiver]

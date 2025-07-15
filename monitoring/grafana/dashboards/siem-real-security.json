@@ -22,7 +22,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (job) (rate({job=~\"system-auth|system-audit|webhook-receiver|package-install|siem-monitor\"} [5m]))",
+          "expr": "sum by (job) (rate({job=~\"system-auth|system-audit|webhook-receiver|package-install|siem-monitor|loki.source.kubernetes.pods\"} [5m]))",
           "refId": "A",
           "legendFormat": "{{job}}",
           "datasource": {
@@ -371,7 +371,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (job) (rate({job=~\"system-auth|system-audit|webhook-receiver|package-install|siem-monitor\"} [1m]))",
+          "expr": "sum by (job) (rate({job=~\"system-auth|system-audit|webhook-receiver|package-install|siem-monitor|loki.source.kubernetes.pods\"} [1m]))",
           "refId": "A",
           "legendFormat": "{{job}}",
           "datasource": {
@@ -513,41 +513,314 @@
         "y": 56
       }
     },
-{
-  "id": 13,
-  "title": "Kubernetes API Audit Events (Simple)",
-  "type": "logs",
-  "datasource": {
-    "type": "loki",
-    "uid": "loki"
-  },
-  "targets": [
     {
-      "expr": "{job=\"loki.source.kubernetes.pods\"} |~ \"audit\" | line_format \"{{.__timestamp__}} | {{.__line__}}\"",
-      "refId": "A",
+      "id": 13,
+      "title": "Kubernetes API Events",
+      "type": "logs",
       "datasource": {
         "type": "loki",
         "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"loki.source.kubernetes.pods\"} |~ \"(error|fail|denied|unauthorized|forbidden|exception|panic|fatal)\" | regexp \"(?P<namespace>\\\\S+)/(?P<pod>\\\\S+)\" | line_format \"{{.__timestamp__}} | Namespace: {{.namespace}} | Pod: {{.pod}} | {{.__line__}}\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "exact",
+        "sortOrder": "Descending"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 64
+      }
+    },
+    {
+      "id": 14,
+      "title": "Kubernetes Pod Errors by Namespace",
+      "type": "table",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (namespace) (count_over_time({job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(error|fail|exception|panic|fatal)\" | regexp \"namespace=\\\"(?P<namespace>[^\\\"]+)\\\"\" [$__range])))",
+          "refId": "A",
+          "instant": true,
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "displayMode": "list",
+            "filterable": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "namespace"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Namespace"
+              },
+              {
+                "id": "custom.width",
+                "value": 200
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Error Count"
+              },
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Error Count"
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "namespace": 0,
+              "Value #A": 1
+            },
+            "renameByName": {
+              "namespace": "Namespace",
+              "Value #A": "Error Count"
+            }
+          }
+        }
+      ],
+      "pluginVersion": "9.0.0",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 64
+      }
+    },
+    {
+      "id": 15,
+      "title": "Kubernetes Container Restarts & Crashes",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(restart|crash|killed|oom|exit|terminated)\" | regexp \"(?P<container>\\\\S+)\" | line_format \"{{.__timestamp__}} | Container: {{.container}} | {{.__line__}}\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "exact",
+        "sortOrder": "Descending"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 72
+      }
+    },
+    {
+      "id": 16,
+      "title": "Kubernetes Security Events Timeline",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "sum by (namespace) (rate({job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(error|fail|denied|unauthorized|forbidden|exception|panic|fatal)\" | regexp \"namespace=\\\"(?P<namespace>[^\\\"]+)\\\"\" [5m]))",
+          "refId": "A",
+          "legendFormat": "{{namespace}}",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.1
+              }
+            ]
+          },
+          "unit": "reqps"
+        }
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 80
+      }
+    },
+    {
+      "id": 17,
+      "title": "Kubernetes Resource Access Patterns",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(get|post|put|delete|patch)\" | regexp \"(?P<method>GET|POST|PUT|DELETE|PATCH).*(?P<resource>/api/v1/[^\\\\s]+)\" | line_format \"{{.__timestamp__}} | Method: {{.method}} | Resource: {{.resource}} | {{.__line__}}\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "exact",
+        "sortOrder": "Descending"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 88
       }
     }
-  ],
-  "options": {
-    "showTime": true,
-    "showLabels": false,
-    "showCommonLabels": false,
-    "wrapLogMessage": true,
-    "prettifyLogMessage": false,
-    "enableLogDetails": true,
-    "dedupStrategy": "exact",
-    "sortOrder": "Descending"
-  },
-  "gridPos": {
-    "h": 8,
-    "w": 12,
-    "x": 0,
-    "y": 8
-  }
-}
   ],
   "time": {
     "from": "now-6h",
