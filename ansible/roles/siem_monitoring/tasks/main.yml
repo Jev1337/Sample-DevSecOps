@@ -21,9 +21,19 @@
     path: /tmp/grafana-dashboards
     state: directory
 
-- name: Copy SIEM dashboard
+- name: Copy Main SIEM dashboard
   copy:
     src: "{{ inventory_dir }}/../monitoring/grafana/dashboards/siem-real-security.json"
+    dest: /tmp/grafana-dashboards/siem-real-security.json
+  
+- name: Copy Flask Security dashboard
+  copy:
+    src: "{{ inventory_dir }}/../monitoring/grafana/dashboards/security.json"
+    dest: /tmp/grafana-dashboards/siem-real-security.json
+
+- name: Copy Flask General Logs dashboard
+  copy:
+    src: "{{ inventory_dir }}/../monitoring/grafana/dashboards/app-logs.json"
     dest: /tmp/grafana-dashboards/siem-real-security.json
 
 - name: Configure SIEM dashboard via kubectl ConfigMap
