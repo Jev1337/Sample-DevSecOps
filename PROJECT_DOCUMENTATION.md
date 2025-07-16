@@ -35,8 +35,8 @@ This project delivers a **production-ready DevSecOps platform** that integrates 
 | **📦 Container Orchestration** | Auto-scaling, Rolling Updates, Self-healing | Kubernetes, Helm, MicroK8s |
 | **🔄 CI/CD Pipeline** | Automated Testing, Security Scans, Deployment | Jenkins, GitOps |
 | **🔒 Security Integration** | SAST, DAST, Container Scanning, Compliance | SonarQube, Trivy, OWASP |
-| **�️ SIEM Platform** | Real-time Security Monitoring, Event Correlation | Custom SIEM, Webhook Receiver |
-| **�📊 Observability Stack** | Logging, Monitoring, Alerting, Tracing | Loki, Grafana, Alloy |
+| **🛡️ SIEM Platform** | Real-time Security Monitoring, Event Correlation | Custom SIEM, Webhook Receiver |
+| **📊 Observability Stack** | Logging, Monitoring, Alerting, Tracing | Loki, Grafana, Alloy |
 | **🤖 Automation Framework** | Infrastructure as Code, Configuration Management | Ansible, Terraform |
 | **☁️ Cloud Deployment** | Multi-environment, External Access, Load Balancing | Azure, LoadBalancer |
 | **🧪 Development Tools** | Local Development, Testing, Debugging | Docker Compose, pytest |
@@ -374,10 +374,6 @@ app/
 ├── Dockerfile            # Container definition
 ├── tests/
 │   ├── test_app.py       # Unit tests
-│   └── load_test.py      # Performance tests
-└── config/
-    ├── gunicorn.conf.py  # WSGI server config
-    └── logging.conf      # Logging configuration
 ```
 
 **Core Features Implementation:**
@@ -510,21 +506,36 @@ spec:
 
 ```dockerfile
 # app/Dockerfile
-FROM python:3.9-slim as builder
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
+FROM python:3.11-alpine
 
-FROM python:3.9-slim
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+ARG BUILD_DATE
+ARG GIT_COMMIT
+
 WORKDIR /app
-COPY --from=builder /root/.local /home/appuser/.local
+
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
-RUN chown -R appuser:appuser /app
+
+RUN echo "Build Date: $BUILD_DATE" > /app/build-info.txt && \
+    echo "Git Commit: $GIT_COMMIT" >> /app/build-info.txt && \
+    echo "Build Timestamp: $(date)" >> /app/build-info.txt
+
+RUN chown -R appuser:appgroup /app
+
 USER appuser
-ENV PATH=/home/appuser/.local/bin:$PATH
+
 EXPOSE 5000
-CMD ["gunicorn", "--config", "gunicorn.conf.py", "app:app"]
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:5000/health || exit 1
+
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "30", "app:app"]
+
 ```
 
 **Security Contexts:**
@@ -638,8 +649,8 @@ pipeline {
             steps {
                 script {
                     def image = docker.build("${REGISTRY}/${IMAGE_NAME}:${BUILD_VERSION}", "./app")
-                    image.push()
-                    image.push("latest")
+                    kaniko.image.push()
+                    kaniko.image.push("latest")
                 }
             }
         }
@@ -658,11 +669,8 @@ pipeline {
         
         stage('Deploy to Kubernetes') {
             steps {
-                sh '''
-                    sed -i "s|image: .*|image: ${REGISTRY}/${IMAGE_NAME}:${BUILD_VERSION}|g" k8s/deployment.yaml
-                    microk8s kubectl apply -f k8s/
-                    microk8s kubectl rollout status deployment/flask-app -n flask-app --timeout=300s
-                '''
+                kaniko.image.deploy()
+                kaniko.image.deploy("latest")
             }
         }
     }
@@ -688,6 +696,20 @@ pipeline {
     }
 }
 ```
+### 5.1.1 Container Image Build Strategy: Kaniko Jobs
+
+To securely build and push Docker images within the Kubernetes cluster, the pipeline leverages **Kaniko** jobs. Kaniko is a tool designed for building container images from a Dockerfile, inside a container or Kubernetes pod, without requiring privileged access or a Docker daemon. This approach enhances security and is fully compatible with Kubernetes-native CI/CD workflows.
+
+**Key Benefits:**
+- **Rootless builds:** No need for privileged containers.
+- **Kubernetes-native:** Runs as a Job in the cluster, integrating with Jenkins.
+- **Secure registry access:** Supports building and pushing to internal registries (e.g., MicroK8s, Harbor).
+
+**Pipeline Integration:**
+- The Jenkins pipeline dynamically creates a Kaniko Kubernetes Job to build the application image from the latest Git commit.
+- The job uses an initContainer to clone the repository and Kaniko to build and push the image to the internal registry.
+- This process is fully automated and monitored by the pipeline, with logs and status feedback.
+
 
 ### 5.2 Quality Gates & Policies
 
@@ -748,74 +770,8 @@ policy:
 | **Code Analysis** | SonarQube | SAST, Code Quality | Every commit |
 | **Dependency Scan** | Trivy | Vulnerable libraries | Every build |
 | **Container Scan** | Trivy | Image vulnerabilities | Every image push |
-| **Infrastructure** | Kubernetes CIS | K8s security benchmarks | Weekly |
-| **Runtime Security** | Falco | Behavioral anomalies | Continuous |
 
-### 6.2 Security Policies Implementation
-
-**Pod Security Standards:**
-
-```yaml
-# k8s/pod-security-policy.yaml
-apiVersion: policy/v1beta1
-kind: PodSecurityPolicy
-metadata:
-  name: flask-app-psp
-spec:
-  privileged: false
-  allowPrivilegeEscalation: false
-  requiredDropCapabilities:
-    - ALL
-  volumes:
-    - 'configMap'
-    - 'emptyDir'
-    - 'projected'
-    - 'secret'
-    - 'downwardAPI'
-    - 'persistentVolumeClaim'
-  runAsUser:
-    rule: 'MustRunAsNonRoot'
-  seLinux:
-    rule: 'RunAsAny'
-  fsGroup:
-    rule: 'RunAsAny'
-```
-
-**Network Security Policies:**
-
-```yaml
-# k8s/network-policy.yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: flask-app-netpol
-  namespace: flask-app
-spec:
-  podSelector:
-    matchLabels:
-      app: flask-app
-  policyTypes:
-  - Ingress
-  - Egress
-  ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          name: ingress-nginx
-    ports:
-    - protocol: TCP
-      port: 5000
-  egress:
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          name: monitoring
-    ports:
-    - protocol: TCP
-      port: 3100  # Loki
-```
-
-### 6.3 Secrets Management
+### 6.2 Secrets Management
 
 **Kubernetes Secrets Implementation:**
 
@@ -832,54 +788,6 @@ stringData:
   DATABASE_URL: "postgresql://user:password@postgres:5432/dbname"
   API_TOKEN: "your-api-token-here"
   SONAR_TOKEN: "sonarqube-authentication-token"
-```
-
-**Secret Rotation Strategy:**
-
-```bash
-# Automated secret rotation script
-#!/bin/bash
-NAMESPACE="flask-app"
-SECRET_NAME="flask-app-secrets"
-
-# Generate new secret key
-NEW_SECRET_KEY=$(openssl rand -base64 32)
-
-# Update secret
-kubectl patch secret $SECRET_NAME -n $NAMESPACE \
-  --type='json' \
-  -p='[{"op": "replace", "path": "/data/SECRET_KEY", "value": "'$(echo -n $NEW_SECRET_KEY | base64)'"}]'
-
-# Rolling restart to pick up new secret
-kubectl rollout restart deployment/flask-app -n $NAMESPACE
-```
-
-### 6.4 Security Monitoring & Alerting
-
-**Security Event Detection:**
-
-```yaml
-# monitoring/security-rules.yaml
-groups:
-- name: security.rules
-  rules:
-  - alert: HighFailedLoginRate
-    expr: rate(flask_requests_total{status="401"}[5m]) > 0.1
-    for: 2m
-    labels:
-      severity: warning
-    annotations:
-      summary: "High failed login rate detected"
-      description: "{{ $value }} failed logins per second"
-
-  - alert: SuspiciousUserAgent
-    expr: increase(flask_requests_total{user_agent=~".*bot.*|.*scanner.*"}[5m]) > 10
-    for: 1m
-    labels:
-      severity: critical
-    annotations:
-      summary: "Suspicious user agent detected"
-      description: "Potential bot or scanning activity"
 ```
 
 ---
@@ -955,9 +863,9 @@ graph TB
 | Event Type | Source | Description | Risk Level |
 |------------|--------|-------------|------------|
 | **Code Changes** | Git Webhooks | Commits, branches, sensitive files | MEDIUM |
-| **Build Failures** | Jenkins | Failed builds, security scan failures | MEDIUM |
 | **Deployment Events** | K8s Events | Pod crashes, image pulls | LOW |
 | **Configuration Changes** | Config Management | Secret updates, policy changes | HIGH |
+<!--| **Build Failures** | Jenkins | Failed builds | MEDIUM |-->
 
 ### 7.3 SIEM Dashboard Components
 
@@ -1007,3 +915,254 @@ rate({job=~".*"} [5m]) > on() group_left()
 ### 7.4 Webhook Receiver Integration
 
 **Git Event Processing:**
+
+The SIEM platform integrates a custom Flask-based webhook receiver to capture Git events (push, pull request, merge, etc.) from platforms like GitHub and GitLab. These events are ingested as structured JSON logs and forwarded to Loki for indexing and correlation. Example payload:
+
+```json
+{
+  "event_type": "push",
+  "repository": "sample-devsecops",
+  "author": "developer@company.com",
+  "commit_id": "abc123...",
+  "message": "Fix security vulnerability",
+  "timestamp": "2025-01-14T10:30:00Z",
+  "files_changed": ["app.py", "requirements.txt"]
+}
+```
+
+**Webhook Receiver Example (Flask):**
+```python
+from flask import Flask, request, jsonify
+import logging, json
+
+app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    event = request.get_json()
+    logging.info(json.dumps(event))  # Forward to Loki via stdout or HTTP
+    return jsonify({'status': 'received'}), 200
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=80)
+```
+
+The webhook receiver is deployed as a Kubernetes service and exposed via Ingress for external Git platforms to send events securely. All received events are visualized in the SIEM dashboard and can trigger alerting rules for abnormal activity.
+
+---
+
+## 8. Monitoring & Observability
+
+The platform provides end-to-end observability using Grafana, Loki, and Alloy. All application, system, and security logs are centralized and visualized in real time. Key features include:
+
+- **Centralized Logging:** All logs from containers, system, and CI/CD pipeline are aggregated in Loki.
+- **Dashboards:** Grafana dashboards for application health, security events, infrastructure metrics, and CI/CD status.
+- **Alerting:** Configurable alerts for security incidents, system failures, and performance anomalies.
+- **Tracing & Metrics:** Prometheus metrics exposed by the Flask app and other components for latency, error rates, and resource usage.
+
+**Example: Flask Prometheus Metrics**
+```python
+from prometheus_client import Counter, Histogram, generate_latest
+from flask import Response
+
+REQUEST_COUNT = Counter('flask_requests_total', 'Total Flask requests', ['method', 'endpoint', 'status'])
+REQUEST_LATENCY = Histogram('flask_request_duration_seconds', 'Flask request latency', ['method', 'endpoint'])
+
+@app.route('/metrics')
+def metrics():
+    return Response(generate_latest(), mimetype='text/plain')
+```
+
+**Example: Loki Log Query (LogQL)**
+```logql
+{job="flask-app"} |= "ERROR" | json | line_format "{{.timestamp}} [{{.level}}] {{.message}}"
+```
+
+Dashboards are located in `monitoring/grafana/dashboards/` and can be imported into Grafana for visualization.
+
+---
+
+## 9. Deployment Strategies
+
+The platform supports multiple deployment modes:
+
+- **Production Deployment:** Full stack deployment using Ansible (`ansible/playbooks/main.yml`) and the interactive `setup.sh` script. Suitable for cloud or on-prem environments.
+- **Development Mode:** Lightweight Docker Compose setup for local development and testing (`ansible/playbooks/development.yml`).
+- **Incremental/Component Deployment:** Deploy or update individual components (e.g., SIEM, monitoring, app) using dedicated playbooks.
+- **Cloud Integration:** Supports Azure LoadBalancer and Ingress for external access. See `AZURE_EXTERNAL_ACCESS.md` for details.
+
+**Example: Ansible Playbook Command**
+```bash
+ansible-playbook ansible/playbooks/main.yml --ask-become-pass
+```
+
+**Example: Docker Compose for Local Dev**
+```yaml
+version: '3.8'
+services:
+  flask-app:
+    build: ./app
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+```
+
+Deployment is automated and idempotent, ensuring consistent environments across runs.
+
+---
+
+## 10. Configuration Management
+
+Configuration is managed via Ansible variables (`ansible/vars/main.yml`) and Jinja2 templates. Key configuration aspects:
+
+- **Environment Variables:** All sensitive data (secrets, tokens) are managed via Kubernetes Secrets (`k8s/secret.yaml`).
+- **Resource Limits:** CPU/memory limits are set for all workloads to ensure stability.
+- **Custom Overrides:** Environment-specific overrides can be provided via custom variable files.
+- **Access Control:** RBAC and network policies are enabled by default for security.
+
+**Example: Kubernetes Secret**
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: flask-app-secrets
+  namespace: flask-app
+type: Opaque
+stringData:
+  SECRET_KEY: "your-super-secret-key-here"
+  SONAR_TOKEN: "sonarqube-authentication-token"
+```
+
+**Example: Ansible Variable Override**
+```yaml
+# vars/custom.yml
+flask_app_image: "localhost:32000/flask-k8s-app:latest"
+jenkins_image: "localhost:32000/jenkins-devsecops:latest"
+```
+
+All configuration changes are version-controlled and can be audited via Git history.
+
+---
+
+## 11. Performance & Scaling
+
+The platform is designed for scalability and high availability:
+
+- **Horizontal Scaling:** Kubernetes HPA automatically scales application pods based on CPU/memory usage.
+- **Resource Requests/Limits:** Ensures fair resource allocation and prevents noisy neighbor issues.
+- **Stateless Design:** All services are stateless where possible; persistent data is stored in PostgreSQL.
+- **CI/CD Optimization:** Jenkins pipelines use Kaniko for rootless, scalable image builds.
+- **Monitoring Overhead:** Observability stack is tuned for minimal performance impact.
+
+**Example: Horizontal Pod Autoscaler**
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: flask-app-hpa
+  namespace: flask-app
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: flask-app
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+```
+
+**Example: Kaniko Job for Secure Image Build**
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kaniko-build
+spec:
+  template:
+    spec:
+      containers:
+      - name: kaniko
+        image: gcr.io/kaniko-project/executor:latest
+        args:
+          - "--dockerfile=/workspace/Dockerfile"
+          - "--context=git://github.com/Jev1337/Sample-DevSecOps.git"
+          - "--destination=localhost:32000/flask-k8s-app:latest"
+        volumeMounts:
+          - name: docker-config
+            mountPath: /kaniko/.docker/
+      restartPolicy: Never
+      volumes:
+        - name: docker-config
+          configMap:
+            name: docker-config
+```
+
+Performance can be tuned via Helm values, Ansible variables, and Kubernetes resource definitions.
+
+---
+
+## 12. Troubleshooting Guide
+
+Common troubleshooting steps:
+
+- **Check Pod Status:**
+  ```bash
+  kubectl get pods -A
+  kubectl describe pod <pod-name> -n <namespace>
+  kubectl logs <pod-name> -n <namespace>
+  ```
+- **Service Access Issues:**
+  - Verify Ingress and LoadBalancer configuration
+  - Check `/etc/hosts` for local DNS resolution
+- **No Data in Dashboards:**
+  - Check Alloy and Loki pod logs
+  - Ensure log sources are correctly configured in `helm/alloy/values.yaml`
+- **CI/CD Failures:**
+  - Review Jenkins build logs and SonarQube/Trivy reports
+- **Security Alerts Not Received:**
+  - Test notification channels in Grafana
+  - Check alerting rules and thresholds
+
+**Example: Debugging Alloy Log Collection**
+```bash
+kubectl logs -n monitoring deployment/alloy -f
+```
+
+**Example: Test Webhook Receiver**
+```bash
+curl -X POST http://webhook.YOUR_IP.nip.io/webhook \
+  -H "Content-Type: application/json" \
+  -d '{"event_type": "push", "repository": "sample-devsecops"}'
+```
+
+For more detailed troubleshooting, see the SIEM and Ansible documentation, or consult the logs in `/tmp/ansible.log` and the Kubernetes dashboard.
+
+---
+
+## 📚 Additional Resources
+
+- [Grafana Loki Documentation](https://grafana.com/docs/loki/)
+- [Grafana Alloy Documentation](https://grafana.com/docs/alloy/)
+- [Kubernetes Documentation](https://kubernetes.io/docs/)
+- [Ansible Documentation](https://docs.ansible.com/)
+- [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)
+- [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework)
+- [CIS Controls](https://www.cisecurity.org/controls/)
+
+---
+
+<div align="center">
+
+**🚀 Project Documentation last updated: July 16, 2025**
+
+[🐛 Report an Issue](https://github.com/Jev1337/Sample-DevSecOps/issues) • [💡 Suggestions](https://github.com/Jev1337/Sample-DevSecOps/issues) • [📖 Main Documentation](README.md)
+
+</div>

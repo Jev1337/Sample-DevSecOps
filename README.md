@@ -16,8 +16,8 @@ Une solution complète de déploiement sécurisé d'applications Flask sur Kuber
 - [⚡ Installation Rapide](#-installation-rapide)
 - [🧩 Composants](#-composants)
 - [🔒 Sécurité](#-sécurité)
-- [�️ SIEM](#️-siem)
-- [�📊 Monitoring](#-monitoring)
+- [️🛡️ SIEM](#️-siem)
+- [📊 Monitoring](#-monitoring)
 - [🤖 Automation avec Ansible](#-automation-avec-ansible)
 - [☁️ Infrastructure Terraform (Azure)](#️-infrastructure-terraform-azure)
 - [🛠️ Développement](#️-développement)
@@ -94,7 +94,7 @@ graph TB
     end
 ```
 
-### � Stack Technologique
+### 🛠️ Stack Technologique
 
 | Couche | Technologie | Version | Rôle |
 |--------|-------------|---------|------|
@@ -288,8 +288,7 @@ GET  /logs                # Interface logs temps réel
 
 - 📈 **Application Metrics** - Performance temps réel
 - 🔒 **Security Dashboard** - Événements sécurité
-- �️ **SIEM Dashboard** - Surveillance sécurité avancée
-- �📋 **Infrastructure** - État cluster K8s
+- 🛡️ **SIEM Dashboard** - Surveillance sécurité avancée
 - 🚨 **Alerts** - Notifications automatiques
 
 ### 🛡️ SIEM (Security Information and Event Management)
@@ -371,7 +370,7 @@ Métriques surveillées :
 - 🔍 Patterns d'attaque détectés
 - 📈 Anomalies trafic réseau
 
-## �️ SIEM
+## 🛡️ SIEM
 
 ### 🎯 Security Information and Event Management
 
@@ -414,10 +413,7 @@ Le système SIEM intégré offre une surveillance complète des événements de 
 **Setup Automatique :**
 
 ```bash
-# Utiliser le script de configuration
-./configure-webhook.sh
-
-# Ou configurer manuellement :
+# Configurer manuellement :
 # URL: http://webhook.YOUR_IP.nip.io/webhook
 # Content-Type: application/json
 # Events: Push events (ou tous pour surveillance complète)
@@ -448,7 +444,7 @@ curl -X POST http://webhook.YOUR_IP.nip.io/webhook \
 - **Changements système** : Installations non autorisées
 - **Activité anormale** : Patterns d'accès suspects
 
-## �📊 Monitoring
+## 📊 Monitoring
 
 ### 🎯 Métriques Application
 
@@ -500,7 +496,7 @@ flask_errors_total{error_type="validation"}
     summary: "Taux d'erreur élevé détecté"
 ```
 
-## � Automation avec Ansible
+## 🤖 Automation avec Ansible
 
 ### 📋 Playbooks Disponibles
 
@@ -621,7 +617,7 @@ http://VOTRE_IP:3000  # Grafana
 http://VOTRE_IP:5000  # Flask App
 ```
 
-## �🛠️ Développement
+## 🛠️ Développement
 
 ### 🧪 Mode Développement Local
 
@@ -738,14 +734,14 @@ az network nsg rule create \
   --access allow
 ```
 
-### � Monitoring Cloud
+### ☁️ Monitoring Cloud
 
 - 📈 **Azure Monitor** - Métriques VM
 - 🔍 **Application Insights** - APM
 - 📋 **Log Analytics** - Centralisation logs
 - 🚨 **Azure Alerts** - Notifications
 
-## �🔧 Troubleshooting
+## 🔧 Troubleshooting
 
 ### ❗ Problèmes Courants
 
