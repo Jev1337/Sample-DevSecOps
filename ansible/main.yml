@@ -6,12 +6,21 @@
   vars_files:
     - vars/main.yml
   roles:
-    - prerequisites
-    - docker
-    - microk8s
-    - jenkins_image
-    - core_services
-    - monitoring_stack
-    - flask_app
-    - azure_access
-    - access_info
+    - role: prerequisites
+      tags: [prerequisites]
+    - role: docker
+      tags: [docker]
+    - role: microk8s
+      tags: [microk8s]
+    - role: jenkins_image
+      tags: [jenkins_image, core_services]
+    - role: core_services
+      tags: [core_services]
+    - role: monitoring_stack
+      tags: [monitoring_stack, monitoring]
+    - role: flask_app
+      tags: [flask_app, app]
+    - role: azure_access
+      tags: [azure_access, azure]
+    - role: access_info
+      tags: [access_info]

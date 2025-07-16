@@ -152,21 +152,65 @@ deploy_component() {
             run_ansible_playbook "main.yml" "Docker Installation" "docker"
             ;;
         "microk8s")
+            # MicroK8s requires Docker to be installed first
+            if ! check_command docker; then
+                log "⚠️  Docker not found. Installing Docker first..." "$YELLOW"
+                deploy_component "docker" || return 1
+            fi
             run_ansible_playbook "main.yml" "MicroK8s Setup" "microk8s"
             ;;
         "core")
-            run_ansible_playbook "main.yml" "Core Services (Jenkins, SonarQube)" "core_services"
+            # Core services require Docker, MicroK8s, and Jenkins image
+            if ! check_command docker; then
+                log "⚠️  Docker not found. Installing Docker first..." "$YELLOW"
+                deploy_component "docker" || return 1
+            fi
+            if ! check_command microk8s; then
+                log "⚠️  MicroK8s not found. Installing MicroK8s first..." "$YELLOW"
+                deploy_component "microk8s" || return 1
+            fi
+            log "🔨 Building Jenkins image and deploying core services..." "$BLUE"
+            run_ansible_playbook "main.yml" "Core Services (Jenkins, SonarQube)" "jenkins_image,core_services"
             ;;
         "monitoring")
+            # Monitoring requires MicroK8s
+            if ! check_command microk8s; then
+                log "⚠️  MicroK8s not found. Installing MicroK8s first..." "$YELLOW"
+                deploy_component "microk8s" || return 1
+            fi
             run_ansible_playbook "main.yml" "Monitoring Stack" "monitoring_stack"
             ;;
         "app")
+            # Flask app requires Docker and MicroK8s
+            if ! check_command docker; then
+                log "⚠️  Docker not found. Installing Docker first..." "$YELLOW"
+                deploy_component "docker" || return 1
+            fi
+            if ! check_command microk8s; then
+                log "⚠️  MicroK8s not found. Installing MicroK8s first..." "$YELLOW"
+                deploy_component "microk8s" || return 1
+            fi
             run_ansible_playbook "main.yml" "Flask Application" "flask_app"
             ;;
         "siem")
+            # SIEM requires monitoring stack to be deployed first
+            if ! check_command microk8s; then
+                log "⚠️  MicroK8s not found. Installing MicroK8s first..." "$YELLOW"
+                deploy_component "microk8s" || return 1
+            fi
+            # Check if monitoring namespace exists
+            if ! microk8s kubectl get ns monitoring &>/dev/null; then
+                log "⚠️  Monitoring stack not found. Deploying monitoring first..." "$YELLOW"
+                deploy_component "monitoring" || return 1
+            fi
             run_ansible_playbook "siem.yml" "SIEM Security Monitoring"
             ;;
         "azure")
+            # Azure access requires services to be deployed first
+            if ! check_command microk8s; then
+                log "⚠️  MicroK8s not found. Installing MicroK8s first..." "$YELLOW"
+                deploy_component "microk8s" || return 1
+            fi
             run_ansible_playbook "main.yml" "Azure External Access" "azure_access"
             ;;
         *)
@@ -231,14 +275,14 @@ run_cleanup() {
                 ;;
             5)
                 log "Stopping Docker Compose services..." "$YELLOW"
-                docker compose down -v
+                docker compose down -v || true
                 log "✅ Development environment cleanup complete." "$GREEN"
                 ;;
             6)
                 run_ansible_playbook "cleanup.yml" "Azure External Access Cleanup" "azure_access"
                 ;;
             7)
-                run_ansible_playbook "cleanup.yml" "Complete Environment Cleanup"
+                run_ansible_playbook "cleanup.yml" "Complete Environment Cleanup" "all"
                 docker compose down -v || true
                 log "✅ Full cleanup completed!" "$GREEN"
                 ;;
