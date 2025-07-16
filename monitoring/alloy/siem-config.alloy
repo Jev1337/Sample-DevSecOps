@@ -274,62 +274,6 @@ loki.process "siem_logs" {
 			source = "audit_message"
 		}
 		
-		// Set default values for all fields to prevent undefined variables
-		stage.template {
-			source = "uid"
-			template = "{{.uid | default \"0\"}}"
-		}
-		
-		stage.template {
-			source = "pid"
-			template = "{{.pid | default \"0\"}}"
-		}
-		
-		stage.template {
-			source = "command"
-			template = "{{.command | default \"unknown\"}}"
-		}
-		
-		stage.template {
-			source = "executable"
-			template = "{{.executable | default \"unknown\"}}"
-		}
-		
-		stage.template {
-			source = "file_name"
-			template = "{{.file_name | default \"none\"}}"
-		}
-		
-		stage.template {
-			source = "working_dir"
-			template = "{{.working_dir | default \"unknown\"}}"
-		}
-		
-		stage.template {
-			source = "audit_key"
-			template = "{{.audit_key | default \"none\"}}"
-		}
-		
-		stage.template {
-			source = "syscall_num"
-			template = "{{.syscall_num | default \"0\"}}"
-		}
-		
-		stage.template {
-			source = "success"
-			template = "{{.success | default \"unknown\"}}"
-		}
-		
-		stage.template {
-			source = "session"
-			template = "{{.session | default \"0\"}}"
-		}
-		
-		stage.template {
-			source = "tty"
-			template = "{{.tty | default \"none\"}}"
-		}
-		
 		// Create human-readable syscall names
 		stage.template {
 			source = "syscall_name"
@@ -339,7 +283,7 @@ loki.process "siem_logs" {
 		// Create user-friendly audit event descriptions
 		stage.template {
 			source = "event_description"
-			template = "{{if eq .audit_type \"SYSCALL\"}}System call: {{.syscall_name}}{{if ne .command \"unknown\"}} by {{.command}}{{end}}{{if ne .file_name \"none\"}} on file {{.file_name}}{{end}}{{else if eq .audit_type \"PATH\"}}File access: {{.file_name}}{{else if eq .audit_type \"CWD\"}}Working directory: {{.working_dir}}{{else if eq .audit_type \"EXECVE\"}}Command execution{{else if eq .audit_type \"USER_AUTH\"}}User authentication{{else if eq .audit_type \"USER_ACCT\"}}User account access{{else if eq .audit_type \"USER_CMD\"}}User command{{else if eq .audit_type \"CRED_ACQ\"}}Credential acquisition{{else if eq .audit_type \"CRED_DISP\"}}Credential disposal{{else if eq .audit_type \"USER_START\"}}User session start{{else if eq .audit_type \"USER_END\"}}User session end{{else}}{{.audit_type}} event{{end}}"
+			template = "{{if eq .audit_type \"SYSCALL\"}}System call: {{.syscall_name}}{{if .command}} by {{.command}}{{end}}{{if .file_name}} on file {{.file_name}}{{end}}{{else if eq .audit_type \"PATH\"}}File access: {{.file_name}}{{else if eq .audit_type \"CWD\"}}Working directory: {{.working_dir}}{{else if eq .audit_type \"EXECVE\"}}Command execution{{else if eq .audit_type \"USER_AUTH\"}}User authentication{{else if eq .audit_type \"USER_ACCT\"}}User account access{{else if eq .audit_type \"USER_CMD\"}}User command{{else if eq .audit_type \"CRED_ACQ\"}}Credential acquisition{{else if eq .audit_type \"CRED_DISP\"}}Credential disposal{{else if eq .audit_type \"USER_START\"}}User session start{{else if eq .audit_type \"USER_END\"}}User session end{{else}}{{.audit_type}} event{{end}}"
 		}
 		
 		// Create security level based on audit type and key
@@ -357,7 +301,7 @@ loki.process "siem_logs" {
 		// Format comprehensive audit message
 		stage.template {
 			source = "formatted_message"
-			template = "{{.event_description}}{{if ne .operation_status \"UNKNOWN\"}} - Status: {{.operation_status}}{{end}}{{if ne .executable \"unknown\"}} | Executable: {{.executable}}{{end}}{{if ne .working_dir \"unknown\"}} | Directory: {{.working_dir}}{{end}}{{if ne .audit_key \"none\"}} | Rule: {{.audit_key}}{{end}}{{if ne .uid \"0\"}} | UID: {{.uid}}{{end}}{{if ne .pid \"0\"}} | PID: {{.pid}}{{end}}"
+			template = "{{.event_description}}{{if .operation_status}} - Status: {{.operation_status}}{{end}}{{if .executable}} | Executable: {{.executable}}{{end}}{{if .working_dir}} | Directory: {{.working_dir}}{{end}}{{if .audit_key}} | Rule: {{.audit_key}}{{end}}{{if .uid}} | UID: {{.uid}}{{end}}{{if .pid}} | PID: {{.pid}}{{end}}"
 		}
 		
 		// Set security level based on audit key and type
@@ -393,10 +337,10 @@ loki.process "siem_logs" {
 			}
 		}
 		
-		// Format final log line with JSON structure - properly escaped
+		// Format final log line with JSON structure
 		stage.template {
 			source = "__line__"
-			template = "{\"timestamp\":\"{{.__timestamp__}}\",\"audit_type\":\"{{.audit_type | default \"unknown\"}}\",\"event_description\":\"{{.event_description | default \"unknown\" | replace \"\\\"\" \"\\\\\\\"\" | replace \"\\n\" \" \" | replace \"\\r\" \" \"}}\",\"status\":\"{{.operation_status | default \"UNKNOWN\"}}\",\"user_id\":\"{{.uid | default \"0\"}}\",\"process_id\":\"{{.pid | default \"0\"}}\",\"command\":\"{{.command | default \"unknown\" | replace \"\\\"\" \"\\\\\\\"\" | replace \"\\n\" \" \" | replace \"\\r\" \" \"}}\",\"executable\":\"{{.executable | default \"unknown\" | replace \"\\\"\" \"\\\\\\\"\" | replace \"\\n\" \" \" | replace \"\\r\" \" \"}}\",\"file_accessed\":\"{{.file_name | default \"none\" | replace \"\\\"\" \"\\\\\\\"\" | replace \"\\n\" \" \" | replace \"\\r\" \" \"}}\",\"working_directory\":\"{{.working_dir | default \"unknown\" | replace \"\\\"\" \"\\\\\\\"\" | replace \"\\n\" \" \" | replace \"\\r\" \" \"}}\",\"audit_key\":\"{{.audit_key | default \"none\"}}\",\"syscall\":\"{{.syscall_name | default \"unknown\"}}\",\"security_level\":\"{{.security_level | default \"low\"}}\",\"session\":\"{{.session | default \"0\"}}\",\"tty\":\"{{.tty | default \"none\"}}\",\"raw_message\":\"{{.formatted_message | default \"no details\" | replace \"\\\"\" \"\\\\\\\"\" | replace \"\\n\" \" \" | replace \"\\r\" \" \"}}\"}"
+			template = "{\"timestamp\":\"{{.__timestamp__}}\",\"audit_type\":\"{{.audit_type}}\",\"event_description\":\"{{.event_description}}\",\"status\":\"{{.operation_status}}\",\"user_id\":\"{{.uid}}\",\"process_id\":\"{{.pid}}\",\"command\":\"{{.command}}\",\"executable\":\"{{.executable}}\",\"file_accessed\":\"{{.file_name}}\",\"working_directory\":\"{{.working_dir}}\",\"audit_key\":\"{{.audit_key}}\",\"syscall\":\"{{.syscall_name}}\",\"security_level\":\"{{.security_level}}\",\"session\":\"{{.session}}\",\"tty\":\"{{.tty}}\",\"raw_message\":\"{{.formatted_message}}\"}"
 		}
 		
 		stage.labels {
