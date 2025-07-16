@@ -158,7 +158,7 @@ deploy_component() {
             run_ansible_playbook "main.yml" "Core Services (Jenkins, SonarQube)" "core_services"
             ;;
         "monitoring")
-            run_ansible_playbook "main.yml" "Monitoring Stack" "monitoring"
+            run_ansible_playbook "main.yml" "Monitoring Stack" "monitoring_stack"
             ;;
         "app")
             run_ansible_playbook "main.yml" "Flask Application" "flask_app"
