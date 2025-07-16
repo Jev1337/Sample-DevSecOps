@@ -21,5 +21,17 @@ datasources:
       version: 1
       editable: false
       orgId: 1
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    folder: /tmp/dashboards
+    searchNamespace: ALL
+    provider:
+      allowUiUpdates: true
+  datasources:
+    enabled: true
+    label: grafana_datasource
+    searchNamespace: ALL
 initChownData:
   enabled: false

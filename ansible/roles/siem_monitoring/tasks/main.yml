@@ -30,7 +30,9 @@
   shell: |
     microk8s kubectl create configmap siem-dashboard-config \
       --from-file=/tmp/grafana-dashboards/siem-real-security.json \
-      -n monitoring --dry-run=client -o yaml | microk8s kubectl apply -f -
+      -n monitoring --dry-run=client -o yaml | \
+    microk8s kubectl label --local -f - grafana_dashboard=1 -o yaml | \
+    microk8s kubectl apply -f -
   ignore_errors: yes
 
 - name: Update Alloy configuration for SIEM log collection
