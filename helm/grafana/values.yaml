@@ -29,6 +29,7 @@ sidecar:
     searchNamespace: ALL
     provider:
       allowUiUpdates: true
+      disableDelete: false
   datasources:
     enabled: true
     label: grafana_datasource

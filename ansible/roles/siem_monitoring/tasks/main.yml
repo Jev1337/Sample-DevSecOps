@@ -29,12 +29,12 @@
 - name: Copy Flask Security dashboard
   copy:
     src: "{{ inventory_dir }}/../monitoring/grafana/dashboards/security.json"
-    dest: /tmp/grafana-dashboards/siem-real-security.json
+    dest: /tmp/grafana-dashboards/security.json
 
 - name: Copy Flask General Logs dashboard
   copy:
     src: "{{ inventory_dir }}/../monitoring/grafana/dashboards/app-logs.json"
-    dest: /tmp/grafana-dashboards/siem-real-security.json
+    dest: /tmp/grafana-dashboards/app-logs.json
 
 - name: Configure SIEM dashboard via kubectl ConfigMap
   shell: |
