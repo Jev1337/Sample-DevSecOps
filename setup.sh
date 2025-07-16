@@ -92,7 +92,7 @@ run_ansible_playbook() {
     
     cd "$SCRIPT_DIR/ansible"
     
-    local cmd="ansible-playbook -i inventory $playbook"
+    local cmd="ansible-playbook -i inventory $playbook --ask-become"
     if [ -n "$tags" ]; then
         cmd="$cmd --tags=$tags"
     fi
