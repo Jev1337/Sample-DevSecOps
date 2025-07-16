@@ -192,7 +192,7 @@ loki.process "siem_logs" {
 		}
 	}
 	
-	// Process system audit logs with enhanced parsing and decoding
+	// Process system audit logs
 	stage.match {
 		selector = "{job=\"system-audit\"}"
 		pipeline_name = "system_audit"
@@ -202,145 +202,10 @@ loki.process "siem_logs" {
 			expression = "^type=(?P<audit_type>\\S+) msg=audit\\((?P<audit_timestamp>[^)]+)\\): (?P<audit_message>.*)"
 		}
 		
-		// Extract comprehensive audit information
+		// Extract user information from audit messages
 		stage.regex {
-			expression = ".*uid=(?P<uid>\\d+).*gid=(?P<gid>\\d+).*euid=(?P<euid>\\d+).*"
+			expression = ".*UID=\"(?P<uid>[^\"]+)\".*AUID=\"(?P<auid>[^\"]+)\""
 			source = "audit_message"
-		}
-		
-		stage.regex {
-			expression = ".*auid=(?P<auid>\\d+).*"
-			source = "audit_message"
-		}
-		
-		stage.regex {
-			expression = ".*pid=(?P<pid>\\d+).*ppid=(?P<ppid>\\d+).*"
-			source = "audit_message"
-		}
-		
-		stage.regex {
-			expression = ".*comm=\"(?P<command>[^\"]+)\".*"
-			source = "audit_message"
-		}
-		
-		stage.regex {
-			expression = ".*exe=\"(?P<executable>[^\"]+)\".*"
-			source = "audit_message"
-		}
-		
-		stage.regex {
-			expression = ".*key=\"(?P<audit_key>[^\"]+)\".*"
-			source = "audit_message"
-		}
-		
-		stage.regex {
-			expression = ".*syscall=(?P<syscall_num>\\d+).*"
-			source = "audit_message"
-		}
-		
-		stage.regex {
-			expression = ".*success=(?P<success>\\w+).*"
-			source = "audit_message"
-		}
-		
-		stage.regex {
-			expression = ".*exit=(?P<exit_code>-?\\d+).*"
-			source = "audit_message"
-		}
-		
-		stage.regex {
-			expression = ".*tty=(?P<tty>\\S+).*"
-			source = "audit_message"
-		}
-		
-		stage.regex {
-			expression = ".*ses=(?P<session>\\d+).*"
-			source = "audit_message"
-		}
-		
-		stage.regex {
-			expression = ".*cwd=\"(?P<working_dir>[^\"]+)\".*"
-			source = "audit_message"
-		}
-		
-		stage.regex {
-			expression = ".*name=\"(?P<file_name>[^\"]+)\".*"
-			source = "audit_message"
-		}
-		
-		// Decode hex-encoded proctitle (process title/command line)
-		stage.regex {
-			expression = ".*proctitle=(?P<proctitle_hex>[0-9A-Fa-f]+).*"
-			source = "audit_message"
-		}
-		
-		// Create human-readable syscall names
-		stage.template {
-			source = "syscall_name"
-			template = "{{if eq .syscall_num \"2\"}}open{{else if eq .syscall_num \"3\"}}close{{else if eq .syscall_num \"4\"}}stat{{else if eq .syscall_num \"5\"}}fstat{{else if eq .syscall_num \"6\"}}lstat{{else if eq .syscall_num \"21\"}}access{{else if eq .syscall_num \"42\"}}connect{{else if eq .syscall_num \"43\"}}accept{{else if eq .syscall_num \"49\"}}bind{{else if eq .syscall_num \"50\"}}listen{{else if eq .syscall_num \"59\"}}execve{{else if eq .syscall_num \"87\"}}unlink{{else if eq .syscall_num \"165\"}}mount{{else if eq .syscall_num \"166\"}}umount{{else if eq .syscall_num \"257\"}}openat{{else if eq .syscall_num \"262\"}}newfstatat{{else}}syscall_{{.syscall_num}}{{end}}"
-		}
-		
-		// Create user-friendly audit event descriptions
-		stage.template {
-			source = "event_description"
-			template = "{{if eq .audit_type \"SYSCALL\"}}System call: {{.syscall_name}}{{if .command}} by {{.command}}{{end}}{{if .file_name}} on file {{.file_name}}{{end}}{{else if eq .audit_type \"PATH\"}}File access: {{.file_name}}{{else if eq .audit_type \"CWD\"}}Working directory: {{.working_dir}}{{else if eq .audit_type \"EXECVE\"}}Command execution{{else if eq .audit_type \"USER_AUTH\"}}User authentication{{else if eq .audit_type \"USER_ACCT\"}}User account access{{else if eq .audit_type \"USER_CMD\"}}User command{{else if eq .audit_type \"CRED_ACQ\"}}Credential acquisition{{else if eq .audit_type \"CRED_DISP\"}}Credential disposal{{else if eq .audit_type \"USER_START\"}}User session start{{else if eq .audit_type \"USER_END\"}}User session end{{else}}{{.audit_type}} event{{end}}"
-		}
-		
-		// Create security level based on audit type and key
-		stage.template {
-			source = "security_level"
-			template = "{{if or (eq .audit_key \"user_modification\") (eq .audit_key \"privilege_escalation\") (eq .audit_key \"ssh_keys\")}}high{{else if or (eq .audit_key \"network_connect\") (eq .audit_key \"process_execution\") (eq .audit_key \"authentication\")}}medium{{else}}low{{end}}"
-		}
-		
-		// Create readable status
-		stage.template {
-			source = "operation_status"
-			template = "{{if eq .success \"yes\"}}SUCCESS{{else if eq .success \"no\"}}FAILED{{else}}UNKNOWN{{end}}"
-		}
-		
-		// Format comprehensive audit message
-		stage.template {
-			source = "formatted_message"
-			template = "{{.event_description}}{{if .operation_status}} - Status: {{.operation_status}}{{end}}{{if .executable}} | Executable: {{.executable}}{{end}}{{if .working_dir}} | Directory: {{.working_dir}}{{end}}{{if .audit_key}} | Rule: {{.audit_key}}{{end}}{{if .uid}} | UID: {{.uid}}{{end}}{{if .pid}} | PID: {{.pid}}{{end}}"
-		}
-		
-		// Set security level based on audit key and type
-		stage.match {
-			selector = "{job=\"system-audit\"} |~ \"(user_modification|privilege_escalation|ssh_keys)\""
-			stage.labels {
-				values = {
-					level = "warning",
-					security_level = "high",
-					event_type = "security_critical",
-				}
-			}
-		}
-		
-		stage.match {
-			selector = "{job=\"system-audit\"} |~ \"(network_connect|process_execution|authentication)\""
-			stage.labels {
-				values = {
-					level = "info",
-					security_level = "medium",
-					event_type = "security_monitoring",
-				}
-			}
-		}
-		
-		stage.match {
-			selector = "{job=\"system-audit\"} |~ \"success=no\""
-			stage.labels {
-				values = {
-					level = "warning",
-					event_type = "failed_operation",
-				}
-			}
-		}
-		
-		// Format final log line with JSON structure
-		stage.template {
-			source = "__line__"
-			template = "{\"timestamp\":\"{{.__timestamp__}}\",\"audit_type\":\"{{.audit_type}}\",\"event_description\":\"{{.event_description}}\",\"status\":\"{{.operation_status}}\",\"user_id\":\"{{.uid}}\",\"process_id\":\"{{.pid}}\",\"command\":\"{{.command}}\",\"executable\":\"{{.executable}}\",\"file_accessed\":\"{{.file_name}}\",\"working_directory\":\"{{.working_dir}}\",\"audit_key\":\"{{.audit_key}}\",\"syscall\":\"{{.syscall_name}}\",\"security_level\":\"{{.security_level}}\",\"session\":\"{{.session}}\",\"tty\":\"{{.tty}}\",\"raw_message\":\"{{.formatted_message}}\"}"
 		}
 		
 		stage.labels {

@@ -445,7 +445,7 @@
     },
     {
       "id": 10,
-      "title": "System Audit Events (Enhanced)",
+      "title": "All Command Executions (Audit Trail)",
       "type": "logs",
       "datasource": {
         "type": "loki",
@@ -453,7 +453,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-audit\"} | json | line_format \"{{.__timestamp__}} | {{.event_description}} | Status: {{.status}} | User: {{.user_id}} | Process: {{.command}} (PID: {{.process_id}}) | File: {{.file_accessed}} | Security Level: {{.security_level}}\"",
+          "expr": "{job=\"system-audit\"} | regexp \"type=(?P<audit_type>\\\\S+) msg=audit\\\\((?P<audit_timestamp>[^)]+)\\\\): (?P<audit_message>.*)\" | line_format \"{{.__timestamp__}} | {{.audit_type}}: {{.audit_message}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -480,7 +480,7 @@
     },
     {
       "id": 12,
-      "title": "High-Security Audit Events",
+      "title": "Failed SSH Authentication Events",
       "type": "logs",
       "datasource": {
         "type": "loki",
@@ -488,7 +488,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-audit\", security_level=\"high\"} | json | line_format \"{{.__timestamp__}} | 🔴 {{.event_description}} | Status: {{.status}} | User: {{.user_id}} | Command: {{.command}} | File: {{.file_accessed}} | Rule: {{.audit_key}}\"",
+          "expr": "{job=\"system-audit\"} |~ \"USER_ERR.*PAM:bad_ident\" | regexp \"hostname=(?P<source_ip>[0-9]+\\\\.[0-9]+\\\\.[0-9]+\\\\.[0-9]+) addr=(?P<addr>[0-9]+\\\\.[0-9]+\\\\.[0-9]+\\\\.[0-9]+)\" | line_format \"{{.__timestamp__}} | SSH Authentication Failed from IP: {{.source_ip}} ({{.addr}})\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -508,43 +508,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 24,
         "x": 0,
-        "y": 56
-      }
-    },
-    {
-      "id": 18,
-      "title": "Failed Operations & Security Violations",
-      "type": "logs",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "{job=\"system-audit\"} | json | select(.status == \"FAILED\") | line_format \"{{.__timestamp__}} | ⚠️ {{.event_description}} | User: {{.user_id}} | Process: {{.command}} (PID: {{.process_id}}) | File: {{.file_accessed}} | Directory: {{.working_directory}}\"",
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "exact",
-        "sortOrder": "Descending"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
         "y": 56
       }
     },
@@ -616,41 +581,6 @@
         "w": 24,
         "x": 0,
         "y": 72
-      }
-    },
-    {
-      "id": 19,
-      "title": "File Access & Modification Events",
-      "type": "logs",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "{job=\"system-audit\"} | json | select(.audit_key =~ \"(user_modification|ssh_config|network_config|cron_config|log_tampering)\") | line_format \"{{.__timestamp__}} | 📁 {{.event_description}} | File: {{.file_accessed}} | User: {{.user_id}} | Command: {{.command}} | Status: {{.status}} | Rule: {{.audit_key}}\"",
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "exact",
-        "sortOrder": "Descending"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 80
       }
     }
   ],
