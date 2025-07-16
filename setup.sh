@@ -87,16 +87,26 @@ run_ansible_playbook() {
     local playbook=$1
     local description=$2
     local tags=${3:-""}
-    
+    local become_flag="" # Variable to hold the --ask-become flag
+
     log "🎭 Running Ansible playbook: $description..." "$BLUE"
-    
+
     cd "$SCRIPT_DIR/ansible"
-    
-    local cmd="ansible-playbook -i inventory $playbook --ask-become"
+
+    # Check for passwordless sudo on the remote host(s)
+    log "INFO: Checking for passwordless sudo access..." "$YELLOW"
+    if ansible all -i inventory -m raw -a "sudo -n true" &>/dev/null; then
+        log "INFO: Passwordless sudo detected. Proceeding without --ask-become." "$CYAN"
+    else
+        log "INFO: Passwordless sudo not available or requires a password." "$CYAN"
+        become_flag="--ask-become"
+    fi
+
+    local cmd="ansible-playbook -i inventory $playbook $become_flag"
     if [ -n "$tags" ]; then
         cmd="$cmd --tags=$tags"
     fi
-    
+
     if $cmd; then
         log "✅ $description completed successfully." "$GREEN"
         cd "$SCRIPT_DIR"
