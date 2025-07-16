@@ -23,7 +23,7 @@
 
 - name: Copy SIEM dashboard
   copy:
-    src: "../../monitoring/grafana/dashboards/siem-real-security.json"
+    src: "{{ inventory_dir }}/../monitoring/grafana/dashboards/siem-real-security.json"
     dest: /tmp/grafana-dashboards/siem-real-security.json
 
 - name: Configure SIEM dashboard via kubectl ConfigMap
