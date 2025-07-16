@@ -28,8 +28,12 @@ sidecar:
     folder: /tmp/dashboards
     searchNamespace: ALL
     provider:
-      allowUiUpdates: true
+      name: sidecarProvider
+      orgid: 1
+      folder: ''
+      type: file
       disableDelete: false
+      allowUiUpdates: true
   datasources:
     enabled: true
     label: grafana_datasource
