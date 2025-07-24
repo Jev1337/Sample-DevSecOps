@@ -123,10 +123,15 @@ alloy:
           {__path__ = "/var/log/auth.log", job = "system-auth"},
           {__path__ = "/var/log/sudo.log", job = "system-auth"},
           {__path__ = "/var/log/ssh-failures.log", job = "system-auth"},
+          {__path__ = "/var/log/ssh-auth.log", job = "system-auth"},
           {__path__ = "/var/log/dpkg.log", job = "package-install"},
           {__path__ = "/var/log/apt/history.log", job = "package-install"},
+          {__path__ = "/var/log/package-changes.log", job = "package-install"},
           {__path__ = "/var/log/webhook.log", job = "webhook-receiver"},
           {__path__ = "/var/log/siem-monitor.log", job = "siem-monitor"},
+          {__path__ = "/var/log/fail2ban.log", job = "fail2ban"},
+          {__path__ = "/var/log/command-audit.log", job = "command-audit"},
+          {__path__ = "/var/log/session-audit.log", job = "session-audit"},
         ]
       }
 
@@ -150,11 +155,11 @@ alloy:
 
       // Process real system authentication logs
       loki.process "system_logs" {
-        // Process system-auth logs (auth.log, sudo.log, ssh-failures.log)
+        // Process system-auth logs (auth.log, sudo.log, ssh-failures.log, ssh-auth.log)
         stage.match {
           selector = "{job=\"system-auth\"}"
           
-          // SSH invalid user attempts
+          // SSH invalid user attempts - HIGH severity
           stage.match {
             selector = "{job=\"system-auth\"} |~ \"(?i)invalid user\""
             stage.regex {
@@ -164,11 +169,13 @@ alloy:
               values = {
                 event_type = "ssh_invalid_user",
                 level = "warning",
+                severity = "HIGH",
+                security_level = "high",
               }
             }
           }
           
-          // Failed password attempts  
+          // Failed password attempts - MEDIUM severity
           stage.match {
             selector = "{job=\"system-auth\"} |~ \"(?i)failed password\""
             stage.regex {
@@ -178,11 +185,29 @@ alloy:
               values = {
                 event_type = "auth_failure",
                 level = "warning",
+                severity = "MEDIUM",
+                security_level = "medium",
               }
             }
           }
           
-          // Successful logins
+          // Connection closed by authenticating user - MEDIUM severity
+          stage.match {
+            selector = "{job=\"system-auth\"} |~ \"(?i)connection closed by authenticating user\""
+            stage.regex {
+              expression = ".*Connection closed by authenticating user (?P<user>\\S+) (?P<source_ip>[0-9.]+)"
+            }
+            stage.labels {
+              values = {
+                event_type = "auth_connection_closed",
+                level = "warning",
+                severity = "MEDIUM",
+                security_level = "medium",
+              }
+            }
+          }
+          
+          // Successful logins - LOW severity
           stage.match {
             selector = "{job=\"system-auth\"} |~ \"(?i)session opened\""
             stage.regex {
@@ -192,11 +217,13 @@ alloy:
               values = {
                 event_type = "successful_login",
                 level = "info",
+                severity = "LOW",
+                security_level = "low",
               }
             }
           }
           
-          // Sudo usage from sudo.log
+          // Sudo usage from sudo.log - MEDIUM severity
           stage.match {
             selector = "{job=\"system-auth\"} |~ \"sudo:\""
             stage.regex {
@@ -206,7 +233,146 @@ alloy:
               values = {
                 event_type = "sudo_usage",
                 level = "info",
+                severity = "MEDIUM",
+                security_level = "medium",
               }
+            }
+          }
+          
+          // Root login attempts - CRITICAL severity
+          stage.match {
+            selector = "{job=\"system-auth\"} |~ \"(?i)root.*login\""
+            stage.labels {
+              values = {
+                event_type = "root_login_attempt",
+                level = "error",
+                severity = "CRITICAL",
+                security_level = "critical",
+              }
+            }
+          }
+        }
+        
+        // Process fail2ban logs - HIGH severity
+        stage.match {
+          selector = "{job=\"fail2ban\"}"
+          
+          // IP bans
+          stage.match {
+            selector = "{job=\"fail2ban\"} |~ \"(?i)ban\""
+            stage.regex {
+              expression = ".*Ban (?P<banned_ip>[0-9.]+)"
+            }
+            stage.labels {
+              values = {
+                event_type = "ip_banned",
+                level = "warning",
+                severity = "HIGH",
+                security_level = "high",
+              }
+            }
+          }
+          
+          // IP unbans
+          stage.match {
+            selector = "{job=\"fail2ban\"} |~ \"(?i)unban\""
+            stage.regex {
+              expression = ".*Unban (?P<unbanned_ip>[0-9.]+)"
+            }
+            stage.labels {
+              values = {
+                event_type = "ip_unbanned",
+                level = "info",
+                severity = "LOW",
+                security_level = "low",
+              }
+            }
+          }
+        }
+        
+        // Process SIEM monitor logs with JSON parsing
+        stage.match {
+          selector = "{job=\"siem-monitor\"}"
+          stage.json {
+            expressions = {
+              timestamp = "timestamp",
+              severity = "severity",
+              event_type = "event_type",
+              message = "message",
+              source = "source",
+            }
+          }
+          stage.labels {
+            values = {
+              severity = "",
+              security_level = "",
+            }
+          }
+          
+          // Map severity to security_level
+          stage.match {
+            selector = "{severity=\"CRITICAL\"}"
+            stage.labels {
+              values = {
+                security_level = "critical",
+                level = "error",
+              }
+            }
+          }
+          stage.match {
+            selector = "{severity=\"HIGH\"}"
+            stage.labels {
+              values = {
+                security_level = "high",
+                level = "warning",
+              }
+            }
+          }
+          stage.match {
+            selector = "{severity=\"MEDIUM\"}"
+            stage.labels {
+              values = {
+                security_level = "medium",
+                level = "warning",
+              }
+            }
+          }
+          stage.match {
+            selector = "{severity=\"LOW\"}"
+            stage.labels {
+              values = {
+                security_level = "low",
+                level = "info",
+              }
+            }
+          }
+        }
+        
+        // Process command audit logs - MEDIUM severity
+        stage.match {
+          selector = "{job=\"command-audit\"}"
+          stage.regex {
+            expression = ".*COMMAND=(?P<command>.*)"
+          }
+          stage.labels {
+            values = {
+              event_type = "command_execution",
+              level = "info",
+              severity = "MEDIUM",
+              security_level = "medium",
+            }
+          }
+        }
+        
+        // Process session audit logs - LOW severity
+        stage.match {
+          selector = "{job=\"session-audit\"}"
+          stage.labels {
+            values = {
+              event_type = "session_event",
+              level = "info",
+              severity = "LOW",
+              security_level = "low",
             }
           }
         }

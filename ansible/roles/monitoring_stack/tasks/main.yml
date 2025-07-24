@@ -44,3 +44,48 @@
   ansible.builtin.shell: microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=5m
   args:
     executable: /bin/bash
+
+- name: Configure Grafana for enhanced SIEM monitoring
+  ansible.builtin.shell: |
+    # Wait for Grafana to be ready
+    microk8s kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=grafana -n monitoring --timeout=300s
+    
+    # Create directory for Grafana provisioning
+    mkdir -p /tmp/grafana-provisioning
+    
+    # Create datasource configuration for enhanced SIEM
+    cat > /tmp/grafana-provisioning/datasources.yaml << 'EOF'
+    apiVersion: 1
+    datasources:
+      - name: Loki-SIEM
+        type: loki
+        access: proxy
+        url: http://loki:3100
+        isDefault: false
+        jsonData:
+          maxLines: 1000
+          derivedFields:
+            - name: "Severity"
+              matcherRegex: "severity=([^,\\s]+)"
+              url: ""
+            - name: "Security Level"
+              matcherRegex: "security_level=([^,\\s]+)"
+              url: ""
+    EOF
+    
+    # Apply datasource configuration
+    microk8s kubectl create configmap grafana-datasources \
+      --from-file=/tmp/grafana-provisioning/datasources.yaml \
+      -n monitoring --dry-run=client -o yaml | \
+    microk8s kubectl apply -f -
+  args:
+    executable: /bin/bash
+  ignore_errors: yes
+
+- name: Create enhanced monitoring namespace labels
+  ansible.builtin.shell: |
+    microk8s kubectl label namespace monitoring security-monitoring=enabled --overwrite
+    microk8s kubectl label namespace monitoring siem-enabled=true --overwrite
+  args:
+    executable: /bin/bash
+  ignore_errors: yes
