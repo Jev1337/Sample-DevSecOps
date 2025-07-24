@@ -1149,13 +1149,24 @@ To customize the audit policy:
    microk8s kubectl apply -f siem/configs/audit-policy.yaml
    ```
 
-#### SIEM Integration
+#### Advanced SIEM Integration
 
-The platform integrates with Loki and Grafana for security information and event monitoring (SIEM), along with auditd for system audit logging.
+The platform integrates comprehensive security monitoring with multiple layers of threat detection and prevention:
 
-##### Deploying the SIEM Stack
+##### Security Tools Included
 
-To deploy the SIEM stack:
+1. **Fail2Ban**: Intrusion prevention system that monitors log files and bans IPs with suspicious activity
+2. **AIDE**: Advanced Intrusion Detection Environment for file integrity monitoring
+3. **ClamAV**: Open-source antivirus engine for malware detection
+4. **RKHunter**: Rootkit detection tool for identifying malicious software
+5. **Lynis**: Security auditing tool for system hardening assessment
+6. **Network Monitoring**: Custom scripts for detecting network anomalies and port scans
+7. **Host Intrusion Detection**: Lightweight HIDS for monitoring system behavior
+8. **Auditd**: Comprehensive system audit logging
+
+##### Deploying the Enhanced SIEM Stack
+
+To deploy the comprehensive SIEM stack:
 
 ```bash
 # Using the setup script
@@ -1167,20 +1178,72 @@ cd ansible
 ansible-playbook -i inventory siem.yml --ask-become-pass
 ```
 
-##### Auditd Configuration
+##### Security Monitoring Features
 
-The SIEM implementation includes auditd configuration for comprehensive system auditing:
+The enhanced SIEM implementation provides:
 
-1. **Auditd Setup**: The Ansible playbook configures auditd with security-focused rules
-2. **Log Collection**: System audit logs are collected by Grafana Alloy
-3. **Visualization**: Audit events are displayed in the SIEM dashboard
+**Real-time Threat Detection:**
+- SSH brute force attack prevention (Fail2Ban)
+- File integrity violations (AIDE)
+- Malware and virus detection (ClamAV)
+- Rootkit detection (RKHunter)
+- Network anomaly detection
+- Suspicious process monitoring
 
-The auditd configuration captures important security events such as:
-- User authentication attempts
-- Privilege escalation
-- File access to sensitive locations
-- System call monitoring
-- Command execution tracking
+**Automated Security Scanning:**
+- Daily virus scans
+- Weekly rootkit detection
+- Weekly security audits
+- Continuous file integrity monitoring
+- Real-time network monitoring
+
+**Severity-Based Alerting:**
+- **Critical**: Malware detection, rootkits, security breaches
+- **High**: Failed authentication attempts, unauthorized access
+- **Medium**: Configuration changes, unusual network activity
+- **Low**: Informational events, successful operations
+
+**Security Dashboard Features:**
+- 🚨 Critical security alerts counter
+- ⚠️ High severity events tracking
+- 🛡️ Fail2Ban active blocks display
+- 🔍 Security tools status monitoring
+- 🔥 Real-time threat indicators table
+- 📊 Security metrics timeline with severity levels
+
+##### Manual Security Operations
+
+Execute security scans manually:
+
+```bash
+# Check Fail2Ban status
+sudo fail2ban-client status
+
+# Run file integrity check
+sudo /usr/local/bin/aide-check.sh
+
+# Perform antivirus scan
+sudo /usr/local/bin/clamav-scan.sh
+
+# Check for rootkits
+sudo /usr/local/bin/rkhunter-scan.sh
+
+# Run security audit
+sudo /usr/local/bin/lynis-audit.sh
+
+# View security logs
+tail -f /var/log/siem/*.log
+```
+
+##### Security Log Locations
+
+- **SIEM Events**: `/var/log/siem/`
+- **Fail2Ban**: `/var/log/fail2ban.log`
+- **AIDE**: `/var/log/aide/`
+- **ClamAV**: `/var/log/clamav/`
+- **RKHunter**: `/var/log/rkhunter/`
+- **Lynis**: `/var/log/lynis/`
+- **System Audit**: `/var/log/audit/audit.log`
 
 
 ### 4.4 Monitoring Setup
@@ -1997,16 +2060,31 @@ Our Jenkins setup is configured to automatically receive webhook events from Git
 
 ### 6.3 Security Tool Integration
 
-Integrating security tools into the CI/CD pipeline is a key aspect of the DevSecOps approach. This section explains how to integrate and configure various security tools in the pipeline.
+The DevSecOps platform integrates a comprehensive suite of security tools providing multi-layered protection from development to production.
 
 #### Security Tools Overview
 
-The DevSecOps platform integrates several security tools:
+The platform includes the following security tools:
 
-1. **SonarQube**: Static code analysis for code quality and security
+**Development & Build Security:**
+1. **SonarQube**: Static code analysis for code quality and security vulnerabilities
 2. **Trivy**: Container and filesystem vulnerability scanning
-3. **Kubernetes Security**: RBAC and security context configuration
-4. **Loki + Grafana**: Security event monitoring and alerting
+
+**Runtime Security:**
+3. **Fail2Ban**: Real-time intrusion prevention and IP blocking
+4. **AIDE**: File integrity monitoring and change detection
+5. **ClamAV**: Antivirus scanning and malware detection
+6. **RKHunter**: Rootkit and backdoor detection
+7. **Lynis**: Security auditing and system hardening assessment
+
+**Infrastructure Security:**
+8. **Kubernetes Security**: RBAC, security contexts, and audit policies
+9. **Network Monitoring**: Port scan detection and network anomaly monitoring
+10. **Host Intrusion Detection**: System behavior monitoring and threat detection
+
+**Monitoring & SIEM:**
+11. **Loki + Grafana**: Centralized security event monitoring and alerting
+12. **Enhanced SIEM Dashboard**: Real-time threat visualization with severity indicators
 
 ```mermaid
 graph TD
@@ -2341,27 +2419,93 @@ The platform integrates security monitoring using Loki and Grafana:
 
 To integrate additional security tools:
 
-#### Current Security Tool Implementation
+#### Enhanced Security Monitoring Implementation
 
-Our DevSecOps platform currently implements the following security tools:
+The DevSecOps platform now includes comprehensive security monitoring with the following capabilities:
 
-1. **SonarQube**: For static code analysis
-2. **Trivy**: For container and filesystem vulnerability scanning
-3. **Kubernetes Security Features**: RBAC, security contexts, and audit logging
-4. **SIEM**: Loki, Grafana, and auditd for security monitoring
+##### Threat Detection & Prevention
 
-These tools provide a comprehensive security approach covering code quality, vulnerabilities, access control, and monitoring.
+1. **Fail2Ban Integration**:
+   - Monitors authentication logs for brute force attacks
+   - Automatically blocks malicious IPs
+   - Configurable jails for SSH, web applications, and Kubernetes API
+   - Real-time blocking notifications in SIEM dashboard
 
-#### Security Implementation in the Current Project
+2. **File Integrity Monitoring (AIDE)**:
+   - Monitors critical system files for unauthorized changes
+   - Daily integrity checks with SIEM logging
+   - Alerts on configuration file modifications
+   - Tracks changes to Docker and Kubernetes files
 
-This project is an internship implementation focused on demonstrating DevSecOps principles with the current toolset. The existing security implementation provides:
+3. **Malware Detection (ClamAV)**:
+   - Daily antivirus scans of critical directories
+   - Real-time threat detection
+   - Quarantine capabilities for infected files
+   - Integration with SIEM for immediate alerting
 
-1. **Code Quality Checks**: Through SonarQube analysis
-2. **Vulnerability Detection**: Using Trivy scanning
-3. **Runtime Security**: With Kubernetes security features
-4. **Security Monitoring**: Via the SIEM implementation
+4. **Rootkit Detection (RKHunter)**:
+   - Weekly scans for rootkits and backdoors
+   - System file integrity verification
+   - Detection of suspicious network activity
+   - Automated reporting to SIEM
 
-The current implementation provides a solid foundation for secure application deployment and monitoring.
+5. **Security Auditing (Lynis)**:
+   - Weekly comprehensive security audits
+   - System hardening recommendations
+   - Compliance checking
+   - Security score tracking over time
+
+##### Network Security Monitoring
+
+1. **Port Scan Detection**:
+   - Monitors for suspicious connection patterns
+   - Detects potential reconnaissance activities
+   - Alerts on unexpected listening ports
+   - Integration with Fail2Ban for automatic blocking
+
+2. **Network Anomaly Detection**:
+   - Monitors network traffic patterns
+   - Detects unusual connection volumes
+   - Identifies suspicious processes
+   - Real-time alerting for security events
+
+##### SIEM Dashboard Enhancements
+
+The enhanced SIEM dashboard provides:
+
+1. **Severity-Based Monitoring**:
+   - 🚨 Critical alerts (malware, rootkits, breaches)
+   - ⚠️ High severity events (failed auth, unauthorized access)
+   - 📊 Medium severity warnings (config changes, anomalies)
+   - ℹ️ Low severity info (successful operations)
+
+2. **Real-Time Threat Indicators**:
+   - Active threat counter with color-coded severity
+   - Top threat sources and types
+   - Security tool status monitoring
+   - Fail2Ban blocking activity
+
+3. **Interactive Security Panels**:
+   - Malware and rootkit detection logs
+   - File integrity violation alerts
+   - Host intrusion detection events
+   - Network security monitoring
+   - Authentication and authorization events
+
+##### Automated Security Operations
+
+1. **Scheduled Security Tasks**:
+   - Daily: ClamAV virus scans, AIDE integrity checks
+   - Weekly: RKHunter rootkit scans, Lynis security audits
+   - Continuous: Network monitoring, HIDS, Fail2Ban protection
+
+2. **Incident Response**:
+   - Automatic IP blocking for detected threats
+   - Real-time SIEM logging for all security events
+   - Severity-based alerting and escalation
+   - Comprehensive audit trails
+
+This implementation provides enterprise-grade security monitoring suitable for production environments while maintaining the educational value for DevSecOps learning.
 
 ## 7. Troubleshooting
 
@@ -3203,6 +3347,111 @@ trivy image --download-db-only
 
 # Test Trivy with a known image
 trivy image python:3.9-alpine
+```
+
+##### 3. Enhanced Security Tools Debugging
+
+To debug the enhanced security monitoring tools:
+
+**Fail2Ban Debugging:**
+```bash
+# Check Fail2Ban status
+sudo fail2ban-client status
+
+# Check specific jail status
+sudo fail2ban-client status sshd
+
+# View Fail2Ban logs
+sudo tail -f /var/log/fail2ban.log
+
+# Test Fail2Ban configuration
+sudo fail2ban-client -t
+
+# Unban an IP address
+sudo fail2ban-client set sshd unbanip <IP_ADDRESS>
+```
+
+**AIDE Debugging:**
+```bash
+# Check AIDE database status
+sudo aide --check
+
+# Reinitialize AIDE database
+sudo aide --init
+sudo mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+
+# View AIDE logs
+sudo tail -f /var/log/aide/aide-check.log
+
+# Manual AIDE integrity check
+sudo /usr/local/bin/aide-check.sh
+```
+
+**ClamAV Debugging:**
+```bash
+# Update virus definitions
+sudo freshclam
+
+# Check ClamAV daemon status
+sudo systemctl status clamav-daemon
+
+# Manual virus scan
+sudo clamscan -r /home
+
+# View ClamAV logs
+sudo tail -f /var/log/clamav/scan.log
+
+# Test ClamAV with EICAR test file
+echo 'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*' > /tmp/eicar.txt
+sudo clamscan /tmp/eicar.txt
+```
+
+**RKHunter Debugging:**
+```bash
+# Update RKHunter database
+sudo rkhunter --update
+
+# Run manual rootkit check
+sudo rkhunter --check --skip-keypress
+
+# View RKHunter logs
+sudo tail -f /var/log/rkhunter/scan.log
+
+# Check RKHunter configuration
+sudo rkhunter --config-check
+```
+
+**Lynis Debugging:**
+```bash
+# Run manual security audit
+sudo lynis audit system
+
+# View Lynis logs
+sudo tail -f /var/log/lynis/audit.log
+
+# Check Lynis version and updates
+sudo lynis update info
+
+# View detailed Lynis report
+sudo cat /var/log/lynis/report.dat
+```
+
+**SIEM Logs Debugging:**
+```bash
+# View all SIEM security events
+sudo tail -f /var/log/siem/*.log
+
+# Check security monitoring service
+sudo systemctl status security-monitor
+
+# View network monitoring events
+sudo tail -f /var/log/siem/network-events.log
+
+# Check HIDS events
+sudo tail -f /var/log/siem/hids-events.log
+
+# Monitor real-time security events
+sudo journalctl -f -u security-monitor
 ```
 
 #### Advanced Debugging Techniques

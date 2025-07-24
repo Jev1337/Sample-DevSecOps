@@ -203,6 +203,14 @@ deploy_component() {
                 log "⚠️  Monitoring stack not found. Deploying monitoring first..." "$YELLOW"
                 deploy_component "monitoring" || return 1
             fi
+            log "🛡️  Deploying comprehensive SIEM with advanced threat detection..." "$BLUE"
+            log "   - Fail2Ban intrusion prevention" "$CYAN"
+            log "   - AIDE file integrity monitoring" "$CYAN"
+            log "   - ClamAV antivirus scanning" "$CYAN"
+            log "   - RKHunter rootkit detection" "$CYAN"
+            log "   - Lynis security auditing" "$CYAN"
+            log "   - Network monitoring & anomaly detection" "$CYAN"
+            log "   - Enhanced SIEM dashboard with severity indicators" "$CYAN"
             run_ansible_playbook "siem.yml" "SIEM Security Monitoring"
             ;;
         "azure")
@@ -325,9 +333,14 @@ show_access_info() {
     log "   - Grafana:   admin / admin123" "$CYAN"
     echo ""
     
-    log "🛡️  SIEM Access:" "$YELLOW"
-    log "   - Security Dashboard: Grafana → 'SIEM - Security Monitoring'" "$CYAN"
-    log "   - LogQL Examples available in documentation" "$CYAN"
+    log "🛡️  SIEM & Security Monitoring:" "$YELLOW"
+    log "   - Security Dashboard: Grafana → 'SIEM - Real Security Monitoring Dashboard'" "$CYAN"
+    log "   - Fail2Ban Status: sudo fail2ban-client status" "$CYAN"
+    log "   - AIDE Integrity: sudo /usr/local/bin/aide-check.sh" "$CYAN"
+    log "   - ClamAV Scan: sudo /usr/local/bin/clamav-scan.sh" "$CYAN"
+    log "   - RKHunter Check: sudo /usr/local/bin/rkhunter-scan.sh" "$CYAN"
+    log "   - Lynis Audit: sudo /usr/local/bin/lynis-audit.sh" "$CYAN"
+    log "   - Security Logs: /var/log/siem/" "$CYAN"
     echo ""
     
     log "📝 Add to /etc/hosts for local access:" "$YELLOW"
@@ -415,6 +428,16 @@ show_main_menu() {
                 deploy_full_production
                 ;;
             5)
+                log "🛡️  Deploying Advanced SIEM Security Monitoring..." "$PURPLE"
+                log "This includes comprehensive threat detection and prevention:" "$CYAN"
+                log "  • Fail2Ban - Intrusion prevention system" "$CYAN"
+                log "  • AIDE - File integrity monitoring" "$CYAN"
+                log "  • ClamAV - Antivirus scanning" "$CYAN"
+                log "  • RKHunter - Rootkit detection" "$CYAN"
+                log "  • Lynis - Security auditing" "$CYAN"
+                log "  • Network anomaly detection" "$CYAN"
+                log "  • Enhanced Grafana dashboard with severity indicators" "$CYAN"
+                echo ""
                 install_ansible
                 deploy_component "siem"
                 ;;
