@@ -21,6 +21,9 @@
     append: yes
   become: true
 
+- name: Reset ssh connection to allow user changes to affect 'current login user'
+  ansible.builtin.meta: reset_connection
+
 - name: Change ownership of ~/.kube
   ansible.builtin.file:
     path: "/home/{{ ansible_user_id }}/.kube"
@@ -37,6 +40,23 @@
   ansible.builtin.command: microk8s status --wait-ready
   changed_when: false
 
+- name: Wait for registry service to be ready
+  ansible.builtin.uri:
+    url: http://localhost:32000/v2/
+    method: GET
+    status_code: 200
+  register: registry_check
+  until: registry_check.status == 200
+  retries: 30
+  delay: 10
+  ignore_errors: false
+
+- name: Test MicroK8s access
+  ansible.builtin.command: microk8s status
+  register: microk8s_test
+  changed_when: false
+  failed_when: false
+
 - name: Print MicroK8s install message
   ansible.builtin.debug:
-    msg: "MicroK8s setup complete. Please run 'newgrp microk8s' or log out/in for group changes if this is your first install."
+    msg: "MicroK8s setup complete. MicroK8s access: {{ 'Working' if microk8s_test.rc == 0 else 'May require logout/login or newgrp microk8s' }}"

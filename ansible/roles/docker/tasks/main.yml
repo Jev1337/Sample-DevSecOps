@@ -58,6 +58,15 @@
     append: yes
   become: true
 
+- name: Reset ssh connection to allow user changes to affect 'current login user'
+  ansible.builtin.meta: reset_connection
+
+- name: Test Docker access without sudo
+  ansible.builtin.command: docker ps
+  register: docker_test
+  changed_when: false
+  failed_when: false
+
 - name: Print Docker install message
   ansible.builtin.debug:
-    msg: "Docker installation and configuration complete. Please log out and log in again for group changes to take effect."
+    msg: "Docker installation and configuration complete. Docker access: {{ 'Working' if docker_test.rc == 0 else 'May require logout/login' }}"
