@@ -326,10 +326,7 @@ show_access_info() {
     echo ""
     
     log "🛡️  SIEM Access:" "$YELLOW"
-    log "   - Security Dashboard: Grafana → 'SIEM - Enhanced Security Monitoring'" "$CYAN"
-    log "   - Severity-based monitoring: CRITICAL, HIGH, MEDIUM, LOW" "$CYAN"
-    log "   - Fail2ban protection: SSH, Kubernetes API, Webhook abuse" "$CYAN"
-    log "   - Real-time threat detection and automated response" "$CYAN"
+    log "   - Security Dashboard: Grafana → 'SIEM - Security Monitoring'" "$CYAN"
     log "   - LogQL Examples available in documentation" "$CYAN"
     echo ""
     
@@ -420,7 +417,6 @@ show_main_menu() {
             5)
                 install_ansible
                 deploy_component "siem"
-                log "✅ Enhanced SIEM with fail2ban and severity monitoring deployed!" "$GREEN"
                 ;;
             6)
                 run_development_mode

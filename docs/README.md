@@ -58,8 +58,7 @@ The DevSecOps platform includes the following key features:
 - **Container Security**: Trivy scanner for identifying vulnerabilities in container images
 - **Infrastructure as Code**: Terraform templates for cloud infrastructure provisioning
 - **Centralized Logging**: Loki and Grafana Alloy for efficient log collection and visualization
-- **Security Monitoring**: Custom security dashboards with severity-based threat detection and monitoring
-- **Intrusion Prevention**: Fail2ban integration for automated threat response and IP blocking
+- **Security Monitoring**: Custom security dashboards for threat detection and monitoring
 - **Development Environment**: Docker Compose setup for local development
 - **Interactive Setup**: User-friendly setup script with multiple deployment options
 
@@ -99,7 +98,6 @@ graph TB
         LOKI[Loki<br/>Log Storage]
         GRAFANA[Grafana<br/>Dashboards + SIEM]
         ALERTS[Alert Manager<br/>Notifications]
-        FAIL2BAN[Fail2ban<br/>Intrusion Prevention]
         
         ALLOY --> LOKI
         LOKI --> GRAFANA
@@ -1039,102 +1037,6 @@ To configure quality gates in SonarQube:
    ![SonarQube Quality Gate](images/sonarqube-quality-gate.png)
    *Image: Configuring a SonarQube quality gate*
 
-#### Fail2ban Configuration
-
-Fail2ban provides intrusion prevention by automatically banning IP addresses that show malicious behavior.
-
-##### Fail2ban Setup
-
-The platform includes comprehensive fail2ban configuration for multiple services:
-
-```ini
-# File: /etc/fail2ban/jail.local (configured via Ansible)
-[DEFAULT]
-# Ban time in seconds (1 hour)
-bantime = 3600
-# Find time window in seconds (10 minutes)
-findtime = 600
-# Maximum retry attempts
-maxretry = 3
-
-[sshd]
-enabled = true
-port = ssh
-filter = sshd
-logpath = /var/log/auth.log
-maxretry = 3
-
-[kubernetes-api]
-enabled = true
-filter = kubernetes-api
-logpath = /var/log/kubernetes/audit.log
-maxretry = 5
-
-[webhook-abuse]
-enabled = true
-filter = webhook-abuse
-logpath = /var/log/webhook.log
-maxretry = 10
-```
-
-##### Fail2ban Features
-
-The fail2ban implementation includes:
-
-1. **SSH Protection**: Monitors SSH authentication attempts and bans IPs after failed attempts
-2. **Kubernetes API Protection**: Monitors Kubernetes API access for abuse patterns
-3. **Webhook Protection**: Protects webhook endpoints from abuse
-4. **Sudo Monitoring**: Tracks sudo authentication failures
-5. **Custom Filters**: Specialized filters for different attack patterns
-
-##### Monitoring Fail2ban Activity
-
-To monitor fail2ban activity:
-
-```bash
-# Check fail2ban status
-sudo fail2ban-client status
-
-# Check banned IPs
-sudo fail2ban-client status sshd
-
-# View fail2ban logs
-sudo tail -f /var/log/fail2ban.log
-
-# Unban an IP manually
-sudo fail2ban-client set sshd unbanip <IP_ADDRESS>
-```
-
-#### Security Event Severity Levels
-
-The platform implements a comprehensive severity classification system:
-
-| Severity Level | Description | Examples | Dashboard Color |
-|---------------|-------------|----------|-----------------|
-| **CRITICAL** | Immediate threat requiring action | Root login attempts, system compromise | Red |
-| **HIGH** | Serious security events | Invalid SSH users, IP bans | Orange |
-| **MEDIUM** | Suspicious activities | Failed authentications, sudo usage | Yellow |
-| **LOW** | Normal security events | Successful logins, package installs | Green |
-
-##### Severity-Based Alerting
-
-The SIEM system includes automated alerting based on severity:
-
-```yaml
-# Security alerting rules
-- alert: CriticalSecurityEvent
-  expr: increase(loki_lines_total{security_level="critical"}[5m]) > 0
-  for: 0m
-  labels:
-    severity: critical
-
-- alert: HighSecurityEvents
-  expr: increase(loki_lines_total{security_level="high"}[5m]) > 5
-  for: 2m
-  labels:
-    severity: warning
-```
-
 #### Trivy Configuration
 
 Trivy is used for scanning container images and filesystems for vulnerabilities.
@@ -1265,61 +1167,13 @@ cd ansible
 ansible-playbook -i inventory siem.yml --ask-become-pass
 ```
 
-##### Enhanced SIEM Features
+##### Auditd Configuration
 
-The SIEM implementation includes comprehensive security monitoring with the following features:
+The SIEM implementation includes auditd configuration for comprehensive system auditing:
 
 1. **Auditd Setup**: The Ansible playbook configures auditd with security-focused rules
-2. **Fail2ban Integration**: Automated intrusion prevention and IP blocking
-3. **Severity Classification**: Events categorized as CRITICAL, HIGH, MEDIUM, LOW
-4. **Real-time Monitoring**: Continuous security event detection and alerting
-5. **Log Collection**: System audit logs are collected by Grafana Alloy
-6. **Enhanced Visualization**: Severity-based dashboards and alerting
-
-##### Security Event Categories
-
-The SIEM system monitors and categorizes the following security events:
-
-**CRITICAL Severity:**
-- Root login attempts
-- System compromise indicators
-- Privilege escalation attacks
-
-**HIGH Severity:**
-- Invalid SSH user attempts
-- IP addresses banned by fail2ban
-- Repeated authentication failures
-
-**MEDIUM Severity:**
-- Failed password attempts
-- Sudo usage monitoring
-- Kubernetes API unauthorized access
-- Connection closed by authenticating user
-
-**LOW Severity:**
-- Successful user logins
-- Package installations
-- Normal system operations
-- Session events
-
-##### Fail2ban Integration
-
-The SIEM includes fail2ban for automated threat response:
-
-- **SSH Protection**: Monitors and blocks brute force attacks
-- **API Protection**: Protects Kubernetes API from abuse
-- **Webhook Protection**: Prevents webhook endpoint abuse
-- **Custom Filters**: Specialized detection patterns for different threats
-
-##### Real-time Security Monitoring
-
-The platform includes a real-time security monitoring service that:
-
-- Continuously monitors security logs
-- Generates structured security events
-- Provides severity-based alerting
-- Tracks security metrics and trends
-- Integrates with Grafana for visualization
+2. **Log Collection**: System audit logs are collected by Grafana Alloy
+3. **Visualization**: Audit events are displayed in the SIEM dashboard
 
 The auditd configuration captures important security events such as:
 - User authentication attempts
