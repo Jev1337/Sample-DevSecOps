@@ -32,13 +32,41 @@
   become: true
   ignore_errors: true
 
-- name: Enable MicroK8s addons
-  ansible.builtin.command: "microk8s enable dns helm3 ingress metrics-server storage registry --size 20Gi"
-  changed_when: false
-
 - name: Wait for MicroK8s to be ready
   ansible.builtin.command: microk8s status --wait-ready
   changed_when: false
+
+- name: Enable DNS addon
+  ansible.builtin.command: microk8s enable dns
+  changed_when: false
+
+- name: Enable Helm3 addon
+  ansible.builtin.command: microk8s enable helm3
+  changed_when: false
+
+- name: Enable Ingress addon
+  ansible.builtin.command: microk8s enable ingress
+  changed_when: false
+
+- name: Enable Metrics Server addon
+  ansible.builtin.command: microk8s enable metrics-server
+  changed_when: false
+
+- name: Enable Storage addon
+  ansible.builtin.command: microk8s enable storage
+  changed_when: false
+
+- name: Enable Registry addon with size
+  ansible.builtin.command: microk8s enable registry --size 20Gi
+  changed_when: false
+
+- name: Wait a moment for addons to initialize
+  ansible.builtin.pause:
+    seconds: 10
+
+- name: Show registry enabling status
+  ansible.builtin.debug:
+    msg: "🐳 Registry addon enabled with 20Gi storage, waiting for service to start..."
 
 - name: Wait for registry service to be ready
   ansible.builtin.uri:
@@ -47,9 +75,13 @@
     status_code: 200
   register: registry_check
   until: registry_check.status == 200
-  retries: 30
-  delay: 10
+  retries: 60
+  delay: 5
   ignore_errors: false
+
+- name: Verify registry is working
+  ansible.builtin.debug:
+    msg: "✅ MicroK8s registry is ready at localhost:32000"
 
 - name: Test MicroK8s access
   ansible.builtin.command: microk8s status

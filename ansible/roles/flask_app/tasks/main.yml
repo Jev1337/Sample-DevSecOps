@@ -12,6 +12,16 @@
   args:
     chdir: "{{ playbook_dir }}/../app"
 
+- name: Verify registry is accessible before push
+  ansible.builtin.uri:
+    url: http://localhost:32000/v2/
+    method: GET
+    status_code: 200
+  register: registry_ready
+  until: registry_ready.status == 200
+  retries: 10
+  delay: 5
+
 - name: Push Flask image to local registry
   ansible.builtin.command: docker push localhost:32000/flask-k8s-app:latest
   args:
