@@ -4,9 +4,3 @@
     name: auditd
     state: restarted
   become: yes
-
-- name: restart fail2ban
-  systemd:
-    name: fail2ban
-    state: restarted
-  become: yes

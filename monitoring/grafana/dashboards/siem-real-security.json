@@ -14,7 +14,7 @@
   "panels": [
     {
       "id": 1,
-      "title": "🚨 Critical Security Alerts",
+      "title": "Security Events Overview",
       "type": "stat",
       "datasource": {
         "type": "loki",
@@ -22,70 +22,9 @@
       },
       "targets": [
         {
-          "expr": "sum by (severity) (count_over_time({severity=\"critical\"} [1h]))",
+          "expr": "sum by (job) (rate({job=~\"system-auth|system-audit|webhook-receiver|package-install|siem-monitor|loki.source.kubernetes.pods\"} [5m]))",
           "refId": "A",
-          "legendFormat": "Critical Alerts",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 5
-              }
-            ]
-          },
-          "unit": "short"
-        }
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": ["lastNotNull"],
-          "fields": ""
-        },
-        "orientation": "horizontal",
-        "textMode": "auto",
-        "colorMode": "background",
-        "noValue": "0"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 0
-      }
-    },
-    {
-      "id": 18,
-      "title": "⚠️ High Severity Events",
-      "type": "stat",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "sum by (severity) (count_over_time({severity=\"high\"} [1h]))",
-          "refId": "A",
-          "legendFormat": "High Severity",
+          "legendFormat": "{{job}}",
           "datasource": {
             "type": "loki",
             "uid": "loki"
@@ -108,8 +47,8 @@
                 "value": 5
               },
               {
-                "color": "orange",
-                "value": 15
+                "color": "red",
+                "value": 20
               }
             ]
           },
@@ -125,616 +64,18 @@
         "orientation": "horizontal",
         "textMode": "auto",
         "colorMode": "background",
-        "noValue": "0"
+        "noValue": "No Security Events"
       },
       "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
+        "h": 8,
+        "w": 12,
+        "x": 0,
         "y": 0
-      }
-    },
-    {
-      "id": 19,
-      "title": "🛡️ Fail2Ban Blocks",
-      "type": "stat",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "sum by (action) (count_over_time({job=\"fail2ban\", action=\"Ban\"} [1h]))",
-          "refId": "A",
-          "legendFormat": "IP Blocks",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "blue",
-                "value": 1
-              },
-              {
-                "color": "purple",
-                "value": 10
-              }
-            ]
-          },
-          "unit": "short"
-        }
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": ["lastNotNull"],
-          "fields": ""
-        },
-        "orientation": "horizontal",
-        "textMode": "auto",
-        "colorMode": "background",
-        "noValue": "0"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 0
-      }
-    },
-    {
-      "id": 20,
-      "title": "🔍 Security Tools Status",
-      "type": "stat",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "sum by (service) (count_over_time({job=\"siem-tools\"} [1h]))",
-          "refId": "A",
-          "legendFormat": "Active Tools",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 1
-              },
-              {
-                "color": "green",
-                "value": 3
-              }
-            ]
-          },
-          "unit": "short"
-        }
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": ["lastNotNull"],
-          "fields": ""
-        },
-        "orientation": "horizontal",
-        "textMode": "auto",
-        "colorMode": "background",
-        "noValue": "0"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 0
-      }
-    },
-    {
-      "id": 21,
-      "title": "🔥 Real-Time Threat Indicators",
-      "type": "table",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "topk(10, sum by (severity, event_type, service) (count_over_time({severity=~\"critical|high\"} [15m])))",
-          "refId": "A",
-          "instant": true,
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "displayMode": "list",
-            "filterable": true
-          },
-          "mappings": [
-            {
-              "options": {
-                "critical": {
-                  "color": "red",
-                  "index": 0
-                },
-                "high": {
-                  "color": "orange",
-                  "index": 1
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 5
-              },
-              {
-                "color": "red",
-                "value": 10
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "severity"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "🚨 Severity"
-              },
-              {
-                "id": "custom.width",
-                "value": 100
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "event_type"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "📋 Event Type"
-              },
-              {
-                "id": "custom.width",
-                "value": 150
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "service"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "🛠️ Service"
-              },
-              {
-                "id": "custom.width",
-                "value": 120
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Value #A"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "📊 Count (15m)"
-              },
-              {
-                "id": "custom.width",
-                "value": 100
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "📊 Count (15m)"
-          }
-        ]
-      },
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true
-            },
-            "indexByName": {
-              "severity": 0,
-              "event_type": 1,
-              "service": 2,
-              "Value #A": 3
-            },
-            "renameByName": {
-              "severity": "🚨 Severity",
-              "event_type": "📋 Event Type",
-              "service": "🛠️ Service",
-              "Value #A": "📊 Count (15m)"
-            }
-          }
-        }
-      ],
-      "pluginVersion": "9.0.0",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 4
-      }
-    },
-    {
-      "id": 22,
-      "title": "🚫 Fail2Ban Active Blocks",
-      "type": "logs",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "{job=\"fail2ban\"} |~ \"Ban\" | regexp \"\\\\[(?P<jail>\\\\w+)\\\\] Ban (?P<ip>[0-9.]+)\" | line_format \"🚫 {{.__timestamp__}} | Jail: {{.jail}} | Blocked IP: {{.ip}}\"",
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "exact",
-        "sortOrder": "Descending"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 4
-      }
-    },
-    {
-      "id": 23,
-      "title": "🦠 Malware & Rootkit Detection",
-      "type": "logs",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "{job=\"siem-tools\", service=~\"clamav|rkhunter\"} |~ \"(?i)(virus|malware|rootkit|infected|suspicious)\" | json | line_format \"🦠 {{.__timestamp__}} | {{.service | upper}}: {{.message}}\"",
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "exact",
-        "sortOrder": "Descending"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 12
-      }
-    },
-    {
-      "id": 24,
-      "title": "🔒 File Integrity Violations",
-      "type": "logs",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "{job=\"siem-tools\", service=\"aide\"} |~ \"(?i)(changed|added|removed|modified)\" | json | line_format \"🔒 {{.__timestamp__}} | AIDE: {{.message}}\"",
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "exact",
-        "sortOrder": "Descending"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 12
-      }
-    },
-    {
-      "id": 25,
-      "title": "🕵️ Host Intrusion Detection (HIDS)",
-      "type": "logs",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "{job=\"siem-tools\", service=\"hids\"} | json | line_format \"🕵️ {{.__timestamp__}} | {{.event_type | upper}}: {{.message}} ({{.level | upper}})\"",
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "exact",
-        "sortOrder": "Descending"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 20
-      }
-    },
-    {
-      "id": 26,
-      "title": "🌐 Network Security Events",
-      "type": "logs",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "{job=\"siem-tools\", service=\"network_monitor\"} | json | line_format \"🌐 {{.__timestamp__}} | {{.event_type | upper}}: {{.message}}\"",
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "exact",
-        "sortOrder": "Descending"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 28
-      }
-    },
-    {
-      "id": 27,
-      "title": "📊 Security Metrics Timeline",
-      "type": "timeseries",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "sum by (severity) (rate({severity=~\"critical|high|medium\"} [5m]))",
-          "refId": "A",
-          "legendFormat": "{{severity}} severity",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "Events per second",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "opacity",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            },
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "reqps"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "critical severity"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "red"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "high severity"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "orange"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "medium severity"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "yellow"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "calcs": ["last", "max"],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 36
       }
     },
     {
       "id": 2,
-      "title": "🔐 SSH Authentication Events",
+      "title": "SSH Invalid User Attempts",
       "type": "logs",
       "datasource": {
         "type": "loki",
@@ -742,7 +83,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-auth\"} |~ \"sshd\" | regexp \"sshd.*: (?P<result>Accepted|Failed) (?P<method>\\\\w+) for (?P<user>\\\\w+) from (?P<ip>[0-9.]+)\" | line_format \"🔐 {{.__timestamp__}} | {{.result}} {{.method}} login for {{.user}} from {{.ip}}\"",
+          "expr": "{job=\"system-auth\"} |~ \"invalid user\" | regexp \"invalid user (?P<username>\\\\S+) (?P<source_ip>[0-9.]+)\" | line_format \"{{.__timestamp__}} | Invalid User: {{.username}} from IP: {{.source_ip}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -762,9 +103,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 44
+        "w": 12,
+        "x": 12,
+        "y": 0
       }
     },
     {
@@ -877,7 +218,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 52
+        "y": 8
       }
     },
     {
@@ -912,7 +253,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 52
+        "y": 8
       }
     },
     {
@@ -947,7 +288,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 60
+        "y": 16
       }
     },
     {
@@ -982,7 +323,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 68
+        "y": 24
       }
     },
     {
@@ -1017,7 +358,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 76
+        "y": 40
       }
     },
     {
@@ -1099,7 +440,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 84
+        "y": 48
       }
     },
     {
@@ -1134,7 +475,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 92
+        "y": 32
       }
     },
     {
@@ -1169,7 +510,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 100
+        "y": 56
       }
     },
     {
@@ -1204,7 +545,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 108
+        "y": 64
       }
     },
     {
@@ -1239,7 +580,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 116
+        "y": 72
       }
     }
   ],
