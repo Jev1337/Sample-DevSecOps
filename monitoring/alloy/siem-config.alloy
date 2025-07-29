@@ -42,6 +42,8 @@ loki.source.file "siem_sample_logs" {
 		{__path__ = "/var/log/webhook.log", job = "webhook-receiver", log_type = "webhook"},
 		{__path__ = "/var/log/dpkg.log", job = "package-install", log_type = "package"},
 		{__path__ = "/var/log/siem-monitor.log", job = "siem-monitor", log_type = "siem"},
+		{__path__ = "/var/log/kubernetes/audit.log", job = "kubernetes-audit", log_type = "k8s_audit"},
+		{__path__ = "/var/log/commands.log", job = "command-audit", log_type = "commands"},
 	]
 	forward_to = [loki.process.siem_logs.receiver]
 }
@@ -399,6 +401,26 @@ loki.process "siem_logs" {
 		}
 	}
 	
+	// Process command audit logs
+	stage.match {
+		selector = "{job=\"command-audit\"}"
+		pipeline_name = "command_audit"
+		
+		// Parse command execution logs
+		stage.regex {
+			expression = "(?P<timestamp>\\w+\\s+\\d+\\s+\\d+:\\d+:\\d+)\\s+(?P<hostname>\\S+)\\s+(?P<user>\\S+):\\s+(?P<command>.*)"
+		}
+		
+		stage.labels {
+			values = {
+				job = "command-audit",
+				level = "info",
+				service_name = "command-audit",
+				detected_level = "info",
+			}
+		}
+	}
+	
 	// Global error handling - prevent template format errors
 	stage.match {
 		selector = "{job=~\".*\"}"
@@ -504,6 +526,28 @@ loki.process "docker_logs" {
 			source_ip = "source_ip",
 			method = "method",
 			status_code = "status_code",
+			build_number = "build_number",
+			git_commit = "git_commit",
+			pipeline_stage = "pipeline_stage",
+		}
+	}
+	
+	// Process Jenkins build logs specifically
+	stage.match {
+		selector = "{job=\"jenkins\"}"
+		pipeline_name = "jenkins_builds"
+		
+		// Extract Jenkins build information
+		stage.regex {
+			expression = ".*Started by user (?P<jenkins_user>\\S+)|.*Building in workspace (?P<workspace>\\S+)|.*\\[Pipeline\\] stage.*\\[(?P<stage_name>[^\\]]+)\\]|.*Build #(?P<build_num>\\d+)|.*git commit (?P<commit_hash>[a-f0-9]{7,40})"
+		}
+		
+		stage.labels {
+			values = {
+				event_type = "jenkins_build",
+				service_type = "ci_cd",
+				security_level = "medium",
+			}
 		}
 	}
 	
