@@ -66,53 +66,7 @@ The DevSecOps platform includes the following key features:
 
 The platform architecture consists of several interconnected components working together to provide a complete DevSecOps environment:
 
-```mermaid
-graph TB
-    subgraph "Development"
-        DEV[Developer] --> GIT[Git Repository]
-        GIT --> WEBHOOK[Webhook Events]
-    end
-    
-    subgraph "Infrastructure (Terraform + Ansible)"
-        TERRA[Terraform<br/>Infrastructure Provisioning]
-        ANSIBLE[Ansible<br/>Configuration Management]
-        TERRA --> ANSIBLE
-    end
-    
-    subgraph "Kubernetes Cluster (MicroK8s)"
-        APP[Flask Application<br/>+ Helm Chart]
-        JENKINS[Jenkins CI/CD<br/>+ Pipeline]
-        SONAR[SonarQube<br/>Code Analysis]
-    end
-    
-    subgraph "Security Pipeline"
-        TRIVY[Trivy<br/>Vulnerability Scan]
-        AUDIT[Security Audit<br/>K8s Policies]
-        JENKINS --> TRIVY
-        JENKINS --> SONAR
-        JENKINS --> AUDIT
-    end
-    
-    subgraph "SIEM & Monitoring (Loki Stack)"
-        ALLOY[Grafana Alloy<br/>Unified Collector]
-        LOKI[Loki<br/>Log Storage]
-        GRAFANA[Grafana<br/>Dashboards + SIEM]
-        ALERTS[Alert Manager<br/>Notifications]
-        
-        ALLOY --> LOKI
-        LOKI --> GRAFANA
-        GRAFANA --> ALERTS
-    end
-    
-    GIT --> JENKINS
-    WEBHOOK --> ALLOY
-    TERRA --> APP
-    ANSIBLE --> APP
-    APP --> ALLOY
-    JENKINS --> ALLOY
-    SONAR --> ALLOY
-    AUDIT --> ALLOY
-```
+<img src="images/architecture.svg" alt="DevSecOps Architecture Diagram"/>
 
 **Key Components:**
 
