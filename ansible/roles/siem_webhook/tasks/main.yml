@@ -1,15 +1,86 @@
 ---
+- name: Verify Docker is running
+  shell: docker info
+  register: docker_check
+  failed_when: docker_check.rc != 0
+  
+- name: Verify MicroK8s is running
+  shell: microk8s status --wait-ready --timeout 30
+  register: microk8s_check
+  failed_when: microk8s_check.rc != 0
+
+- name: Check if MicroK8s registry addon is enabled
+  shell: microk8s status --format yaml | grep -A 5 "addons:" | grep "registry:"
+  register: registry_status
+  ignore_errors: true
+
+- name: Enable MicroK8s registry addon if not enabled
+  shell: microk8s enable registry
+  when: registry_status.rc != 0 or "enabled" not in registry_status.stdout
+  register: registry_enable
+
+- name: Wait for registry to be ready
+  shell: |
+    # Wait for registry pod to be running
+    timeout=60
+    while [ $timeout -gt 0 ]; do
+      if microk8s kubectl get pods -n container-registry | grep registry | grep Running; then
+        echo "Registry is ready"
+        break
+      fi
+      echo "Waiting for registry to be ready... ($timeout seconds left)"
+      sleep 2
+      timeout=$((timeout-2))
+    done
+    
+    # Test registry connectivity
+    if curl -f http://localhost:32000/v2/ >/dev/null 2>&1; then
+      echo "Registry is accessible"
+    else
+      echo "Registry is not accessible, waiting a bit more..."
+      sleep 10
+    fi
+  when: registry_enable is defined and registry_enable.changed
+
 - name: Build webhook receiver Docker image
   shell: |
     cd {{ inventory_dir }}/../webhook
     docker build -t webhook-receiver:latest .
     docker tag webhook-receiver:latest localhost:32000/webhook-receiver:latest
-    docker push localhost:32000/webhook-receiver:latest
+    
+    # Try to push to registry first
+    if docker push localhost:32000/webhook-receiver:latest; then
+      echo "✅ Successfully pushed to registry"
+      exit 0
+    fi
+    
+    echo "⚠️  Registry push failed, trying alternative approach..."
+    
+    # Fallback: Save image and import directly to MicroK8s
+    echo "📦 Saving Docker image to tar file..."
+    docker save webhook-receiver:latest > /tmp/webhook-receiver.tar
+    
+    echo "📥 Importing image to MicroK8s..."
+    microk8s ctr image import /tmp/webhook-receiver.tar
+    
+    # Tag for MicroK8s
+    microk8s ctr image tag docker.io/library/webhook-receiver:latest localhost:32000/webhook-receiver:latest
+    
+    echo "🧹 Cleaning up temporary files..."
+    rm -f /tmp/webhook-receiver.tar
+    
+    echo "✅ Image successfully imported to MicroK8s"
   register: webhook_build
+  retries: 1
+  delay: 5
 
 - name: Deploy webhook receiver to Kubernetes
   shell: |
+    # Apply the deployment
     microk8s kubectl apply -f {{ inventory_dir }}/../webhook/webhook-deployment.yaml
+    
+    # Force a rollout restart to ensure new image is used
+    microk8s kubectl rollout restart deployment/webhook-receiver -n monitoring
   register: webhook_deploy
 
 - name: Wait for webhook deployment to be ready
@@ -63,10 +134,37 @@
     EOF
   register: webhook_lb
 
+- name: Get external IP for webhook access
+  shell: curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com
+  register: external_ip
+  ignore_errors: true
+
+- name: Verify webhook deployment status
+  shell: |
+    echo "=== Webhook Deployment Status ==="
+    microk8s kubectl get deployment webhook-receiver -n monitoring -o wide
+    echo ""
+    echo "=== Webhook Pods ==="
+    microk8s kubectl get pods -n monitoring -l app=webhook-receiver
+    echo ""
+    echo "=== Webhook Service ==="
+    microk8s kubectl get service webhook-receiver-service -n monitoring
+  register: webhook_verification
+
 - name: Display webhook access information
   debug:
     msg: |
-      Webhook receiver deployed successfully!
+      🔗 Webhook receiver deployed successfully!
+      
+      📊 Deployment Status:
+      {{ webhook_verification.stdout }}
+      
+      🌐 Access URLs:
       - Internal URL: http://webhook-receiver-service.monitoring.svc.cluster.local
-      - External URL will be available at: http://webhook.{EXTERNAL_IP}.nip.io/webhook
-      - LoadBalancer IP will be assigned automatically
+      - External URL: http://webhook.{{ external_ip.stdout | default('YOUR_IP') }}.nip.io/webhook
+      - Health Check: http://webhook.{{ external_ip.stdout | default('YOUR_IP') }}.nip.io/health
+      
+      📝 Usage:
+      - Configure GitHub webhooks to point to the external URL
+      - Webhook events will be forwarded to Loki for SIEM analysis
+      - Monitor webhook activity in the Grafana SIEM dashboard
