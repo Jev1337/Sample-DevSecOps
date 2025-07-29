@@ -1,32 +1,16 @@
 apiVersion: audit.k8s.io/v1
 kind: Policy
-# Enhanced audit policy for comprehensive SIEM monitoring
+# Don't generate audit events for all requests in RequestReceived stage.
 omitStages:
   - "RequestReceived"
 rules:
-  # Log all exec commands and shell access at RequestResponse level
-  - level: RequestResponse
-    resources:
-    - group: ""
-      resources: ["pods/exec", "pods/attach", "pods/portforward"]
-    namespaces: ["jenkins", "flask-app", "monitoring", "sonarqube"]
-    
   # Log security-sensitive events at RequestResponse level
   - level: RequestResponse
     resources:
     - group: ""
-      resources: ["secrets", "serviceaccounts", "configmaps"]
+      resources: ["secrets", "serviceaccounts"]
     - group: "rbac.authorization.k8s.io"
       resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
-  
-  # Log all Jenkins and CI/CD related activities
-  - level: RequestResponse
-    namespaces: ["jenkins"]
-    resources:
-    - group: ""
-      resources: ["pods", "services", "persistentvolumeclaims"]
-    - group: "apps"
-      resources: ["deployments", "replicasets"]
   
   # Log pod and deployment changes at Metadata level
   - level: Metadata
@@ -45,19 +29,11 @@ rules:
   
   # Log authentication and authorization events
   - level: Request
-    namespaces: ["kube-system", "jenkins", "flask-app", "monitoring", "sonarqube"]
+    namespaces: ["kube-system"]
     verbs: ["create", "update", "patch", "delete"]
     resources:
     - group: ""
       resources: ["endpoints", "services", "persistentvolumeclaims"]
-  
-  # Log all build and deployment activities
-  - level: Request
-    namespaces: ["jenkins", "flask-app"]
-    verbs: ["create", "update", "patch", "delete"]
-    resources:
-    - group: "batch"
-      resources: ["jobs", "cronjobs"]
   
   # Log namespace operations
   - level: Metadata
