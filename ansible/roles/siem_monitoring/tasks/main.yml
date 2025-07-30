@@ -45,17 +45,23 @@
     microk8s kubectl apply -f -
   ignore_errors: yes
 
-- name: Update Alloy configuration for SIEM log collection
+- name: Update Alloy configuration for enhanced SIEM log collection
   shell: |
+    # Create/update Alloy ConfigMap with enhanced SIEM configuration
+    microk8s kubectl create configmap alloy-config \
+      --from-file=config.alloy={{ inventory_dir }}/../monitoring/alloy/siem-config.alloy \
+      -n monitoring --dry-run=client -o yaml | microk8s kubectl apply -f -
+    
+    # Update Alloy with enhanced values
     microk8s helm3 upgrade alloy grafana/alloy -n monitoring -f {{ inventory_dir }}/../helm/alloy/values.yaml
   register: alloy_upgrade
   ignore_errors: yes
 
-- name: Restart Alloy to apply new configuration
+- name: Restart Alloy to apply enhanced configuration
   shell: |
     microk8s kubectl rollout restart daemonset/alloy -n monitoring
     microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=120s
-  when: alloy_upgrade.changed
+  register: alloy_restart
 
 - name: Verify SIEM log collection
   shell: |
@@ -64,10 +70,24 @@
   register: alloy_logs
   ignore_errors: yes
 
-- name: Display SIEM setup status
+- name: Display enhanced SIEM setup status
   debug:
     msg: |
-      SIEM monitoring configuration applied successfully!
-      - Alloy has been updated to collect security logs
-      - SIEM dashboard has been imported to Grafana
-      - Log collection includes: SSH logs, Kubernetes audit logs, webhook events
+      Enhanced SIEM monitoring configuration applied successfully!
+      - Alloy has been updated with comprehensive log collection
+      - Enhanced SIEM dashboard imported to Grafana with emojis and better UX
+      - Log collection now includes:
+        * SSH authentication events with source IP tracking
+        * Command execution monitoring (all users, not just sudo)
+        * Jenkins build status and pipeline tracking
+        * SonarQube code analysis results
+        * Kubernetes cluster events and API access
+        * Webhook security events with detailed parsing
+        * Dangerous command detection and alerting
+        * Interactive heatmaps and performance metrics
+      - Dashboard features:
+        * Real-time security alerts with visual indicators
+        * User-friendly interface with emojis and clear formatting
+        * Command execution timeline with user attribution
+        * Build status tracking with success/failure indicators
+        * Enhanced filtering and search capabilities
