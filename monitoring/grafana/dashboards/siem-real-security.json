@@ -227,7 +227,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-auth\"} |~ \"invalid user\" | regexp \"invalid user (?P<username>\\\\S+) from (?P<source_ip>[0-9.]+)\" != \"username=\\\"\\\"\" != \"source_ip=\\\"\\\"\" | line_format \"🔴 {{.__timestamp__}} | ⚠️  INVALID USER: {{.username}} | 🌐 Source IP: {{.source_ip}} | 🚨 Potential Brute Force Attack\"",
+          "expr": "{job=\"system-auth\"} |~ \"invalid user\" | regexp \"invalid user (?P<username>\\\\S+) from (?P<source_ip>[0-9.]+)\" | line_format \"🔴 {{.__timestamp__}} | ⚠️  INVALID USER: {{.username | default \\\"unknown\\\"}} | 🌐 Source IP: {{.source_ip | default \\\"unknown\\\"}} | 🚨 Potential Brute Force Attack\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -842,7 +842,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"loki.source.kubernetes.pods\"} != \"\" | line_format \"🔧 {{.__timestamp__}} | 🏢 Namespace: {{.namespace}} | 🐳 Pod: {{.pod}} | 📦 Container: {{.container}} | 📝 Activity: {{.__line__ | regexReplaceAll \\\"^.{0,150}\\\" \\\"$0\\\"}}\"",
+          "expr": "{job=\"loki.source.kubernetes.pods\"} != \"\" | line_format \"🔧 {{.__timestamp__}} | 🏢 Namespace: {{.namespace | default \\\"default\\\"}} | 🐳 Pod: {{.pod | default \\\"unknown\\\"}} | 📦 Container: {{.container | default \\\"main\\\"}} | 📝 Activity: {{.__line__}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
