@@ -124,7 +124,7 @@
     },
     {
       "id": 2,
-      "title": "🏗️ Jenkins Build Status",
+      "title": "🏗️ Jenkins & CI/CD Activity",
       "type": "logs",
       "datasource": {
         "type": "loki",
@@ -132,8 +132,16 @@
       },
       "targets": [
         {
-          "expr": "{container=\"jenkins\"} |~ \"(?i)(build|job|pipeline|success|fail|error|complete)\" | line_format \"{{.__timestamp__}} | 🏗️ Jenkins: {{.__line__}}\"",
+          "expr": "{container=\"jenkins\"} | line_format \"{{.__timestamp__}} | 🏗️ Jenkins: {{.__line__}}\"",
           "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        },
+        {
+          "expr": "{container=~\"kaniko|git-clone|trivy\"} | line_format \"{{.__timestamp__}} | 🔧 CI Tool ({{.container}}): {{.__line__}}\"",
+          "refId": "B",
           "datasource": {
             "type": "loki",
             "uid": "loki"
@@ -340,7 +348,7 @@
     },
     {
       "id": 5,
-      "title": "💻 Command Execution Monitor",
+      "title": "💻 Recent Command Executions",
       "type": "logs",
       "datasource": {
         "type": "loki",
@@ -348,7 +356,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-audit\"} |~ \"(?i)(execve|SYSCALL)\" | regexp \"type=(?P<audit_type>\\\\S+).*msg=audit\\\\((?P<audit_timestamp>[^)]+)\\\\):.*\" | line_format \"{{.__timestamp__}} | 💻 Command Execution: {{.audit_type}} - {{.__line__}}\"",
+          "expr": "{job=\"system-audit\"} |~ \"type=EXECVE\" | regexp \"type=EXECVE.*argc=(?P<argc>\\\\d+).*a0=\\\"(?P<command>[^\\\"]+)\\\".*a1=\\\"?(?P<arg1>[^\\\"\\s]*)\\\"?\" | line_format \"{{.__timestamp__}} | 💻 {{.command}}{{if .arg1}} {{.arg1}}{{end}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -368,8 +376,43 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 12,
         "x": 0,
+        "y": 16
+      }
+    },
+    {
+      "id": 13,
+      "title": "🔧 System Administration Commands",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"system-audit\"} |~ \"type=EXECVE\" |~ \"(sudo|su|passwd|useradd|userdel|usermod|groupadd|groupdel|chmod|chown|systemctl|service|mount|umount)\" | regexp \"type=EXECVE.*a0=\\\"(?P<command>[^\\\"]+)\\\"\" | line_format \"{{.__timestamp__}} | 🔧 Admin Command: {{.command}}\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "exact",
+        "sortOrder": "Descending"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
         "y": 16
       }
     },
@@ -405,7 +448,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 32
       }
     },
     {
@@ -440,12 +483,12 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 40
       }
     },
     {
       "id": 8,
-      "title": "🔍 SonarQube Code Analysis",
+      "title": "🔍 Code Quality & Security Analysis",
       "type": "logs",
       "datasource": {
         "type": "loki",
@@ -453,8 +496,16 @@
       },
       "targets": [
         {
-          "expr": "{container=\"sonarqube\"} |~ \"(?i)(analysis|scan|quality|gate|bug|vulnerability|smell)\" | line_format \"{{.__timestamp__}} | 🔍 SonarQube: {{.__line__}}\"",
+          "expr": "{container=\"sonarqube\"} | line_format \"{{.__timestamp__}} | 🔍 SonarQube: {{.__line__}}\"",
           "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        },
+        {
+          "expr": "{container=\"trivy\"} | line_format \"{{.__timestamp__}} | 🛡️ Trivy Security Scan: {{.__line__}}\"",
+          "refId": "B",
           "datasource": {
             "type": "loki",
             "uid": "loki"
@@ -475,7 +526,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 32
+        "y": 40
       }
     },
     {
@@ -488,7 +539,7 @@
       },
       "targets": [
         {
-          "expr": "{job=~\".*\"} |~ \"(?i)(error|fail|denied|unauthorized|forbidden|exception|panic|fatal|crash|died|attack|breach|intrusion)\" != \"(?i)(info|debug|trace|successful)\" | line_format \"{{.__timestamp__}} | 🚨 ALERT: {{.__line__}}\"",
+          "expr": "{job=~\"system-auth|system-audit\"} |~ \"(?i)(error|fail|denied|unauthorized|forbidden|exception|panic|fatal|crash|died)\" | line_format \"{{.__timestamp__}} | 🚨 ALERT: {{.__line__}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -510,7 +561,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 48
       }
     },
     {
@@ -585,7 +636,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 48
+        "y": 56
       }
     },
     {
@@ -676,7 +727,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 56
+        "y": 64
       }
     },
     {
@@ -767,7 +818,42 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 64
+        "y": 72
+      }
+    },
+    {
+      "id": 14,
+      "title": "🐳 All Container Logs (Debug View)",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"loki.source.kubernetes.pods\"} | line_format \"{{.__timestamp__}} | 📦 {{.container}}: {{.__line__}}\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 80
       }
     }
   ],
