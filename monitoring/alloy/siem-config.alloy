@@ -33,18 +33,7 @@ loki.source.kubernetes "pods" {
 	forward_to = [loki.process.k8s_api_logs.receiver]
 }
 
-// File-based log collection for SIEM sample data
-loki.source.file "siem_sample_logs" {
-	targets = [
-		{__path__ = "/var/log/auth.log", job = "system-auth", log_type = "auth"},
-		{__path__ = "/var/log/secure", job = "system-auth", log_type = "auth"},
-		{__path__ = "/var/log/audit/audit.log", job = "system-audit", log_type = "system_audit"},
-		{__path__ = "/var/log/webhook.log", job = "webhook-receiver", log_type = "webhook"},
-		{__path__ = "/var/log/dpkg.log", job = "package-install", log_type = "package"},
-		{__path__ = "/var/log/siem-monitor.log", job = "siem-monitor", log_type = "siem"},
-	]
-	forward_to = [loki.process.siem_logs.receiver]
-}
+
 
 // Process Kubernetes API logs
 loki.process "k8s_api_logs" {
