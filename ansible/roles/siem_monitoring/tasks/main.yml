@@ -64,26 +64,10 @@
   register: alloy_logs
   ignore_errors: yes
 
-- name: Display enhanced SIEM setup status
+- name: Display SIEM setup status
   debug:
     msg: |
-      🔒 Enhanced SIEM monitoring configuration applied successfully!
-      - ✅ Alloy has been updated with comprehensive log collection
-      - 📊 Enhanced SIEM dashboard imported to Grafana with emojis and better UX
-      - 🔍 Log collection now includes:
-        * 🔐 SSH authentication events with source IP tracking
-        * 💻 Command execution monitoring (all users, not just sudo)
-        * 🏗️ Jenkins build status and pipeline tracking
-        * 🔍 SonarQube code analysis results
-        * 🐳 Kubernetes cluster events and API access
-        * 🔗 Webhook security events with detailed parsing
-        * ⚠️ Dangerous command detection and alerting
-        * 📈 Interactive heatmaps and performance metrics
-      - 🎨 Dashboard features:
-        * Real-time security alerts with visual indicators
-        * User-friendly interface with emojis and clear formatting
-        * Command execution timeline with user attribution
-        * Build status tracking with success/failure indicators
-        * Enhanced filtering and search capabilities
-        * Container status overview with health monitoring
-        * Security events heatmap for pattern analysis
+      SIEM monitoring configuration applied successfully!
+      - Alloy has been updated to collect security logs
+      - SIEM dashboard has been imported to Grafana
+      - Log collection includes: SSH logs, Kubernetes audit logs, webhook events
