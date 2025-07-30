@@ -356,7 +356,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-audit\"} |~ \"type=EXECVE\" != \"(sh|bash|cat|ls|ps|grep|awk|sed|tr|cut|head|tail|wc|sort|uniq)\" | regexp \"type=EXECVE.*a0=\\\"(?P<command>[^\\\"]+)\\\".*a1=\\\"?(?P<arg1>[^\\\"\\s]*)\\\"?\" | line_format \"{{.__timestamp__}} | 💻 {{.command}}{{if .arg1}} {{.arg1}}{{end}}\"",
+          "expr": "{job=\"system-audit\"} |~ \"type=EXECVE\" | regexp \"type=EXECVE.*argc=(?P<argc>\\\\d+).*a0=\\\"(?P<command>[^\\\"]+)\\\".*a1=\\\"?(?P<arg1>[^\\\"\\s]*)\\\"?\" | line_format \"{{.__timestamp__}} | 💻 {{.command}}{{if .arg1}} {{.arg1}}{{end}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -539,24 +539,8 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-auth\"} |~ \"(?i)(failed password|authentication failure|invalid user|denied|unauthorized|forbidden)\" | line_format \"{{.__timestamp__}} | 🚨 AUTH ALERT: {{.__line__}}\"",
+          "expr": "{job=~\"system-auth|system-audit\"} |~ \"(?i)(error|fail|denied|unauthorized|forbidden|exception|panic|fatal|crash|died)\" | line_format \"{{.__timestamp__}} | 🚨 ALERT: {{.__line__}}\"",
           "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        },
-        {
-          "expr": "{job=\"system-audit\"} |~ \"(?i)(denied|avc.*denied|operation not permitted|permission denied)\" | line_format \"{{.__timestamp__}} | 🚨 AUDIT ALERT: {{.__line__}}\"",
-          "refId": "B",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        },
-        {
-          "expr": "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(error|exception|panic|fatal|crash|died|oom|killed)\" != \"(?i)(debug|trace|info)\" | line_format \"{{.__timestamp__}} | 🚨 K8S ALERT: {{.container}} - {{.__line__}}\"",
-          "refId": "C",
           "datasource": {
             "type": "loki",
             "uid": "loki"
@@ -839,121 +823,7 @@
     },
     {
       "id": 14,
-      "title": "�  System Activity Summary",
-      "type": "table",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "topk(10, sum by (container) (count_over_time({job=\"loki.source.kubernetes.pods\"} [$__range])))",
-          "refId": "A",
-          "instant": true,
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "displayMode": "color-background",
-            "filterable": true
-          },
-          "mappings": [
-            {
-              "options": {
-                "jenkins": {
-                  "text": "🏗️ Jenkins"
-                },
-                "sonarqube": {
-                  "text": "🔍 SonarQube"
-                },
-                "flask-app": {
-                  "text": "🐍 Flask App"
-                },
-                "grafana": {
-                  "text": "📊 Grafana"
-                },
-                "loki": {
-                  "text": "📝 Loki"
-                },
-                "alloy": {
-                  "text": "🔄 Alloy"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 100
-              },
-              {
-                "color": "red",
-                "value": 1000
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "container"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "🐳 Container"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Value #A"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "📊 Log Count"
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "📊 Log Count"
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 80
-      }
-    },
-    {
-      "id": 15,
-      "title": "🔍 Recent Container Activity",
+      "title": "🐳 All Container Logs (Debug View)",
       "type": "logs",
       "datasource": {
         "type": "loki",
@@ -961,7 +831,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"loki.source.kubernetes.pods\", container=~\"jenkins|sonarqube|flask-app|webhook-receiver\"} | line_format \"{{.__timestamp__}} | 📦 {{.container}}: {{.__line__}}\"",
+          "expr": "{job=\"loki.source.kubernetes.pods\"} | line_format \"{{.__timestamp__}} | 📦 {{.container}}: {{.__line__}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -971,7 +841,7 @@
       ],
       "options": {
         "showTime": true,
-        "showLabels": false,
+        "showLabels": true,
         "showCommonLabels": false,
         "wrapLogMessage": true,
         "prettifyLogMessage": false,
@@ -981,8 +851,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 24,
+        "x": 0,
         "y": 80
       }
     }
