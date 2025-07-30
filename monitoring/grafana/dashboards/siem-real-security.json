@@ -1,7 +1,13 @@
 {
   "id": null,
   "title": "🛡️ SIEM - Security Operations Center Dashboard",
-  "tags": ["siem", "security", "monitoring", "soc", "real-data"],
+  "tags": [
+    "siem",
+    "security",
+    "monitoring",
+    "soc",
+    "real-data"
+  ],
   "timezone": "browser",
   "editable": true,
   "fiscalYearStartMonth": 0,
@@ -108,7 +114,9 @@
       "options": {
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "orientation": "auto",
@@ -190,7 +198,9 @@
       "options": {
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "orientation": "auto",
@@ -217,7 +227,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-auth\"} |~ \"invalid user\" | regexp \"invalid user (?P<username>\\\\S+) from (?P<source_ip>[0-9.]+)\" | line_format \"🔴 {{.__timestamp__}} | ⚠️  INVALID USER: {{.username}} | 🌐 Source IP: {{.source_ip}} | 🚨 Potential Brute Force Attack\"",
+          "expr": "{job=\"system-auth\"} |~ \"invalid user\" | regexp \"invalid user (?P<username>\\\\S+) from (?P<source_ip>[0-9.]+)\" | line_format \"🔴 {{.__timestamp__}} | ⚠️  INVALID USER: {{.username | default \\\"unknown\\\"}} | 🌐 Source IP: {{.source_ip | default \\\"unknown\\\"}} | 🚨 Potential Brute Force Attack\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -384,7 +394,9 @@
         ],
         "footer": {
           "show": true,
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "fields": ""
         }
       },
@@ -496,7 +508,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"webhook-receiver\"} != \"Webhook check:\" | json | line_format \"🔗 {{.__timestamp__}} | 📋 Event: {{.event_type | default \\\"unknown\\\"}} | 🏢 Source: {{.source | default \\\"unknown\\\"}} | 📁 Repo: {{.repository | default \\\"N/A\\\"}} | 👤 Actor: {{.actor | default \\\"N/A\\\"}} | 📊 Level: {{.level | default \\\"info\\\"}} | {{if .pr_action}}🔀 PR: {{.pr_action}} | {{end}}{{if .issue_action}}🐛 Issue: {{.issue_action}} | {{end}}{{if .workflow_status}}⚙️  Workflow: {{.workflow_name}} ({{.workflow_status}}) | {{end}}📝 Details: {{.message | default \\\"No details\\\"}}\"",
+          "expr": "{job=\"webhook-receiver\"} != \"Webhook check:\" | line_format \"🔗 {{.__timestamp__}} | 📋 Event: {{.__line__ | regexReplaceAll \\\".*event_type[\\\\\\\":]+(\\\\w+).*\\\" \\\"$1\\\" | default \\\"webhook\\\"}} | 🏢 Source: {{.__line__ | regexReplaceAll \\\".*source[\\\\\\\":]+(\\\\w+).*\\\" \\\"$1\\\" | default \\\"github\\\"}} | 📝 Details: {{.__line__}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -696,7 +708,10 @@
       },
       "options": {
         "legend": {
-          "calcs": ["last", "max"],
+          "calcs": [
+            "last",
+            "max"
+          ],
           "displayMode": "table",
           "placement": "bottom"
         },
@@ -792,7 +807,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(error|failed|denied|unauthorized|forbidden|exception|panic|fatal|crash|died)\" != \"(?i)(info|debug|trace|successful)\" | line_format \"☸️ {{.__timestamp__}} | 🔍 Namespace: {{.namespace | default \\\"unknown\\\"}} | 🐳 Pod: {{.pod | default \\\"unknown\\\"}} | 🚨 Issue: {{.__line__}}\"",
+          "expr": "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(error|failed|denied|unauthorized|forbidden|exception|panic|fatal|crash|died)\" != \"(?i)(info|debug|trace|successful)\" | regexp \"(?P<issue_type>error|failed|denied|unauthorized|forbidden|exception|panic|fatal|crash|died)\" | line_format \"☸️ {{.__timestamp__}} | �s Namespace: {{.namespace | default \\\"unknown\\\"}} | 🐳 Pod: {{.pod | default \\\"unknown\\\"}} | 🚨 Issue Type: {{.issue_type | upper}} | 📝 Details: {{.__line__}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -819,7 +834,7 @@
     },
     {
       "id": 17,
-      "title": "🔧 Kubernetes API Access Patterns & Resource Operations",
+      "title": "🔧 Kubernetes Container Activity & Operations",
       "type": "logs",
       "datasource": {
         "type": "loki",
@@ -827,7 +842,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(get|post|put|delete|patch)\" | regexp \"(?P<method>GET|POST|PUT|DELETE|PATCH).*(?P<resource>/api/v1/[^\\\\s]+)\" | line_format \"🔧 {{.__timestamp__}} | 🔄 Method: {{.method}} | 📋 Resource: {{.resource}} | 🔍 API Access: {{.__line__}}\"",
+          "expr": "{job=\"loki.source.kubernetes.pods\"} != \"\" | line_format \"🔧 {{.__timestamp__}} | 🏢 Namespace: {{.namespace | default \\\"default\\\"}} | 🐳 Pod: {{.pod | default \\\"unknown\\\"}} | 📦 Container: {{.container | default \\\"main\\\"}} | 📝 Activity: {{.__line__}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -951,7 +966,9 @@
       "options": {
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "orientation": "auto",

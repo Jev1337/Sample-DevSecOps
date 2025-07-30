@@ -144,13 +144,21 @@ loki.process "siem_logs" {
 			selector = "{job=\"system-auth\"} |~ \"(?i)(failed password|authentication failure|invalid user)\""
 			pipeline_name = "failed_auth"
 			
+			// Handle failed password attempts
 			stage.regex {
-				expression = ".*(?i)(failed password|authentication failure).*\\s+(?P<username>\\S+)\\s+from\\s+(?P<source_ip>[0-9.]+)"
+				expression = ".*(?i)(failed password|authentication failure).*for\\s+(?P<username>\\S+)\\s+from\\s+(?P<source_ip>[0-9.]+)"
 				source = "message"
 			}
 			
+			// Handle invalid user attempts
 			stage.regex {
 				expression = ".*(?i)invalid user\\s+(?P<username>\\S+)\\s+from\\s+(?P<source_ip>[0-9.]+)"
+				source = "message"
+			}
+			
+			// Fallback regex for other auth failure formats
+			stage.regex {
+				expression = ".*from\\s+(?P<source_ip>[0-9.]+).*user\\s+(?P<username>\\S+)"
 				source = "message"
 			}
 			
@@ -168,8 +176,15 @@ loki.process "siem_logs" {
 			selector = "{job=\"system-auth\"} |~ \"(?i)(accepted|successful)\""
 			pipeline_name = "successful_auth"
 			
+			// Handle accepted connections
 			stage.regex {
-				expression = ".*(?i)(accepted|successful).*\\s+(?P<username>\\S+)\\s+from\\s+(?P<source_ip>[0-9.]+)"
+				expression = ".*(?i)accepted.*for\\s+(?P<username>\\S+)\\s+from\\s+(?P<source_ip>[0-9.]+)"
+				source = "message"
+			}
+			
+			// Handle successful authentication
+			stage.regex {
+				expression = ".*(?i)successful.*user\\s+(?P<username>\\S+).*from\\s+(?P<source_ip>[0-9.]+)"
 				source = "message"
 			}
 			
@@ -384,9 +399,34 @@ loki.process "siem_logs" {
 		selector = "{job=\"webhook-receiver\"}"
 		pipeline_name = "webhook_logs"
 		
-		// Parse webhook log format
+		// Try to parse JSON webhook logs first
+		stage.json {
+			expressions = {
+				event_type = "event_type",
+				action = "action", 
+				source = "source",
+				repository = "repository",
+				actor = "actor",
+				level = "level",
+				message = "message",
+				source_ip = "source_ip",
+				method = "method",
+				status_code = "status_code",
+			}
+		}
+		
+		// Fallback: Parse webhook log format with regex
 		stage.regex {
 			expression = "(?P<timestamp>\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d+\\+\\d{2}:\\d{2})\\s+(?P<event_type>\\S+)\\s+(?P<action>\\S+)\\s+from\\s+(?P<source_ip>[0-9.]+)"
+		}
+		
+		// Extract event info from plain text logs
+		stage.regex {
+			expression = ".*event[_:]\\s*(?P<event_type>\\w+)"
+		}
+		
+		stage.regex {
+			expression = ".*source[_:]\\s*(?P<source>\\w+)"
 		}
 		
 		stage.labels {
