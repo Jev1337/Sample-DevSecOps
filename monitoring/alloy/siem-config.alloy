@@ -42,8 +42,6 @@ loki.source.file "siem_sample_logs" {
 		{__path__ = "/var/log/webhook.log", job = "webhook-receiver", log_type = "webhook"},
 		{__path__ = "/var/log/dpkg.log", job = "package-install", log_type = "package"},
 		{__path__ = "/var/log/siem-monitor.log", job = "siem-monitor", log_type = "siem"},
-		{__path__ = "/var/log/bash.log", job = "command-execution", log_type = "commands"},
-		{__path__ = "/var/log/history.log", job = "command-history", log_type = "commands"},
 	]
 	forward_to = [loki.process.siem_logs.receiver]
 }
@@ -252,58 +250,6 @@ loki.process "siem_logs" {
 		}
 	}
 	
-	// Process command execution logs
-	stage.match {
-		selector = "{job=\"command-execution\"}"
-		pipeline_name = "command_execution"
-		
-		// Parse bash command execution format
-		stage.regex {
-			expression = "(?P<timestamp>\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2})\\s+(?P<user>\\S+)\\s+(?P<pid>\\d+)\\s+(?P<command>.*)"
-		}
-		
-		// Mark potentially dangerous commands
-		stage.match {
-			selector = "{job=\"command-execution\"} |~ \"(?i)(rm -rf|chmod 777|sudo|su -|passwd|useradd|userdel|systemctl|service|iptables|ufw|wget|curl.*\\|.*sh|nc -|netcat)\""
-			pipeline_name = "dangerous_commands"
-			
-			stage.labels {
-				values = {
-					level = "warning",
-					event_type = "dangerous_command",
-					security_level = "high",
-				}
-			}
-		}
-		
-		stage.labels {
-			values = {
-				job = "command-execution",
-				level = "info",
-				service_name = "command-execution",
-			}
-		}
-	}
-	
-	// Process command history logs
-	stage.match {
-		selector = "{job=\"command-history\"}"
-		pipeline_name = "command_history"
-		
-		// Parse history format: timestamp user command
-		stage.regex {
-			expression = "(?P<timestamp>\\d{10})\\s+(?P<user>\\S+)\\s+(?P<command>.*)"
-		}
-		
-		stage.labels {
-			values = {
-				job = "command-history",
-				level = "info",
-				service_name = "command-history",
-			}
-		}
-	}
-	
 	// Process Kubernetes audit logs (if available)
 	stage.match {
 		selector = "{job=\"kubernetes-audit\"}"
@@ -500,7 +446,7 @@ discovery.relabel "docker_containers" {
 	
 	rule {
 		source_labels = ["__meta_docker_container_name"]
-		regex = "(webhook|flask-app|jenkins|sonarqube|alloy|loki|grafana).*"
+		regex = "(webhook|flask-app|jenkins|sonarqube).*"
 		action = "keep"
 	}
 	
@@ -536,27 +482,6 @@ discovery.relabel "docker_containers" {
 		regex = "sonarqube.*"
 		replacement = "sonarqube"
 	}
-	
-	rule {
-		source_labels = ["__meta_docker_container_name"]
-		target_label = "job"
-		regex = "alloy.*"
-		replacement = "alloy"
-	}
-	
-	rule {
-		source_labels = ["__meta_docker_container_name"]
-		target_label = "job"
-		regex = "loki.*"
-		replacement = "loki"
-	}
-	
-	rule {
-		source_labels = ["__meta_docker_container_name"]
-		target_label = "job"
-		regex = "grafana.*"
-		replacement = "grafana"
-	}
 }
 
 loki.source.docker "containers" {
@@ -582,118 +507,7 @@ loki.process "docker_logs" {
 		}
 	}
 	
-	// Process Jenkins build logs
-	stage.match {
-		selector = "{job=\"jenkins\"}"
-		pipeline_name = "jenkins_builds"
-		
-		// Extract build information
-		stage.regex {
-			expression = ".*Started by user (?P<build_user>\\S+).*"
-		}
-		
-		stage.regex {
-			expression = ".*Building in workspace (?P<workspace>\\S+).*"
-		}
-		
-		stage.regex {
-			expression = ".*\\[Pipeline\\] (?P<pipeline_stage>\\S+).*"
-		}
-		
-		// Mark build status
-		stage.match {
-			selector = "{job=\"jenkins\"} |~ \"(?i)(build.*success|finished.*success|completed successfully)\""
-			pipeline_name = "build_success"
-			
-			stage.labels {
-				values = {
-					level = "info",
-					event_type = "build_success",
-					build_status = "success",
-				}
-			}
-		}
-		
-		stage.match {
-			selector = "{job=\"jenkins\"} |~ \"(?i)(build.*fail|finished.*fail|error|exception)\""
-			pipeline_name = "build_failure"
-			
-			stage.labels {
-				values = {
-					level = "error",
-					event_type = "build_failure",
-					build_status = "failed",
-				}
-			}
-		}
-		
-		stage.match {
-			selector = "{job=\"jenkins\"} |~ \"(?i)(started|triggered|building)\""
-			pipeline_name = "build_started"
-			
-			stage.labels {
-				values = {
-					level = "info",
-					event_type = "build_started",
-					build_status = "running",
-				}
-			}
-		}
-		
-		stage.labels {
-			values = {
-				environment = "docker",
-				service_name = "jenkins",
-				detected_level = "info",
-			}
-		}
-	}
-	
-	// Process SonarQube analysis logs
-	stage.match {
-		selector = "{job=\"sonarqube\"}"
-		pipeline_name = "sonarqube_analysis"
-		
-		stage.regex {
-			expression = ".*ANALYSIS SUCCESSFUL.*project=(?P<project_key>\\S+).*"
-		}
-		
-		stage.match {
-			selector = "{job=\"sonarqube\"} |~ \"(?i)(analysis.*successful|quality gate.*passed)\""
-			pipeline_name = "analysis_success"
-			
-			stage.labels {
-				values = {
-					level = "info",
-					event_type = "analysis_success",
-					analysis_status = "passed",
-				}
-			}
-		}
-		
-		stage.match {
-			selector = "{job=\"sonarqube\"} |~ \"(?i)(analysis.*fail|quality gate.*fail|error)\""
-			pipeline_name = "analysis_failure"
-			
-			stage.labels {
-				values = {
-					level = "warning",
-					event_type = "analysis_failure",
-					analysis_status = "failed",
-				}
-			}
-		}
-		
-		stage.labels {
-			values = {
-				environment = "docker",
-				service_name = "sonarqube",
-				detected_level = "info",
-			}
-		}
-	}
-	
-	// Add labels for other Docker logs
+	// Add labels for Docker logs
 	stage.labels {
 		values = {
 			environment = "docker",

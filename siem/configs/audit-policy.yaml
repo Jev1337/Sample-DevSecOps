@@ -27,16 +27,6 @@ rules:
       resources: ["configmaps"]
       namespaces: ["kube-system", "jenkins", "sonarqube", "monitoring"]
   
-  # Log Jenkins and CI/CD related activities
-  - level: Metadata
-    namespaces: ["jenkins"]
-    verbs: ["create", "update", "patch", "delete"]
-    resources:
-    - group: ""
-      resources: ["pods", "services", "configmaps", "secrets"]
-    - group: "apps"
-      resources: ["deployments", "replicasets"]
-  
   # Log authentication and authorization events
   - level: Request
     namespaces: ["kube-system"]
@@ -44,13 +34,6 @@ rules:
     resources:
     - group: ""
       resources: ["endpoints", "services", "persistentvolumeclaims"]
-  
-  # Log exec and portforward commands for security monitoring
-  - level: RequestResponse
-    resources:
-    - group: ""
-      resources: ["pods/exec", "pods/portforward", "pods/attach"]
-    verbs: ["create"]
   
   # Log namespace operations
   - level: Metadata

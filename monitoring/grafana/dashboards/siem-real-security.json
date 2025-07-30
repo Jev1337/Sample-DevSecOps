@@ -1,20 +1,20 @@
 {
   "id": null,
-  "title": "DevSecOps SIEM - Security & Operations Dashboard",
-  "tags": ["siem", "security", "monitoring", "devsecops", "jenkins", "kubernetes"],
+  "title": "SIEM - Real Security Monitoring Dashboard",
+  "tags": ["siem", "security", "monitoring", "real-data"],
   "timezone": "browser",
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 1,
+  "graphTooltip": 0,
   "links": [],
   "liveNow": false,
   "style": "dark",
   "schemaVersion": 30,
-  "version": 5,
+  "version": 4,
   "panels": [
     {
       "id": 1,
-      "title": "🔒 Security Events Overview",
+      "title": "Security Events Overview",
       "type": "stat",
       "datasource": {
         "type": "loki",
@@ -22,7 +22,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (job) (rate({job=~\"system-auth|system-audit|webhook-receiver|package-install|siem-monitor|loki.source.kubernetes.pods|command-execution\"} [5m]))",
+          "expr": "sum by (job) (rate({job=~\"system-auth|system-audit|webhook-receiver|package-install|siem-monitor|loki.source.kubernetes.pods\"} [5m]))",
           "refId": "A",
           "legendFormat": "{{job}}",
           "datasource": {
@@ -34,7 +34,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
           "thresholds": {
             "steps": [
@@ -52,8 +52,7 @@
               }
             ]
           },
-          "unit": "reqps",
-          "displayName": "${__field.labels.job}"
+          "unit": "short"
         }
       },
       "options": {
@@ -63,9 +62,9 @@
           "fields": ""
         },
         "orientation": "horizontal",
-        "textMode": "value_and_name",
+        "textMode": "auto",
         "colorMode": "background",
-        "noValue": "No Events"
+        "noValue": "No Security Events"
       },
       "gridPos": {
         "h": 8,
@@ -76,74 +75,31 @@
     },
     {
       "id": 2,
-      "title": "🚨 Security Alert Summary",
-      "type": "stat",
+      "title": "SSH Invalid User Attempts",
+      "type": "logs",
       "datasource": {
         "type": "loki",
         "uid": "loki"
       },
       "targets": [
         {
-          "expr": "sum(count_over_time({job=~\"system-auth|system-audit\"} |~ \"(?i)(failed|invalid|denied|unauthorized|forbidden|error)\" [$__range]))",
+          "expr": "{job=\"system-auth\"} |~ \"invalid user\" | regexp \"invalid user (?P<username>\\\\S+) (?P<source_ip>[0-9.]+)\" | line_format \"{{.__timestamp__}} | Invalid User: {{.username}} from IP: {{.source_ip}}\"",
           "refId": "A",
-          "legendFormat": "Failed Auth",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        },
-        {
-          "expr": "sum(count_over_time({job=\"command-execution\"} |~ \"(?i)(rm -rf|chmod 777|sudo|passwd|useradd|userdel)\" [$__range]))",
-          "refId": "B",
-          "legendFormat": "Dangerous Commands",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        },
-        {
-          "expr": "sum(count_over_time({job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(error|failed|crash|died)\" [$__range]))",
-          "refId": "C",
-          "legendFormat": "K8s Issues",
           "datasource": {
             "type": "loki",
             "uid": "loki"
           }
         }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 10
-              }
-            ]
-          },
-          "unit": "short"
-        }
-      },
       "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": ["lastNotNull"],
-          "fields": ""
-        },
-        "orientation": "horizontal",
-        "textMode": "value_and_name",
-        "colorMode": "background"
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "exact",
+        "sortOrder": "Descending"
       },
       "gridPos": {
         "h": 8,
@@ -154,200 +110,7 @@
     },
     {
       "id": 3,
-      "title": "🏗️ Jenkins Build Status",
-      "type": "timeseries",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "sum by (build_status) (rate({job=\"jenkins\"} |~ \"(?i)(build.*success|build.*fail|started|triggered)\" [$__rate_interval]))",
-          "refId": "A",
-          "legendFormat": "{{build_status}}",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "Builds per second",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "opacity",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            },
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "unit": "reqps"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "success"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "green"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "failed"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "red"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "running"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "blue"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "calcs": ["last", "max"],
-          "displayMode": "table",
-          "placement": "right"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 8
-      }
-    },
-    {
-      "id": 4,
-      "title": "📊 System Activity Heatmap",
-      "type": "heatmap",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "sum by (job) (count_over_time({job=~\"system-auth|system-audit|command-execution|jenkins|webhook-receiver\"} [$__interval]))",
-          "refId": "A",
-          "legendFormat": "{{job}}",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            },
-            "scaleDistribution": {
-              "type": "linear"
-            }
-          }
-        }
-      },
-      "options": {
-        "calculate": false,
-        "cellGap": 2,
-        "color": {
-          "exponent": 0.5,
-          "fill": "dark-orange",
-          "mode": "spectrum",
-          "reverse": false,
-          "scale": "exponential",
-          "scheme": "Spectral",
-          "steps": 64
-        },
-        "exemplars": {
-          "color": "rgba(255,0,255,0.7)"
-        },
-        "filterValues": {
-          "le": 1e-9
-        },
-        "legend": {
-          "show": true
-        },
-        "rowsFrame": {
-          "layout": "auto"
-        },
-        "tooltip": {
-          "show": true,
-          "yHistogram": false
-        },
-        "yAxis": {
-          "axisPlacement": "left",
-          "reverse": false,
-          "unit": "short"
-        }
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 16
-      }
-    },
-    {
-      "id": 5,
-      "title": "🔍 Top Failed Login Sources",
+      "title": "Top Failed Login Sources",
       "type": "table",
       "datasource": {
         "type": "loki",
@@ -355,7 +118,7 @@
       },
       "targets": [
         {
-          "expr": "topk(10, sum by (source_ip) (count_over_time({job=\"system-auth\"} |~ \"(?i)(failed|invalid)\" | regexp \"(?P<source_ip>[0-9]+\\\\.[0-9]+\\\\.[0-9]+\\\\.[0-9]+)\" [$__range])))",
+          "expr": "topk(10, sum by (source_ip) (count_over_time({job=\"system-audit\"} |~ \"USER_ERR.*PAM:bad_ident\" | regexp \"hostname=(?P<source_ip>[0-9]+\\\\.[0-9]+\\\\.[0-9]+\\\\.[0-9]+) addr=(?P<addr>[0-9]+\\\\.[0-9]+\\\\.[0-9]+\\\\.[0-9]+)\" [$__range])))",
           "refId": "A",
           "instant": true,
           "datasource": {
@@ -367,9 +130,8 @@
       "fieldConfig": {
         "defaults": {
           "custom": {
-            "displayMode": "color-background",
-            "filterable": true,
-            "inspect": false
+            "displayMode": "list",
+            "filterable": false
           },
           "mappings": [],
           "thresholds": {
@@ -380,12 +142,8 @@
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 5
-              },
-              {
                 "color": "red",
-                "value": 10
+                "value": 5
               }
             ]
           },
@@ -402,7 +160,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "🌐 Source IP"
+                "value": "Source IP Address"
               },
               {
                 "id": "custom.width",
@@ -418,7 +176,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "❌ Failed Attempts"
+                "value": "Failed Attempts"
               },
               {
                 "id": "custom.width",
@@ -433,20 +191,39 @@
         "sortBy": [
           {
             "desc": true,
-            "displayName": "❌ Failed Attempts"
+            "displayName": "Failed Attempts"
           }
         ]
       },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "source_ip": 0,
+              "Value #A": 1
+            },
+            "renameByName": {
+              "source_ip": "Source IP Address",
+              "Value #A": "Failed Attempts"
+            }
+          }
+        }
+      ],
+      "pluginVersion": "9.0.0",
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 16
+        "x": 0,
+        "y": 8
       }
     },
     {
-      "id": 6,
-      "title": "⚡ Recent Command Executions",
+      "id": 4,
+      "title": "Sudo Usage Activity",
       "type": "logs",
       "datasource": {
         "type": "loki",
@@ -454,7 +231,7 @@
       },
       "targets": [
         {
-          "expr": "{job=~\"command-execution|command-history\"} | regexp \"(?P<user>\\\\S+).*(?P<command>.+)\" | line_format \"{{.__timestamp__}} | 👤 User: {{.user}} | 💻 Command: {{.command}}\"",
+          "expr": "{job=\"system-auth\"} |~ \"sudo:\" |~ \"COMMAND=\" != \"sudo: unable to resolve host\" != \"sudo: pam_open_session\" | regexp \"sudo:\\\\s*(?P<user>\\\\S+)\\\\s*:.*COMMAND=(?P<command>.+)$\" | line_format \"{{.__timestamp__}} | User {{.user}} executed as Sudo: {{.command}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -470,6 +247,76 @@
         "prettifyLogMessage": false,
         "enableLogDetails": true,
         "dedupStrategy": "exact",
+        "sortOrder": "Descending"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      }
+    },
+    {
+      "id": 5,
+      "title": "Package Installation Activity",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"package-install\"} |~ \"status (installed|half-configured|half-installed|unpacked|triggers-pending)\" | regexp \"status (?P<action>\\\\S+) (?P<package>[^:]+):\" != \": \" | line_format \"{{.__timestamp__}} | {{.action | title}}: {{.package}}\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      }
+    },
+    {
+      "id": 7,
+      "title": "Webhook Security Events (Detailed)",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"webhook-receiver\"} != \"Webhook check:\" | json | line_format \"{{.__timestamp__}} | Event: {{.event_type | default \\\"unknown\\\"}} | Source: {{.source | default \\\"unknown\\\"}} | Repository: {{.repository | default \\\"N/A\\\"}} | Actor: {{.actor | default \\\"N/A\\\"}} | Level: {{.level | default \\\"info\\\"}} | {{if .pr_action}}PR Action: {{.pr_action}} | {{end}}{{if .issue_action}}Issue Action: {{.issue_action}} | {{end}}{{if .workflow_status}}Workflow: {{.workflow_name}} ({{.workflow_status}}) | {{end}}Details: {{.message | default \\\"No details\\\"}}\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
         "sortOrder": "Descending"
       },
       "gridPos": {
@@ -480,8 +327,8 @@
       }
     },
     {
-      "id": 7,
-      "title": "🚨 Dangerous Command Alerts",
+      "id": 11,
+      "title": "User Sessions & Authentication Events",
       "type": "logs",
       "datasource": {
         "type": "loki",
@@ -489,7 +336,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"command-execution\"} |~ \"(?i)(rm -rf|chmod 777|sudo|passwd|useradd|userdel|systemctl|iptables|wget.*\\\\|.*sh|nc -|netcat)\" | regexp \"(?P<user>\\\\S+).*(?P<command>.+)\" | line_format \"{{.__timestamp__}} | ⚠️ ALERT | 👤 User: {{.user}} | 🔥 Dangerous Command: {{.command}}\"",
+          "expr": "{job=\"system-auth\"} |~ \"(session opened|session closed|Accepted|Failed|Invalid|authentication failure)\" | regexp \"(?:session (?P<action>opened|closed) for user (?P<user>\\\\S+)|(?P<auth_result>Accepted|Failed) (?P<method>\\\\S+) for (?P<auth_user>\\\\S+) from (?P<source_ip>[0-9.]+)|Invalid user (?P<invalid_user>\\\\S+) from (?P<invalid_ip>[0-9.]+)|authentication failure.*user=(?P<fail_user>\\\\S+))\" | line_format \"{{.__timestamp__}} | {{if .action}}Session {{.action}} for user {{.user}}{{else if .auth_result}}{{.auth_result}} {{.method}} login for {{.auth_user}} from {{.source_ip}}{{else if .invalid_user}}Invalid login attempt: {{.invalid_user}} from {{.invalid_ip}}{{else if .fail_user}}Authentication failed for {{.fail_user}}{{else}}Auth Event: {{.__line__}}{{end}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -505,41 +352,6 @@
         "prettifyLogMessage": false,
         "enableLogDetails": true,
         "dedupStrategy": "exact",
-        "sortOrder": "Descending"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 32
-      }
-    },
-    {
-      "id": 8,
-      "title": "🔧 Jenkins Build Details",
-      "type": "logs",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "{job=\"jenkins\"} |~ \"(?i)(started by user|building|finished|pipeline|stage)\" | regexp \"(?P<build_user>user \\\\S+)|(?P<pipeline_stage>Pipeline.*)|(?P<build_status>SUCCESS|FAILURE|STARTED)\" | line_format \"{{.__timestamp__}} | 🏗️ Jenkins | {{if .build_user}}👤 {{.build_user}}{{end}} {{if .pipeline_stage}}📋 {{.pipeline_stage}}{{end}} {{if .build_status}}📊 Status: {{.build_status}}{{end}} | {{.__line__}}\"",
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "none",
         "sortOrder": "Descending"
       },
       "gridPos": {
@@ -550,8 +362,8 @@
       }
     },
     {
-      "id": 9,
-      "title": "🔐 Authentication Events Timeline",
+      "id": 8,
+      "title": "Security Events Timeline",
       "type": "timeseries",
       "datasource": {
         "type": "loki",
@@ -559,216 +371,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (event_type) (rate({job=\"system-auth\"} |~ \"(?i)(accepted|failed|invalid)\" [$__rate_interval]))",
-          "refId": "A",
-          "legendFormat": "{{event_type}}",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "Events per second",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "unit": "reqps"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": ".*success.*|.*accepted.*"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "green"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": ".*fail.*|.*invalid.*"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "red"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "calcs": ["last", "max"],
-          "displayMode": "table",
-          "placement": "right"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 48
-      }
-    },
-    {
-      "id": 10,
-      "title": "🐳 Kubernetes Cluster Events",
-      "type": "logs",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "{job=\"loki.source.kubernetes.pods\"} != \"\" | regexp \"(?P<namespace>\\\\S+)/(?P<pod>\\\\S+)\" | line_format \"{{.__timestamp__}} | 🐳 K8s | 📦 Namespace: {{.namespace}} | 🚀 Pod: {{.pod}} | {{.__line__}}\"",
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "exact",
-        "sortOrder": "Descending"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 56
-      }
-    },
-    {
-      "id": 11,
-      "title": "🔍 SonarQube Code Analysis",
-      "type": "logs",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "{job=\"sonarqube\"} |~ \"(?i)(analysis|quality gate|project)\" | regexp \"(?P<project_key>project=\\\\S+)|(?P<analysis_status>SUCCESSFUL|FAILED)\" | line_format \"{{.__timestamp__}} | 🔍 SonarQube | {{if .project_key}}📋 {{.project_key}}{{end}} {{if .analysis_status}}📊 Status: {{.analysis_status}}{{end}} | {{.__line__}}\"",
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "none",
-        "sortOrder": "Descending"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 64
-      }
-    },
-    {
-      "id": 12,
-      "title": "📡 Webhook Security Events",
-      "type": "logs",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "{job=\"webhook-receiver\"} != \"Webhook check:\" | json | line_format \"{{.__timestamp__}} | 📡 Webhook | 🎯 Event: {{.event_type | default \\\"unknown\\\"}} | 📂 Repo: {{.repository | default \\\"N/A\\\"}} | 👤 Actor: {{.actor | default \\\"N/A\\\"}} | 🔒 Level: {{.level | default \\\"info\\\"}} | {{if .pr_action}}🔀 PR: {{.pr_action}} | {{end}}{{if .issue_action}}🐛 Issue: {{.issue_action}} | {{end}}{{if .workflow_status}}⚙️ Workflow: {{.workflow_name}} ({{.workflow_status}}) | {{end}}📝 {{.message | default \\\"No details\\\"}}\"",
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "none",
-        "sortOrder": "Descending"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 72
-      }
-    },
-    {
-      "id": 13,
-      "title": "📈 System Performance Metrics",
-      "type": "timeseries",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "expr": "sum by (job) (rate({job=~\"system-auth|system-audit|webhook-receiver|package-install|siem-monitor|loki.source.kubernetes.pods|command-execution|jenkins|sonarqube\"} [1m]))",
+          "expr": "sum by (job) (rate({job=~\"system-auth|system-audit|webhook-receiver|package-install|siem-monitor|loki.source.kubernetes.pods\"} [1m]))",
           "refId": "A",
           "legendFormat": "{{job}}",
           "datasource": {
@@ -783,7 +386,7 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "Events per second",
+            "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
@@ -810,24 +413,174 @@
               "mode": "off"
             }
           },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
           "unit": "reqps"
         }
       },
       "options": {
         "legend": {
-          "calcs": ["last", "max", "mean"],
-          "displayMode": "table",
-          "placement": "right"
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "single"
         }
       },
       "gridPos": {
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 80
+        "y": 48
+      }
+    },
+    {
+      "id": 10,
+      "title": "All Command Executions (Audit Trail)",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"system-audit\"} | regexp \"type=(?P<audit_type>\\\\S+) msg=audit\\\\((?P<audit_timestamp>[^)]+)\\\\): (?P<audit_message>.*)\" | line_format \"{{.__timestamp__}} | {{.audit_type}}: {{.audit_message}}\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "exact",
+        "sortOrder": "Descending"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      }
+    },
+    {
+      "id": 12,
+      "title": "Failed SSH Authentication Events",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"system-audit\"} |~ \"USER_ERR.*PAM:bad_ident\" | regexp \"hostname=(?P<source_ip>[0-9]+\\\\.[0-9]+\\\\.[0-9]+\\\\.[0-9]+) addr=(?P<addr>[0-9]+\\\\.[0-9]+\\\\.[0-9]+\\\\.[0-9]+)\" | line_format \"{{.__timestamp__}} | SSH Authentication Failed from IP: {{.source_ip}} ({{.addr}})\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "exact",
+        "sortOrder": "Descending"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 56
+      }
+    },
+    {
+      "id": 13,
+      "title": "Kubernetes API Events",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(error|failed|denied|unauthorized|forbidden|exception|panic|fatal|crash|died)\" != \"(?i)(info|debug|trace|successful)\" | regexp \"(?P<namespace>\\\\S+)/(?P<pod>\\\\S+)\" | line_format \"{{.__timestamp__}} | Namespace: {{.namespace}} | Pod: {{.pod}} | {{.__line__}}\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "exact",
+        "sortOrder": "Descending"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 64
+      }
+    },
+    {
+      "id": 17,
+      "title": "Kubernetes Resource Access Patterns",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(get|post|put|delete|patch)\" | regexp \"(?P<method>GET|POST|PUT|DELETE|PATCH).*(?P<resource>/api/v1/[^\\\\s]+)\" | line_format \"{{.__timestamp__}} | Method: {{.method}} | Resource: {{.resource}} | {{.__line__}}\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "exact",
+        "sortOrder": "Descending"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 72
       }
     }
   ],
@@ -835,19 +588,6 @@
     "from": "now-6h",
     "to": "now"
   },
-  "timepicker": {
-    "refresh_intervals": [
-      "5s",
-      "10s",
-      "30s",
-      "1m",
-      "5m",
-      "15m",
-      "30m",
-      "1h",
-      "2h",
-      "1d"
-    ]
-  },
+  "timepicker": {},
   "refresh": "30s"
 }

@@ -21,69 +21,19 @@
         name: siem_monitoring
       tags: [siem, monitoring]
 
-    - name: Update Alloy configuration with enhanced SIEM features
-      shell: |
-        # Copy enhanced Alloy configuration
-        microk8s kubectl create configmap alloy-config \
-          --from-file={{ inventory_dir }}/../monitoring/alloy/siem-config.alloy \
-          --dry-run=client -o yaml | microk8s kubectl apply -f -
-        
-        # Restart Alloy to pick up new configuration
-        microk8s kubectl rollout restart daemonset/alloy -n monitoring || true
-        
-        # Wait for Alloy to be ready
-        microk8s kubectl rollout status daemonset/alloy -n monitoring --timeout=60s || true
-      register: alloy_update
-      ignore_errors: true
-
-    - name: Import enhanced SIEM dashboard to Grafana
-      shell: |
-        # Wait for Grafana to be ready
-        sleep 10
-        
-        # Import the enhanced dashboard
-        GRAFANA_POD=$(microk8s kubectl get pods -n monitoring -l app.kubernetes.io/name=grafana -o jsonpath='{.items[0].metadata.name}')
-        if [ ! -z "$GRAFANA_POD" ]; then
-          microk8s kubectl cp {{ inventory_dir }}/../monitoring/grafana/dashboards/siem-real-security.json monitoring/$GRAFANA_POD:/tmp/dashboard.json
-          microk8s kubectl exec -n monitoring $GRAFANA_POD -- curl -X POST \
-            -H "Content-Type: application/json" \
-            -d @/tmp/dashboard.json \
-            http://admin:admin123@localhost:3000/api/dashboards/db || true
-        fi
-      register: dashboard_import
-      ignore_errors: true
-
-    - name: Setup enhanced command logging for monitoring
-      script: "{{ inventory_dir }}/../siem/scripts/setup-command-logging.sh"
-      register: command_logging_setup
-      ignore_errors: true
-
     - name: Final SIEM setup verification
       shell: |
-        echo "=== Enhanced SIEM Deployment Summary ==="
+        echo "=== SIEM Deployment Summary ==="
         echo "1. Kubernetes audit logging: $(test -f /var/log/kubernetes/audit.log && echo 'ENABLED' || echo 'PENDING')"
         echo "2. Webhook receiver: $(microk8s kubectl get deployment webhook-receiver -n monitoring &>/dev/null && echo 'DEPLOYED' || echo 'FAILED')"
         echo "3. Alloy log collection: $(microk8s kubectl get daemonset alloy -n monitoring &>/dev/null && echo 'RUNNING' || echo 'FAILED')"
-        echo "4. Enhanced Grafana dashboard: IMPORTED"
-        echo "5. Command logging: $(test -f /var/log/bash.log && echo 'ENABLED' || echo 'SETUP')"
-        echo "6. Jenkins build monitoring: CONFIGURED"
-        echo "7. SonarQube analysis tracking: CONFIGURED"
+        echo "4. Grafana dashboard: IMPORTED"
         echo ""
         EXTERNAL_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com)
         echo "=== SIEM Access URLs ==="
-        echo "- Enhanced SIEM Dashboard: http://grafana.$EXTERNAL_IP.nip.io (admin/admin123)"
+        echo "- SIEM Dashboard: http://grafana.$EXTERNAL_IP.nip.io (admin/admin123)"
         echo "- Webhook Endpoint: http://webhook.$EXTERNAL_IP.nip.io/webhook"
         echo "- Security Logs Query: Use Grafana Explore with Loki data source"
-        echo ""
-        echo "=== New Dashboard Features ==="
-        echo "- 🔒 Real-time security alerts with emojis for better visibility"
-        echo "- 🏗️ Jenkins build status tracking and timeline"
-        echo "- ⚡ Command execution monitoring (all users)"
-        echo "- 🚨 Dangerous command detection and alerting"
-        echo "- 🔍 SonarQube code analysis results"
-        echo "- 📊 Interactive heatmaps and performance metrics"
-        echo "- 🐳 Enhanced Kubernetes cluster monitoring"
-        echo "- 📡 Detailed webhook event tracking"
       register: siem_summary
 
     - name: Display SIEM summary
