@@ -807,7 +807,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(error|failed|denied|unauthorized|forbidden|exception|panic|fatal|crash|died)\" != \"(?i)(info|debug|trace|successful)\" | regexp \"(?P<issue_type>error|failed|denied|unauthorized|forbidden|exception|panic|fatal|crash|died)\" | line_format \"☸️ {{.__timestamp__}} | �s Namespace: {{.namespace | default \\\"unknown\\\"}} | 🐳 Pod: {{.pod | default \\\"unknown\\\"}} | 🚨 Issue Type: {{.issue_type | upper}} | 📝 Details: {{.__line__}}\"",
+          "expr": "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(error|failed|denied|unauthorized|forbidden|exception|panic|fatal|crash|died)\" != \"(?i)(info|debug|trace|successful)\" | regexp \"(?P<issue_type>error|failed|denied|unauthorized|forbidden|exception|panic|fatal|crash|died)\" | line_format \"☸️ {{.__timestamp__}} | �s Namespace: {{.namespace | default \\\"unknown\\\"}} | 🐳 Pod: {{.pod | default \\\"unknown\\\"}} | 🚨 Issue Type: {{.issue_type | upper}} | 📝 Details: Check the cluster!\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
