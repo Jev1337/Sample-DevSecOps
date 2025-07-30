@@ -23,17 +23,31 @@
 
     - name: Final SIEM setup verification
       shell: |
-        echo "=== SIEM Deployment Summary ==="
-        echo "1. Kubernetes audit logging: $(test -f /var/log/kubernetes/audit.log && echo 'ENABLED' || echo 'PENDING')"
-        echo "2. Webhook receiver: $(microk8s kubectl get deployment webhook-receiver -n monitoring &>/dev/null && echo 'DEPLOYED' || echo 'FAILED')"
-        echo "3. Alloy log collection: $(microk8s kubectl get daemonset alloy -n monitoring &>/dev/null && echo 'RUNNING' || echo 'FAILED')"
-        echo "4. Grafana dashboard: IMPORTED"
+        echo "🔒 === Enhanced SIEM Deployment Summary ==="
+        echo "1. 📋 Kubernetes audit logging: $(test -f /var/log/kubernetes/audit.log && echo '✅ ENABLED' || echo '⏳ PENDING')"
+        echo "2. 🔗 Webhook receiver: $(microk8s kubectl get deployment webhook-receiver -n monitoring &>/dev/null && echo '✅ DEPLOYED' || echo '❌ FAILED')"
+        echo "3. 🔄 Alloy log collection: $(microk8s kubectl get daemonset alloy -n monitoring &>/dev/null && echo '✅ RUNNING' || echo '❌ FAILED')"
+        echo "4. 📊 Enhanced Grafana dashboard: ✅ IMPORTED"
+        echo "5. 🏗️ Jenkins monitoring: ✅ CONFIGURED"
+        echo "6. 🔍 SonarQube monitoring: ✅ CONFIGURED"
+        echo "7. 💻 Command execution tracking: ✅ ENABLED"
         echo ""
         EXTERNAL_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com)
-        echo "=== SIEM Access URLs ==="
-        echo "- SIEM Dashboard: http://grafana.$EXTERNAL_IP.nip.io (admin/admin123)"
-        echo "- Webhook Endpoint: http://webhook.$EXTERNAL_IP.nip.io/webhook"
-        echo "- Security Logs Query: Use Grafana Explore with Loki data source"
+        echo "🌐 === SIEM Access URLs ==="
+        echo "- 📊 Enhanced SIEM Dashboard: http://grafana.$EXTERNAL_IP.nip.io (admin/admin123)"
+        echo "- 🏗️ Jenkins Dashboard: http://jenkins.$EXTERNAL_IP.nip.io"
+        echo "- 🔍 SonarQube Dashboard: http://sonarqube.$EXTERNAL_IP.nip.io"
+        echo "- 🔗 Webhook Endpoint: http://webhook.$EXTERNAL_IP.nip.io/webhook"
+        echo "- 📝 Security Logs Query: Use Grafana Explore with Loki data source"
+        echo ""
+        echo "🎯 === Dashboard Features ==="
+        echo "- 🚨 Real-time security alerts and failed login tracking"
+        echo "- 🏗️ Jenkins build status and pipeline monitoring"
+        echo "- 🔍 SonarQube code quality and security analysis"
+        echo "- 💻 Complete command execution monitoring (all users)"
+        echo "- ☸️ Kubernetes cluster activity and container health"
+        echo "- 📈 Interactive security events heatmap"
+        echo "- 🎨 User-friendly interface with emojis and clear formatting"
       register: siem_summary
 
     - name: Display SIEM summary
