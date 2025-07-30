@@ -1,7 +1,13 @@
 {
   "id": null,
   "title": "🔒 DevSecOps Security Monitoring Dashboard",
-  "tags": ["siem", "security", "monitoring", "devsecops", "kubernetes"],
+  "tags": [
+    "siem",
+    "security",
+    "monitoring",
+    "devsecops",
+    "kubernetes"
+  ],
   "timezone": "browser",
   "editable": true,
   "fiscalYearStartMonth": 0,
@@ -106,7 +112,9 @@
       "options": {
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "orientation": "horizontal",
@@ -140,7 +148,7 @@
           }
         },
         {
-          "expr": "{container=~\"kaniko|git-clone|trivy\"} | line_format \"{{.__timestamp__}} | 🔧 CI Tool ({{.container}}): {{.__line__}}\"",
+          "expr": "{container=~\"kaniko|git-clone\"} | line_format \"{{.__timestamp__}} | 🔧 {{.container}}: {{.__line__}}\"",
           "refId": "B",
           "datasource": {
             "type": "loki",
@@ -330,7 +338,10 @@
       },
       "options": {
         "legend": {
-          "calcs": ["last", "max"],
+          "calcs": [
+            "last",
+            "max"
+          ],
           "displayMode": "table",
           "placement": "right"
         },
@@ -356,7 +367,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-audit\"} |~ \"type=EXECVE\" != \"(sh|bash|cat|ls|ps|grep|awk|sed|tr|cut|head|tail|wc|sort|uniq)\" | regexp \"type=EXECVE.*a0=\\\"(?P<command>[^\\\"]+)\\\".*a1=\\\"?(?P<arg1>[^\\\"\\s]*)\\\"?\" | line_format \"{{.__timestamp__}} | 💻 {{.command}}{{if .arg1}} {{.arg1}}{{end}}\"",
+          "expr": "{job=\"system-audit\"} |~ \"type=EXECVE\" | line_format \"{{.__timestamp__}} | 💻 Command Executed: {{.__line__}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -391,7 +402,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-audit\"} |~ \"type=EXECVE\" |~ \"(sudo|su|passwd|useradd|userdel|usermod|groupadd|groupdel|chmod|chown|systemctl|service|mount|umount)\" | regexp \"type=EXECVE.*a0=\\\"(?P<command>[^\\\"]+)\\\"\" | line_format \"{{.__timestamp__}} | 🔧 Admin Command: {{.command}}\"",
+          "expr": "{job=\"system-audit\"} |~ \"sudo|systemctl|service|mount|chmod|chown\" | line_format \"{{.__timestamp__}} | 🔧 Admin: {{.__line__}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -504,7 +515,7 @@
           }
         },
         {
-          "expr": "{container=\"trivy\"} | line_format \"{{.__timestamp__}} | 🛡️ Trivy Security Scan: {{.__line__}}\"",
+          "expr": "{container=\"trivy\"} | line_format \"{{.__timestamp__}} | 🛡️ Trivy: {{.__line__}}\"",
           "refId": "B",
           "datasource": {
             "type": "loki",
@@ -539,7 +550,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"system-auth\"} |~ \"(?i)(failed password|authentication failure|invalid user|denied|unauthorized|forbidden)\" | line_format \"{{.__timestamp__}} | 🚨 AUTH ALERT: {{.__line__}}\"",
+          "expr": "{job=\"system-auth\"} |~ \"failed|invalid|denied\" | line_format \"{{.__timestamp__}} | 🚨 AUTH: {{.__line__}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
@@ -547,16 +558,8 @@
           }
         },
         {
-          "expr": "{job=\"system-audit\"} |~ \"(?i)(denied|avc.*denied|operation not permitted|permission denied)\" | line_format \"{{.__timestamp__}} | 🚨 AUDIT ALERT: {{.__line__}}\"",
+          "expr": "{job=\"loki.source.kubernetes.pods\"} |~ \"error|ERROR|Error\" | line_format \"{{.__timestamp__}} | 🚨 {{.container}}: {{.__line__}}\"",
           "refId": "B",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          }
-        },
-        {
-          "expr": "{job=\"loki.source.kubernetes.pods\"} |~ \"(?i)(error|exception|panic|fatal|crash|died|oom|killed)\" != \"(?i)(debug|trace|info)\" | line_format \"{{.__timestamp__}} | 🚨 K8S ALERT: {{.container}} - {{.__line__}}\"",
-          "refId": "C",
           "datasource": {
             "type": "loki",
             "uid": "loki"
@@ -730,7 +733,9 @@
       "options": {
         "reduceOptions": {
           "values": false,
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": ""
         },
         "orientation": "horizontal",
@@ -821,7 +826,11 @@
       },
       "options": {
         "legend": {
-          "calcs": ["last", "max", "mean"],
+          "calcs": [
+            "last",
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom"
         },
@@ -961,7 +970,7 @@
       },
       "targets": [
         {
-          "expr": "{job=\"loki.source.kubernetes.pods\", container=~\"jenkins|sonarqube|flask-app|webhook-receiver\"} | line_format \"{{.__timestamp__}} | 📦 {{.container}}: {{.__line__}}\"",
+          "expr": "{container=~\"jenkins|sonarqube|flask-app|webhook-receiver\"} | line_format \"{{.__timestamp__}} | 📦 {{.container}}: {{.__line__}}\"",
           "refId": "A",
           "datasource": {
             "type": "loki",
