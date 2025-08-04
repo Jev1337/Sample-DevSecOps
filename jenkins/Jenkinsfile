@@ -770,7 +770,7 @@ try:
     print("Deployment updated, waiting for rollout to complete...")
     
     # Wait for rollout to complete
-    for i in range(18);  # 3 minute timeout (reduced from 5 minutes)
+    for i in range(18):  # 3 minute timeout (reduced from 5 minutes)
         try:
             deployment = apps_v1.read_namespaced_deployment(name="flask-app", namespace="flask-app")
             
