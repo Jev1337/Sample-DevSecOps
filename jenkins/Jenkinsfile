@@ -410,19 +410,9 @@ PYEOF
                     def buildNumber = env.BUILD_NUMBER
                     
                     sh """
-                        # Run Trivy scan in a separate pod with host network access
-                        python3 << 'PYEOF'
-import time
-from kubernetes import client, config
-
-# Load in-cluster config
-config.load_incluster_config()
-
-# Create API clients
-v1 = client.CoreV1Api()
-
-# Create HTML template for image scanning
-html_template = '''<!DOCTYPE html>
+                        # Create HTML template file locally first
+                        cat > trivy-image-template.tpl << 'EOF'
+<!DOCTYPE html>
 <html>
 <head>
     <title>Trivy Image Scan Report</title>
@@ -478,7 +468,27 @@ html_template = '''<!DOCTYPE html>
     </div>
     {{- end }}
 </body>
-</html>'''
+</html>
+EOF
+
+                        # Run Trivy scan in a separate pod with host network access
+                        python3 << 'PYEOF'
+import time
+import base64
+from kubernetes import client, config
+
+# Load in-cluster config
+config.load_incluster_config()
+
+# Create API clients
+v1 = client.CoreV1Api()
+
+# Read the template file and encode it
+with open('trivy-image-template.tpl', 'r') as f:
+    template_content = f.read()
+    
+# Encode template content as base64 to avoid shell escaping issues
+template_b64 = base64.b64encode(template_content.encode()).decode()
 
 # Create Trivy scan pod with host network
 trivy_pod = {
@@ -495,7 +505,7 @@ trivy_pod = {
             'name': 'template-setup',
             'image': 'alpine:latest',
             'command': ['sh', '-c'],
-            'args': ['echo "' + html_template + '" > /shared/trivy-image-template.tpl'],
+            'args': [f'echo "{template_b64}" | base64 -d > /shared/trivy-image-template.tpl'],
             'volumeMounts': [{
                 'name': 'shared-data',
                 'mountPath': '/shared'
@@ -538,11 +548,42 @@ try:
             phase = pod_status.status.phase
             print(f"Trivy pod status: {phase}")
             
+            # Show container statuses for debugging
+            if pod_status.status.container_statuses:
+                for container_status in pod_status.status.container_statuses:
+                    print(f"Container {container_status.name}: ready={container_status.ready}, restart_count={container_status.restart_count}")
+                    if container_status.state.waiting:
+                        print(f"  Waiting: {container_status.state.waiting.reason} - {container_status.state.waiting.message}")
+                    elif container_status.state.terminated:
+                        print(f"  Terminated: {container_status.state.terminated.reason} - exit_code={container_status.state.terminated.exit_code}")
+            
+            # Show init container statuses
+            if pod_status.status.init_container_statuses:
+                for init_status in pod_status.status.init_container_statuses:
+                    print(f"InitContainer {init_status.name}: ready={init_status.ready}")
+                    if init_status.state.waiting:
+                        print(f"  Waiting: {init_status.state.waiting.reason}")
+                    elif init_status.state.terminated:
+                        print(f"  Terminated: exit_code={init_status.state.terminated.exit_code}")
+            
             if phase == 'Succeeded':
                 print("✅ Trivy scan completed successfully")
                 break
             elif phase == 'Failed':
                 print("❌ Trivy scan failed")
+                # Get logs from failed containers
+                try:
+                    logs = v1.read_namespaced_pod_log(name='trivy-scan-${buildNumber}', namespace='jenkins', container='trivy')
+                    print("Trivy container logs:")
+                    print(logs)
+                except:
+                    pass
+                try:
+                    init_logs = v1.read_namespaced_pod_log(name='trivy-scan-${buildNumber}', namespace='jenkins', container='template-setup')
+                    print("Template setup logs:")
+                    print(init_logs)
+                except:
+                    pass
                 break
                 
             time.sleep(10)
@@ -552,7 +593,7 @@ try:
     
     # Get scan results from logs for status info
     try:
-        logs = v1.read_namespaced_pod_log(name='trivy-scan-${buildNumber}', namespace='jenkins')
+        logs = v1.read_namespaced_pod_log(name='trivy-scan-${buildNumber}', namespace='jenkins', container='trivy')
         print("Trivy scan execution logs:")
         print(logs)
         
@@ -560,7 +601,7 @@ try:
         html_content = '''<!DOCTYPE html>
 <html>
 <head>
-    <title>Trivy Image Scan Report</title>
+    <title>Trivy Image Scan Report Summary</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         .header { background-color: #f0f0f0; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
@@ -570,14 +611,14 @@ try:
 </head>
 <body>
     <div class="header">
-        <h1>Trivy Image Scan Report</h1>
+        <h1>Trivy Image Scan Report Summary</h1>
         <p><strong>Image:</strong> ${fullImageName}</p>
         <p><strong>Scan Date:</strong> ''' + time.strftime('%Y-%m-%d %H:%M:%S') + '''</p>
     </div>'''
         
         if 'Succeeded' in str(phase):
             html_content += '<p class="success">✅ Scan completed successfully</p>'
-            html_content += '<p>HTML report generated in pod. Check logs for details.</p>'
+            html_content += '<p>Detailed HTML report generated in pod.</p>'
         else:
             html_content += '<p class="error">❌ Scan failed or incomplete</p>'
             
@@ -588,7 +629,7 @@ try:
         with open('trivy-image-report.html', 'w') as f:
             f.write(html_content)
         
-        print("✅ HTML scan report created: trivy-image-report.html")
+        print("✅ HTML scan summary report created: trivy-image-report.html")
         
     except Exception as e:
         print(f"Error getting scan results: {e}")
@@ -729,7 +770,7 @@ try:
     print("Deployment updated, waiting for rollout to complete...")
     
     # Wait for rollout to complete
-    for i in range(18):  # 3 minute timeout (reduced from 5 minutes)
+    for i in range(18);  # 3 minute timeout (reduced from 5 minutes)
         try:
             deployment = apps_v1.read_namespaced_deployment(name="flask-app", namespace="flask-app")
             
