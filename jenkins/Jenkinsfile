@@ -107,11 +107,12 @@ pipeline {
 <body>
     <div class="header">
         <h1>Trivy Filesystem Scan Report</h1>
-        <p><strong>Scan Date:</strong> {{- now.Format "2006-01-02 15:04:05" }}</p>
+        <p><strong>Scan Date:</strong> {{ now.Format "2006-01-02 15:04:05" }}</p>
         <p><strong>Severity Filter:</strong> HIGH, CRITICAL</p>
     </div>
     
-    {{- range .Results }}
+    {{- if . }}
+    {{- range . }}
     <div class="target">
         <h2>Target: {{ .Target }}</h2>
         <p><strong>Type:</strong> {{ .Type }}</p>
@@ -147,8 +148,7 @@ pipeline {
         {{- end }}
     </div>
     {{- end }}
-    
-    {{- if not .Results }}
+    {{- else }}
     <div class="target">
         <p style="color: green;">✅ No vulnerabilities found in the filesystem scan</p>
     </div>
@@ -421,6 +421,65 @@ config.load_incluster_config()
 # Create API clients
 v1 = client.CoreV1Api()
 
+# Create HTML template for image scanning
+html_template = '''<!DOCTYPE html>
+<html>
+<head>
+    <title>Trivy Image Scan Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { background-color: #f0f0f0; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        .vulnerability { border: 1px solid #ddd; margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .high { border-left: 5px solid #ff6b6b; }
+        .critical { border-left: 5px solid #dc3545; }
+        .target { background-color: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .vuln-id { font-weight: bold; color: #007bff; }
+        .severity { padding: 2px 8px; border-radius: 3px; color: white; font-weight: bold; }
+        .severity.HIGH { background-color: #ff6b6b; }
+        .severity.CRITICAL { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Trivy Image Scan Report</h1>
+        <p><strong>Image:</strong> ${fullImageName}</p>
+        <p><strong>Scan Date:</strong> {{ now.Format "2006-01-02 15:04:05" }}</p>
+    </div>
+    
+    {{- if . }}
+    {{- range . }}
+    <div class="target">
+        <h2>Target: {{ .Target }}</h2>
+        <p><strong>Type:</strong> {{ .Type }}</p>
+        
+        {{- if .Vulnerabilities }}
+        <h3>Vulnerabilities Found: {{ len .Vulnerabilities }}</h3>
+        {{- range .Vulnerabilities }}
+        <div class="vulnerability {{ .Severity | lower }}">
+            <div>
+                <span class="vuln-id">{{ .VulnerabilityID }}</span>
+                <span class="severity {{ .Severity }}">{{ .Severity }}</span>
+            </div>
+            <p><strong>Package:</strong> {{ .PkgName }}@{{ .InstalledVersion }}</p>
+            {{- if .FixedVersion }}
+            <p><strong>Fixed Version:</strong> {{ .FixedVersion }}</p>
+            {{- end }}
+            <p><strong>Title:</strong> {{ .Title }}</p>
+        </div>
+        {{- end }}
+        {{- else }}
+        <p style="color: green;">✅ No vulnerabilities found for this target</p>
+        {{- end }}
+    </div>
+    {{- end }}
+    {{- else }}
+    <div class="target">
+        <p style="color: green;">✅ No vulnerabilities found in the image scan</p>
+    </div>
+    {{- end }}
+</body>
+</html>'''
+
 # Create Trivy scan pod with host network
 trivy_pod = {
     'apiVersion': 'v1',
@@ -432,18 +491,34 @@ trivy_pod = {
     'spec': {
         'restartPolicy': 'Never',
         'hostNetwork': True,  # Access to localhost:32000
+        'initContainers': [{
+            'name': 'template-setup',
+            'image': 'alpine:latest',
+            'command': ['sh', '-c'],
+            'args': ['echo "' + html_template + '" > /shared/trivy-image-template.tpl'],
+            'volumeMounts': [{
+                'name': 'shared-data',
+                'mountPath': '/shared'
+            }]
+        }],
         'containers': [{
             'name': 'trivy',
             'image': 'aquasec/trivy:latest',
             'command': ['sh'],
-            'args': ['-c', 'trivy image --format html --severity HIGH,CRITICAL --insecure --timeout 5m ${fullImageName} > /results/trivy-image-report.html'],
+            'args': ['-c', 'trivy image --format template --template @/shared/trivy-image-template.tpl --severity HIGH,CRITICAL --insecure --timeout 5m ${fullImageName} > /results/trivy-image-report.html'],
             'volumeMounts': [{
                 'name': 'scan-results',
                 'mountPath': '/results'
+            }, {
+                'name': 'shared-data',
+                'mountPath': '/shared'
             }]
         }],
         'volumes': [{
             'name': 'scan-results',
+            'emptyDir': {}
+        }, {
+            'name': 'shared-data',
             'emptyDir': {}
         }]
     }
@@ -654,7 +729,7 @@ try:
     print("Deployment updated, waiting for rollout to complete...")
     
     # Wait for rollout to complete
-    for i in range(18);  # 3 minute timeout (reduced from 5 minutes)
+    for i in range(18):  # 3 minute timeout (reduced from 5 minutes)
         try:
             deployment = apps_v1.read_namespaced_deployment(name="flask-app", namespace="flask-app")
             
