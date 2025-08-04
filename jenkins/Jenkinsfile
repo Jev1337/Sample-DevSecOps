@@ -80,8 +80,8 @@ pipeline {
 
         stage('Trivy FS Scan') {
             steps {
-                sh "trivy fs --format table -o trivy-fs-report.txt --severity HIGH,CRITICAL ."
-                archiveArtifacts artifacts: 'trivy-fs-report.txt', allowEmptyArchive: true
+                sh "trivy fs --format html -o trivy-fs-report.html --severity HIGH,CRITICAL ."
+                archiveArtifacts artifacts: 'trivy-fs-report.html', allowEmptyArchive: true
             }
         }
 
@@ -356,15 +356,8 @@ trivy_pod = {
         'containers': [{
             'name': 'trivy',
             'image': 'aquasec/trivy:latest',
-            'command': ['trivy'],
-            'args': [
-                'image',
-                '--format', 'table',
-                '--severity', 'HIGH,CRITICAL',
-                '--insecure',
-                '--timeout', '5m',
-                '${fullImageName}'
-            ],
+            'command': ['sh'],
+            'args': ['-c', 'trivy image --format html --severity HIGH,CRITICAL --insecure --timeout 5m ${fullImageName} > /results/trivy-image-report.html'],
             'volumeMounts': [{
                 'name': 'scan-results',
                 'mountPath': '/results'
@@ -403,30 +396,69 @@ try:
             print(f"Error checking pod status: {e}")
             time.sleep(5)
     
-    # Get scan results from logs
+    # Get scan results from logs for status info
     try:
         logs = v1.read_namespaced_pod_log(name='trivy-scan-${buildNumber}', namespace='jenkins')
-        print("Trivy scan results:")
+        print("Trivy scan execution logs:")
         print(logs)
         
-        # Write results to file
-        with open('trivy-image-report.txt', 'w') as f:
-            f.write("TRIVY IMAGE SCAN REPORT\\n")
-            f.write("========================\\n")
-            f.write(f"Image: ${fullImageName}\\n")
-            f.write(f"Scan Date: {time.strftime('%Y-%m-%d %H:%M:%S')}\\n\\n")
-            f.write(logs)
+        # Create a summary report
+        with open('trivy-image-report.html', 'w') as f:
+            f.write("""<!DOCTYPE html>
+<html>
+<head>
+    <title>Trivy Image Scan Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { background-color: #f0f0f0; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Trivy Image Scan Report</h1>
+        <p><strong>Image:</strong> ${fullImageName}</p>
+        <p><strong>Scan Date:</strong> """ + time.strftime('%Y-%m-%d %H:%M:%S') + """</p>
+    </div>
+""")
+            
+            if 'Succeeded' in str(phase):
+                f.write('<p class="success">✅ Scan completed successfully</p>')
+                f.write('<p>HTML report generated in pod. Check logs for details.</p>')
+            else:
+                f.write('<p class="error">❌ Scan failed or incomplete</p>')
+                
+            f.write('<h2>Execution Logs:</h2>')
+            f.write('<pre>' + logs.replace('<', '&lt;').replace('>', '&gt;') + '</pre>')
+            f.write('</body></html>')
         
-        print("✅ Scan results saved to trivy-image-report.txt")
+        print("✅ HTML scan report created: trivy-image-report.html")
         
     except Exception as e:
         print(f"Error getting scan results: {e}")
-        # Create placeholder report
-        with open('trivy-image-report.txt', 'w') as f:
-            f.write("TRIVY IMAGE SCAN REPORT\\n")
-            f.write("========================\\n")
-            f.write(f"Image: ${fullImageName}\\n")
-            f.write("Status: Scan completed but results could not be retrieved\\n")
+        # Create error report in HTML format
+        with open('trivy-image-report.html', 'w') as f:
+            f.write("""<!DOCTYPE html>
+<html>
+<head>
+    <title>Trivy Image Scan Report - Error</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { background-color: #f0f0f0; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Trivy Image Scan Report</h1>
+        <p><strong>Image:</strong> ${fullImageName}</p>
+        <p><strong>Scan Date:</strong> """ + time.strftime('%Y-%m-%d %H:%M:%S') + """</p>
+    </div>
+    <p class="error">❌ Status: Scan completed but results could not be retrieved</p>
+    <p><strong>Error:</strong> """ + str(e) + """</p>
+</body>
+</html>""")
     
     # Cleanup pod
     try:
@@ -437,17 +469,33 @@ try:
         
 except Exception as e:
     print(f"Failed to create Trivy scan pod: {e}")
-    # Create error report
-    with open('trivy-image-report.txt', 'w') as f:
-        f.write("TRIVY IMAGE SCAN REPORT\\n")
-        f.write("========================\\n")
-        f.write(f"Image: ${fullImageName}\\n")
-        f.write(f"Status: Scan failed - {str(e)}\\n")
+    # Create error report in HTML format
+    with open('trivy-image-report.html', 'w') as f:
+        f.write("""<!DOCTYPE html>
+<html>
+<head>
+    <title>Trivy Image Scan Report - Error</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { background-color: #f0f0f0; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Trivy Image Scan Report</h1>
+        <p><strong>Image:</strong> ${fullImageName}</p>
+        <p><strong>Scan Date:</strong> """ + time.strftime('%Y-%m-%d %H:%M:%S') + """</p>
+    </div>
+    <p class="error">❌ Status: Scan failed</p>
+    <p><strong>Error:</strong> """ + str(e) + """</p>
+</body>
+</html>""")
 
 PYEOF
                     """
                 }
-                archiveArtifacts artifacts: 'trivy-image-report.txt', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'trivy-image-report.html', allowEmptyArchive: true
             }
         }
 

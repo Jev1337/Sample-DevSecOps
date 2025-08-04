@@ -96,7 +96,7 @@ def home():
     </head>
     <body>
         <div class="container">
-            <h1>Flask K8s DevSecOps Demo</h1>
+            <h1>Flask K8s DevSecOps Demos</h1>
             <p class="status">✅ Application is running successfully!</p>
             
             <div class="api-section">
