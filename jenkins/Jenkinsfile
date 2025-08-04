@@ -403,8 +403,7 @@ try:
         print(logs)
         
         # Create a summary report
-        with open('trivy-image-report.html', 'w') as f:
-            f.write("""<!DOCTYPE html>
+        html_content = '''<!DOCTYPE html>
 <html>
 <head>
     <title>Trivy Image Scan Report</title>
@@ -419,27 +418,28 @@ try:
     <div class="header">
         <h1>Trivy Image Scan Report</h1>
         <p><strong>Image:</strong> ${fullImageName}</p>
-        <p><strong>Scan Date:</strong> """ + time.strftime('%Y-%m-%d %H:%M:%S') + """</p>
-    </div>
-""")
+        <p><strong>Scan Date:</strong> ''' + time.strftime('%Y-%m-%d %H:%M:%S') + '''</p>
+    </div>'''
+        
+        if 'Succeeded' in str(phase):
+            html_content += '<p class="success">✅ Scan completed successfully</p>'
+            html_content += '<p>HTML report generated in pod. Check logs for details.</p>'
+        else:
+            html_content += '<p class="error">❌ Scan failed or incomplete</p>'
             
-            if 'Succeeded' in str(phase):
-                f.write('<p class="success">✅ Scan completed successfully</p>')
-                f.write('<p>HTML report generated in pod. Check logs for details.</p>')
-            else:
-                f.write('<p class="error">❌ Scan failed or incomplete</p>')
-                
-            f.write('<h2>Execution Logs:</h2>')
-            f.write('<pre>' + logs.replace('<', '&lt;').replace('>', '&gt;') + '</pre>')
-            f.write('</body></html>')
+        html_content += '<h2>Execution Logs:</h2>'
+        html_content += '<pre>' + logs.replace('<', '&lt;').replace('>', '&gt;') + '</pre>'
+        html_content += '</body></html>'
+        
+        with open('trivy-image-report.html', 'w') as f:
+            f.write(html_content)
         
         print("✅ HTML scan report created: trivy-image-report.html")
         
     except Exception as e:
         print(f"Error getting scan results: {e}")
         # Create error report in HTML format
-        with open('trivy-image-report.html', 'w') as f:
-            f.write("""<!DOCTYPE html>
+        error_html = '''<!DOCTYPE html>
 <html>
 <head>
     <title>Trivy Image Scan Report - Error</title>
@@ -453,12 +453,15 @@ try:
     <div class="header">
         <h1>Trivy Image Scan Report</h1>
         <p><strong>Image:</strong> ${fullImageName}</p>
-        <p><strong>Scan Date:</strong> """ + time.strftime('%Y-%m-%d %H:%M:%S') + """</p>
+        <p><strong>Scan Date:</strong> ''' + time.strftime('%Y-%m-%d %H:%M:%S') + '''</p>
     </div>
     <p class="error">❌ Status: Scan completed but results could not be retrieved</p>
-    <p><strong>Error:</strong> """ + str(e) + """</p>
+    <p><strong>Error:</strong> ''' + str(e) + '''</p>
 </body>
-</html>""")
+</html>'''
+        
+        with open('trivy-image-report.html', 'w') as f:
+            f.write(error_html)
     
     # Cleanup pod
     try:
@@ -470,8 +473,7 @@ try:
 except Exception as e:
     print(f"Failed to create Trivy scan pod: {e}")
     # Create error report in HTML format
-    with open('trivy-image-report.html', 'w') as f:
-        f.write("""<!DOCTYPE html>
+    failure_html = '''<!DOCTYPE html>
 <html>
 <head>
     <title>Trivy Image Scan Report - Error</title>
@@ -485,12 +487,15 @@ except Exception as e:
     <div class="header">
         <h1>Trivy Image Scan Report</h1>
         <p><strong>Image:</strong> ${fullImageName}</p>
-        <p><strong>Scan Date:</strong> """ + time.strftime('%Y-%m-%d %H:%M:%S') + """</p>
+        <p><strong>Scan Date:</strong> ''' + time.strftime('%Y-%m-%d %H:%M:%S') + '''</p>
     </div>
     <p class="error">❌ Status: Scan failed</p>
-    <p><strong>Error:</strong> """ + str(e) + """</p>
+    <p><strong>Error:</strong> ''' + str(e) + '''</p>
 </body>
-</html>""")
+</html>'''
+    
+    with open('trivy-image-report.html', 'w') as f:
+        f.write(failure_html)
 
 PYEOF
                     """
@@ -570,7 +575,7 @@ try:
     print("Deployment updated, waiting for rollout to complete...")
     
     # Wait for rollout to complete
-    for i in range(18):  # 3 minute timeout (reduced from 5 minutes)
+    for i in range(18);  # 3 minute timeout (reduced from 5 minutes)
         try:
             deployment = apps_v1.read_namespaced_deployment(name="flask-app", namespace="flask-app")
             
